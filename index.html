@@ -333,13 +333,13 @@ function vBeranda(){
       '<div class="kartu"><h2>Kasus berjalan per kecamatan</h2>'+bars(hitung(berjalan,'kecamatan'),null,8)+'</div>'+
     '</div>'+
     '<div class="kartu" style="margin-top:12px"><h2>Sebaran kasus berjalan</h2><div id="peta"></div><div class="sub" style="margin-top:6px">Merah = lewat tenggat. Hanya kasus yang memiliki titik lokasi.</div></div>';
-  var titik = berjalan.filter(function(k){ return k.lat && k.lng; });
+  var titik = berjalan.filter(function(k){ return k.lat && k.lng && isFinite(+k.lat) && isFinite(+k.lng) && Math.abs(+k.lng) <= 180; });
   if(!window.L){ $('#peta').innerHTML='<div class="kosong">Peta tidak dapat dimuat.</div>'; return; }
   peta = L.map('peta').setView([-6.86,107.95],10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'© OpenStreetMap' }).addTo(peta);
-  var b=[]; titik.forEach(function(k){ var ll=[+k.lat,+k.lng]; b.push(ll);
+  var b=[]; titik.forEach(function(k){ var ll=[+k.lat,+k.lng]; b.push(ll); try{
     L.circleMarker(ll,{ radius:8, color:'#fff', weight:2, fillColor: lewat(k)?'#b42318':'#1f4bb5', fillOpacity:.9 }).addTo(peta)
-      .bindPopup('<b>'+esc(k.no)+'</b><br>'+esc(judulKasus(k))+'<br>'+esc(k.tahap||'')+'<br><a href="#kasus/'+encodeURIComponent(k.no)+'">Buka</a>'); });
+      .bindPopup('<b>'+esc(k.no)+'</b><br>'+esc(judulKasus(k))+'<br>'+esc(k.tahap||'')+'<br><a href="#kasus/'+encodeURIComponent(k.no)+'">Buka</a>'); }catch(e){} });
   if(b.length>1) peta.fitBounds(b,{padding:[30,30],maxZoom:14}); else if(b.length) peta.setView(b[0],14);
 }
 function setFK(o){ Object.assign(filterKasus,{q:'',tahap:'',kategori:'',kecamatan:'',bulan:''},o); location.hash='kasus'; }
@@ -523,7 +523,7 @@ function formKasus(no, pre, tiket){
     '</div><div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="ok">'+(no?'Simpan perubahan':'Buat kasus')+'</button></div>', true);
   var isiDesa=function(v){ var d=(D.wilayah[$('#kKec').value]||[]).slice().sort(); $('#kDesa').innerHTML=opsi(d,v,'Pilih…'); };
   isiDesa(k.desa); $('#kKec').addEventListener('change', function(){ isiDesa(''); });
-  var titik = k.lat ? [+k.lat,+k.lng] : null, mk=null;
+  var titik = k.lat && isFinite(+k.lat) && isFinite(+k.lng) && Math.abs(+k.lng) <= 180 ? [+k.lat,+k.lng] : null, mk=null;
   if(window.L){
   var pp = L.map('petaPilih').setView(titik||[-6.86,107.95], titik?16:10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(pp);
