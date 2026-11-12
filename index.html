@@ -513,8 +513,8 @@ function formKasus(no, pre, tiket){
     '<label class="wajib"><span>Ringkasan kasus <i class="bt">*</i></span><input id="kRing" maxlength="200" placeholder="Contoh: Bangunan tanpa PBG di tepi jalan" value="'+esc(k.ringkasan)+'"></label>'+
     '<label class="pn">Aturan yang dilanggar<textarea id="kAtur" style="min-height:60px" placeholder="Contoh: Perda Kab. Sumedang No. … Tahun … Pasal …">'+esc(k.aturan)+'</textarea></label>'+
     '<label class="pn">Uraian<textarea id="kUr">'+esc(k.uraian)+'</textarea></label>'+
-    '<label>Nama pelanggar/pemilik<input id="kPel" maxlength="150" value="'+esc(k.pelanggar)+'"></label>'+
-    '<label>Nama usaha/objek<input id="kObj" maxlength="150" value="'+esc(k.objek)+'"></label>'+
+    '<label class="wajib"><span>Nama pelanggar/pemilik <i class="bt">*</i> <span class="sub" style="font-weight:400">(isi salah satu)</span></span><input id="kPel" maxlength="150" value="'+esc(k.pelanggar)+'"></label>'+
+    '<label class="wajib"><span>Nama usaha/objek <i class="bt">*</i> <span class="sub" style="font-weight:400">(isi salah satu)</span></span><input id="kObj" maxlength="150" value="'+esc(k.objek)+'"></label>'+
     '<label>NIK (opsional)<input id="kNik" inputmode="numeric" maxlength="16" value="'+esc(k.nik)+'"></label>'+
     '<label>No. HP pelanggar<input id="kHp" inputmode="tel" maxlength="20" value="'+esc(k.hp)+'"></label>'+
     '<label class="pn">Alamat pelanggar<input id="kAlP" maxlength="500" value="'+esc(k.alamatPelanggar)+'"></label>'+
