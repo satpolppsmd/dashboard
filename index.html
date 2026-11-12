@@ -417,7 +417,7 @@ function bukaAduan(tiket){
     else aksi = '<button class="btn" onclick="gabungAduan(\''+esc(a.tiket)+'\')">Tautkan ke kasus lain</button><button class="btn" onclick="kasusDariAduan(\''+esc(a.tiket)+'\')">Buat kasus tambahan</button>';
   }
   modal('Aduan '+a.tiket,
-    '<dl class="dl"><dt>Status</dt><dd>'+esc(a.status)+(a.statusOleh?' · '+(a.status==='Baru'?'dikembalikan oleh ':'')+esc(nm(a.statusOleh))+(a.waktuStatus?' · '+esc(waktuIndo(a.waktuStatus)):''):'')+(a.alasanTolak?'<div>Alasan: '+esc(a.alasanTolak)+'</div>':'')+'</dd>'+
+    '<dl class="dl"><dt>Status</dt><dd>'+esc(a.status)+(a.statusOleh?' · '+(a.status==='Baru'?'dikembalikan oleh ':'')+esc(nm(a.statusOleh))+(a.waktuStatus?' · '+esc(waktuIndo(a.waktuStatus)):''):'')+(a.alasanTolak?'<div>Alasan: '+esc(a.alasanTolak)+'</div><div class="sub">'+(a.alasanPublik?'Alasan ditampilkan di cek status publik':'Alasan tidak ditampilkan ke publik')+'</div>':'')+'</dd>'+
     (kasus.length?'<dt>Kasus</dt><dd>'+kasus.map(function(n){ return '<a href="#kasus/'+encodeURIComponent(n)+'" onclick="tutupModal()">'+esc(n)+'</a>'; }).join(', ')+'</dd>':'')+
     '<dt>Waktu masuk</dt><dd>'+esc(waktuIndo(a.waktu))+' WIB</dd><dt>Kategori</dt><dd>'+esc(a.kategori)+'</dd>'+
     '<dt>Pelapor</dt><dd>'+esc(a.nama)+' · '+(isAdmin()?'<a href="https://wa.me/'+esc(a.wa)+'" target="_blank" rel="noopener">+'+esc(a.wa)+'</a>':'+'+esc(a.wa))+'</dd>'+
@@ -441,9 +441,9 @@ function lihatBerkas(id){
   }).catch(function(err){ if(w) w.close(); toast(err.message); });
 }
 function tolakAduan(tiket){
-  modal('Tolak aduan '+tiket, '<div class="f"><label class="pn wajib"><span>Alasan penolakan <i class="bt">*</i></span><textarea id="alasan" placeholder="Contoh: bukan kewenangan Satpol PP, diteruskan ke dinas terkait"></textarea></label></div><div class="galat" id="mg"></div>'+
+  modal('Tolak aduan '+tiket, '<div class="f"><label class="pn wajib"><span>Alasan penolakan <i class="bt">*</i></span><textarea id="alasan" placeholder="Contoh: bukan kewenangan Satpol PP, diteruskan ke dinas terkait"></textarea></label><label class="pn" style="display:flex;flex-direction:row;justify-content:flex-start;text-align:left;gap:8px;align-items:center;font-weight:400;color:var(--teks)"><input type="checkbox" id="alasanPublik" style="min-height:0;width:auto"> Tampilkan alasan ini kepada pelapor di cek status</label></div><div class="galat" id="mg"></div>'+
     '<div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn bahaya" id="ok">Tolak aduan</button></div>');
-  $('#ok').onclick=function(){ kirim(this,'tolakAduan',{tiket:tiket, alasan:$('#alasan').value},'Aduan ditolak'); };
+  $('#ok').onclick=function(){ kirim(this,'tolakAduan',{tiket:tiket, alasan:$('#alasan').value, tampilAlasan:$('#alasanPublik').checked},'Aduan ditolak'); };
 }
 function kembalikanAduan(tiket){ if(confirm('Kembalikan aduan '+tiket+' ke status Baru?')) api('kembalikanAduan',{tiket:tiket}).then(function(){ tutupModal(); toast('Aduan dikembalikan'); muatData(); }).catch(function(e){ toast(e.message); }); }
 function gabungAduan(tiket){
@@ -546,7 +546,7 @@ function vDetail(no){
       (k.status==='Selesai'?'<div class="pill p-hijau" style="margin-top:8px">Selesai '+esc(tglIndo(k.tanggalSelesai))+' · '+esc(k.hasil)+'</div>':'')+'</div>'+
     '<div class="grid g2" style="margin-top:12px;align-items:start">'+
       '<div class="grid">'+
-        '<div class="kartu"><h2>Perkara</h2><dl class="dl"><dt>Ringkasan</dt><dd>'+esc(k.ringkasan)+'</dd><dt>Aturan dilanggar</dt><dd>'+esc(k.aturan||'–')+'</dd><dt>Uraian</dt><dd>'+esc(k.uraian||'–')+'</dd><dt>Aduan terkait</dt><dd>'+aduan+'</dd>'+(k.catatan?'<dt>Catatan</dt><dd>'+esc(catatanTampil(k.catatan))+'</dd>':'')+'</dl></div>'+
+        '<div class="kartu"><h2>Perkara</h2><dl class="dl"><dt>Ringkasan</dt><dd>'+esc(k.ringkasan)+'</dd><dt>Aturan dilanggar</dt><dd>'+esc(k.aturan||'–')+'</dd><dt>Uraian</dt><dd>'+esc(k.uraian||'–')+'</dd><dt>No. aduan warga</dt><dd>'+aduan+'</dd>'+(k.catatan?'<dt>Catatan</dt><dd>'+esc(catatanTampil(k.catatan))+'</dd>':'')+'</dl></div>'+
         '<div class="kartu"><h2>Pelanggar</h2><dl class="dl"><dt>Nama</dt><dd>'+esc(k.pelanggar||'–')+'</dd><dt>Usaha/objek</dt><dd>'+esc(k.objek||'–')+'</dd><dt>NIK</dt><dd>'+esc(k.nik||'–')+'</dd><dt>No. HP</dt><dd>'+(k.hp?(isAdmin()?'<a href="https://wa.me/'+esc(k.hp)+'" target="_blank" rel="noopener">+'+esc(k.hp)+'</a>':'+'+esc(k.hp)):'–')+'</dd><dt>Alamat</dt><dd>'+esc(k.alamatPelanggar||'–')+'</dd></dl></div>'+
         '<div class="kartu"><h2>Lokasi</h2><dl class="dl"><dt>Kecamatan</dt><dd>'+esc(k.kecamatan)+'</dd><dt>Desa/Kel.</dt><dd>'+esc(k.desa)+'</dd><dt>Alamat kejadian</dt><dd>'+esc(k.alamat||'–')+'</dd>'+(k.lat?'<dt>Titik</dt><dd><a href="https://www.google.com/maps?q='+esc(k.lat)+','+esc(k.lng)+'" target="_blank" rel="noopener">Buka di Google Maps</a></dd>':'')+'</dl></div>'+
       '</div>'+
