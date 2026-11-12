@@ -421,6 +421,7 @@ function bukaAduan(tiket){
     (kasus.length?'<dt>Kasus</dt><dd>'+kasus.map(function(n){ return '<a href="#kasus/'+encodeURIComponent(n)+'" onclick="tutupModal()">'+esc(n)+'</a>'; }).join(', ')+'</dd>':'')+
     '<dt>Waktu masuk</dt><dd>'+esc(waktuIndo(a.waktu))+' WIB</dd><dt>Kategori</dt><dd>'+esc(a.kategori)+'</dd>'+
     '<dt>Pelapor</dt><dd>'+esc(a.nama)+' · '+(isAdmin()?'<a href="https://wa.me/'+esc(a.wa)+'" target="_blank" rel="noopener">+'+esc(a.wa)+'</a>':'+'+esc(a.wa))+'</dd>'+
+    (a.email?'<dt>Email</dt><dd>'+esc(a.email)+'</dd>':'')+
     '<dt>Waktu kejadian</dt><dd>'+esc(a.waktuKejadian||'–')+'</dd><dt>Lokasi</dt><dd>'+esc(a.alamat)+'\nDesa/Kel. '+esc(a.desa)+', Kec. '+esc(a.kecamatan)+'\n<a href="'+esc(a.peta)+'" target="_blank" rel="noopener">Buka di Google Maps</a></dd>'+
     '<dt>Uraian</dt><dd>'+esc(a.uraian)+'</dd><dt>Foto</dt><dd>'+(a.foto.length?'<div class="foto" id="fotoAduan">'+a.foto.map(function(id){ return '<div class="ph" data-id="'+esc(id)+'">memuat…</div>'; }).join('')+'</div>':'Tidak ada')+'</dd></dl>'+
     (aksi?'<div class="aksi">'+aksi+'</div>':''), true);
