@@ -296,7 +296,8 @@ function render(){
   var bag = h.split('/');
   var baru = D.aduan.filter(function(a){ return a.status==='Baru'; }).length;
   var nLewat = D.kasus.filter(lewat).length;
-  var menu = [['beranda','Beranda','⌂'],['aduan','Aduan','✉',baru],['kasus','Kasus','▤',nLewat],['libur','Hari libur','▦']];
+  var menu = [['beranda','Beranda','⌂'],['aduan','Aduan','✉',baru],['kasus','Kasus','▤',nLewat]];
+  if(isAdmin()) menu.push(['libur','Hari libur','▦']);
   if(isUtama()) menu.push(['pengguna','Pengguna','☺']);
   $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob">'+m[2]+'</span>'+m[1]+(m[3]?'<span class="n">'+m[3]+'</span>':'')+'</a>'; }).join('');
   var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, libur: vLibur, pengguna: vPengguna }[bag[0]] || vBeranda;
@@ -618,6 +619,7 @@ function kirim(btn, aksi, data, pesan, lanjut){
 /* ---------- hari libur ---------- */
 var tahunLibur = null;
 function vLibur(){
+  if(!isAdmin()){ location.hash='beranda'; return; }
   var th = tahunLibur || D.hariIni.slice(0,4);
   var tahun={}; D.libur.forEach(function(l){ tahun[l.tanggal.slice(0,4)]=1; }); tahun[D.hariIni.slice(0,4)]=1;
   var list=D.libur.filter(function(l){ return l.tanggal.slice(0,4)===th; });
