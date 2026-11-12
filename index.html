@@ -116,6 +116,9 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 .login label{display:block;font-size:13px;color:var(--abu);margin:10px 0 4px;font-weight:500}
 .login input{width:100%}
 .login .btn{width:100%;justify-content:center;margin-top:16px}
+.pw{position:relative}.pw input{padding-right:44px}
+.pw .mata{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;padding:6px 8px;cursor:pointer;color:var(--abu);display:flex;width:auto;margin:0;min-height:0}
+.pw .mata:hover{color:var(--biru)}.pw .mata svg{width:20px;height:20px}
 .only-mob{display:none}
 .fwrap{display:contents}
 @media (max-width:760px){
@@ -729,6 +732,18 @@ function pdfKasus(no){
     kakiPDF(doc); doc.save('kasus-'+k.no+'.pdf');
   }).catch(function(e){ toast(e.message); });
 }
+
+/* ---------- tombol lihat password ---------- */
+(function(){
+  var buka='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var tutup='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+  $$('.login input[type=password]').forEach(function(inp){
+    var w=document.createElement('div'); w.className='pw'; inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+    var b=document.createElement('button'); b.type='button'; b.className='mata'; b.setAttribute('aria-label','Tampilkan password'); b.innerHTML=buka; w.appendChild(b);
+    b.addEventListener('click', function(){ var lihat=inp.type==='password'; inp.type=lihat?'text':'password'; b.innerHTML=lihat?tutup:buka; b.setAttribute('aria-label', lihat?'Sembunyikan password':'Tampilkan password'); inp.focus(); });
+  });
+  ['formLogin','formGanti'].forEach(function(id){ $('#'+id).addEventListener('submit', function(){ $$('#'+id+' .pw input').forEach(function(i){ i.type='password'; }); $$('#'+id+' .mata').forEach(function(b){ b.innerHTML=buka; }); }, true); });
+})();
 
 /* ---------- mulai ---------- */
 (function(){
