@@ -205,6 +205,10 @@ function $$(s, r){ return Array.prototype.slice.call((r||document).querySelector
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function simpan(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 function ambil(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+var BATAS_DIAM=60*60*1000, aktivitasTerakhir=Date.now(), aktSimpan=0;
+function catatAktivitas(){ aktivitasTerakhir=Date.now(); if(aktivitasTerakhir-aktSimpan>15000){ aktSimpan=aktivitasTerakhir; simpan('ppud_aktif', aktivitasTerakhir); } }
+['pointerdown','keydown','wheel','touchstart','scroll'].forEach(function(ev){ window.addEventListener(ev, catatAktivitas, {passive:true, capture:true}); });
+function diamSelama(){ return Date.now()-Math.max(aktivitasTerakhir, Number(ambil('ppud_aktif'))||0); }
 function tglIndo(t, hari){ if(!t) return '–'; var p=t.slice(0,10).split('-'); if(p.length<3) return t;
   var s=Number(p[2])+' '+BLN[Number(p[1])-1]+' '+p[0];
   if(hari){ var d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2])); s=HARI[d.getUTCDay()]+', '+s; } return s; }
@@ -219,6 +223,9 @@ function selisihHK(a,b){ if(a===b) return 0; var lib=liburSet(), m=a<b?1:-1, x=a
   return c*m; }
 function isAdmin(){ return ME && ME.peran!=='Lihat'; }
 function isUtama(){ return ME && ME.peran==='Admin Utama'; }
+function nm(u){ return u ? ((D && D.nama && D.nama[u]) || u) : ''; }
+function catatanTampil(c){ return String(c||'').replace(/\[Penutupan (\d{4}-\d{2}-\d{2})(?: \u00b7 ([^\]]+))?\]/g, function(_,t,u){ return '[Penutupan '+tglIndo(t)+(u?' \u00b7 '+nm(u):'')+']'; }); }
+function penutup(k){ var m=String(k.catatan||'').match(/\[Penutupan \d{4}-\d{2}-\d{2} \u00b7 [^\]]+\]/g); return m ? nm(m[m.length-1].replace(/^.* \u00b7 |\]$/g,'')) : nm(k.diubahOleh); }
 function lewat(k){ return k.status!=='Selesai' && k.tenggat && k.tenggat < D.hariIni; }
 function pilTenggat(k){
   if(k.status==='Selesai') return '<span class="pill p-hijau">Selesai</span>';
@@ -234,7 +241,7 @@ var nMuat=0; function muat(on){ nMuat+=on?1:-1; var b=$('.muat'); if(nMuat>0&&!b
 
 function api(action, data){
   muat(true);
-  var body = Object.assign({ action: action, token: TOKEN }, data||{});
+  var body = Object.assign({ action: action, token: TOKEN, aktif: diamSelama() < BATAS_DIAM }, data||{});
   return fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(body) })
     .then(function(r){ return r.json(); })
     .catch(function(){ throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet.'); })
@@ -254,7 +261,7 @@ function keluar(pesan){
 $('#formLogin').addEventListener('submit', function(e){
   e.preventDefault(); var b=$('#lgBtn'); b.disabled=true; $('#lgGalat').textContent='';
   api('login',{ username: $('#lgUser').value.trim(), password: $('#lgPass').value })
-    .then(function(j){ TOKEN=j.token; ME=j.me; simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#lgPass').value=''; masuk(); })
+    .then(function(j){ TOKEN=j.token; ME=j.me; aktSimpan=0; catatAktivitas(); simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#lgPass').value=''; masuk(); })
     .catch(function(err){ $('#lgGalat').textContent=err.message; })
     .finally(function(){ b.disabled=false; });
 });
@@ -275,7 +282,7 @@ function masuk(){
   if(ME.wajibGanti){ bukaGanti(true); return; }
   tampil('aplikasi');
   $('#btnAkun').textContent = ME.nama.split(' ')[0] + ' ▾';
-  $('#infoAkun').innerHTML = '<b style="color:var(--teks)">'+esc(ME.nama)+'</b><br>'+esc(ME.username)+' · '+esc(ME.peran)+'<br>Sesi berakhir '+new Date(ME.kedaluwarsa).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  $('#infoAkun').innerHTML = '<b style="color:var(--teks)">'+esc(ME.nama)+'</b><br>'+esc(ME.username)+' · '+esc(ME.peran)+'<br>Keluar otomatis setelah 1 jam tanpa aktivitas';
   muatData();
 }
 $('#btnAkun').addEventListener('click', function(e){ e.stopPropagation(); $('#menuAkun').classList.toggle('hide'); });
@@ -285,7 +292,7 @@ $('#menuAkun').addEventListener('click', function(e){ var a=e.target.getAttribut
 
 var terakhirMuat=0, sedangSegar=false, tiketDikenal=null;
 function muatData(diam){
-  return api('data').then(function(j){ var y=window.scrollY; D=j; ME=j.me; terakhirMuat=Date.now(); render(); if(diam) window.scrollTo(0,y); cekAduanBaru(); })
+  return api('data').then(function(j){ var y=window.scrollY; D=j; ME=j.me; simpan('ppud_sesi',{token:TOKEN, me:ME}); terakhirMuat=Date.now(); render(); if(diam) window.scrollTo(0,y); cekAduanBaru(); })
     .catch(function(err){ if(diam) return; if(TOKEN) $('#isi').innerHTML='<div class="kartu galat">'+esc(err.message)+' <button class="btn kecil" onclick="muatData()">Coba lagi</button></div>'; });
 }
 
@@ -311,8 +318,9 @@ function segarkan(){
   if(!TOKEN || !D || sedangSegar || sibuk()) return;
   sedangSegar=true; muatData(true).finally(function(){ sedangSegar=false; });
 }
-setInterval(function(){ if(document.visibilityState==='visible' && Date.now()-terakhirMuat>=5*60*1000) segarkan(); }, 30*1000);
-document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible' && Date.now()-terakhirMuat>=30*1000) segarkan(); });
+function cekDiam(){ if(TOKEN && diamSelama()>=BATAS_DIAM){ tutupModal(); keluar('Anda keluar otomatis karena tidak ada aktivitas selama 1 jam.'); return true; } return false; }
+setInterval(function(){ if(cekDiam()) return; if(document.visibilityState==='visible' && Date.now()-terakhirMuat>=5*60*1000) segarkan(); }, 30*1000);
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState!=='visible' || cekDiam()) return; if(Date.now()-terakhirMuat>=30*1000) segarkan(); });
 
 /* ---------- routing ---------- */
 window.addEventListener('hashchange', function(){ if(D) render(); });
@@ -323,7 +331,7 @@ function render(){
   var baru = D.aduan.filter(function(a){ return a.status==='Baru'; }).length;
   var nLewat = D.kasus.filter(lewat).length;
   var menu = [['beranda','Beranda','⌂'],['aduan','Aduan','✉',baru],['kasus','Kasus','▤',nLewat]];
-  if(isAdmin()) menu.push(['libur','Hari libur','▦']);
+  if(isUtama()) menu.push(['libur','Hari libur','▦']);
   if(isUtama()) menu.push(['pengguna','Pengguna','☺']);
   $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob">'+m[2]+'</span>'+m[1]+(m[3]?'<span class="n">'+m[3]+'</span>':'')+'</a>'; }).join('');
   var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, libur: vLibur, pengguna: vPengguna }[bag[0]] || vBeranda;
@@ -532,10 +540,10 @@ function vDetail(no){
       '<div class="aksi" style="margin:0">'+tombol+'</div></div>'+
       '<div class="langkah" title="Jenjang tahapan">'+D.tahap.map(function(t,i){ return '<span class="'+(i===idx?'ini':dicapai[t]?'ok':'')+'" title="'+esc(t)+'"></span>'; }).join('')+'</div>'+
       '<div class="sub">'+(idx>=0?'Tahap '+(idx+1)+' dari '+D.tahap.length+': '+esc(k.tahap):'Belum ada tahap dicatat')+'</div>'+
-      (k.status==='Selesai'?'<div class="pill p-hijau" style="margin-top:8px">Selesai '+esc(tglIndo(k.tanggalSelesai))+' · '+esc(k.hasil)+'</div>':'')+'</div>'+
+      (k.status==='Selesai'?'<div class="pill p-hijau" style="margin-top:8px">Selesai '+esc(tglIndo(k.tanggalSelesai))+' · '+esc(k.hasil)+(penutup(k)?' · ditutup oleh '+esc(penutup(k)):'')+'</div>':'')+'</div>'+
     '<div class="grid g2" style="margin-top:12px;align-items:start">'+
       '<div class="grid">'+
-        '<div class="kartu"><h2>Perkara</h2><dl class="dl"><dt>Ringkasan</dt><dd>'+esc(k.ringkasan)+'</dd><dt>Aturan dilanggar</dt><dd>'+esc(k.aturan||'–')+'</dd><dt>Uraian</dt><dd>'+esc(k.uraian||'–')+'</dd><dt>Aduan terkait</dt><dd>'+aduan+'</dd>'+(k.catatan?'<dt>Catatan</dt><dd>'+esc(k.catatan)+'</dd>':'')+'</dl></div>'+
+        '<div class="kartu"><h2>Perkara</h2><dl class="dl"><dt>Ringkasan</dt><dd>'+esc(k.ringkasan)+'</dd><dt>Aturan dilanggar</dt><dd>'+esc(k.aturan||'–')+'</dd><dt>Uraian</dt><dd>'+esc(k.uraian||'–')+'</dd><dt>Aduan terkait</dt><dd>'+aduan+'</dd>'+(k.catatan?'<dt>Catatan</dt><dd>'+esc(catatanTampil(k.catatan))+'</dd>':'')+'</dl></div>'+
         '<div class="kartu"><h2>Pelanggar</h2><dl class="dl"><dt>Nama</dt><dd>'+esc(k.pelanggar||'–')+'</dd><dt>Usaha/objek</dt><dd>'+esc(k.objek||'–')+'</dd><dt>NIK</dt><dd>'+esc(k.nik||'–')+'</dd><dt>No. HP</dt><dd>'+(k.hp?(isAdmin()?'<a href="https://wa.me/'+esc(k.hp)+'" target="_blank" rel="noopener">+'+esc(k.hp)+'</a>':'+'+esc(k.hp)):'–')+'</dd><dt>Alamat</dt><dd>'+esc(k.alamatPelanggar||'–')+'</dd></dl></div>'+
         '<div class="kartu"><h2>Lokasi</h2><dl class="dl"><dt>Kecamatan</dt><dd>'+esc(k.kecamatan)+'</dd><dt>Desa/Kel.</dt><dd>'+esc(k.desa)+'</dd><dt>Alamat kejadian</dt><dd>'+esc(k.alamat||'–')+'</dd>'+(k.lat?'<dt>Titik</dt><dd><a href="https://www.google.com/maps?q='+esc(k.lat)+','+esc(k.lng)+'" target="_blank" rel="noopener">Buka di Google Maps</a></dd>':'')+'</dl></div>'+
       '</div>'+
@@ -546,7 +554,7 @@ function vDetail(no){
             (r.tenggat?'<div class="sub" style="'+(lw?'color:var(--merah);font-weight:600':'')+'">Tenggat: '+esc(tglIndo(r.tenggat,true))+'</div>':'')+
             (r.petugas?'<div class="sub">Petugas: '+esc(r.petugas)+'</div>':'')+(r.catatan?'<div style="white-space:pre-wrap;margin-top:2px">'+esc(r.catatan)+'</div>':'')+
             (r.berkas.length?'<div class="berkas">'+r.berkas.map(function(b){ return '<button class="btn kecil" onclick="lihatBerkas(\''+esc(b.id)+'\')">📎 '+esc(b.nama)+'</button>'; }).join('')+'</div>':'')+
-            '<div class="sub" style="font-size:12px;margin-top:2px">Dicatat '+esc(r.dicatatOleh)+' · '+esc(waktuIndo(r.waktuDicatat))+(r.diubahOleh?' · diubah '+esc(r.diubahOleh):'')+'</div></div>'; }).join('')+'</div>'
+            '<div class="sub" style="font-size:12px;margin-top:2px">Dicatat '+esc(nm(r.dicatatOleh))+' · '+esc(waktuIndo(r.waktuDicatat))+(r.diubahOleh?' · diubah '+esc(nm(r.diubahOleh)):'')+'</div></div>'; }).join('')+'</div>'
         : '<div class="sub">Belum ada tahap dicatat.'+(isAdmin()&&k.status!=='Selesai'?' Klik "+ Catat tahap" untuk memulai.':'')+'</div>')+'</div>'+
     '</div>';
 }
@@ -669,18 +677,18 @@ function kirim(btn, aksi, data, pesan, lanjut){
 /* ---------- hari libur ---------- */
 var tahunLibur = null;
 function vLibur(){
-  if(!isAdmin()){ location.hash='beranda'; return; }
+  if(!isUtama()){ location.hash='beranda'; return; }
   var th = tahunLibur || D.hariIni.slice(0,4);
   var tahun={}; D.libur.forEach(function(l){ tahun[l.tanggal.slice(0,4)]=1; }); tahun[D.hariIni.slice(0,4)]=1;
   var list=D.libur.filter(function(l){ return l.tanggal.slice(0,4)===th; });
   $('#isi').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h1>Hari libur '+esc(th)+'</h1><div style="display:flex;gap:8px;flex-wrap:wrap">'+
-    '<select id="thL">'+opsi(Object.keys(tahun).sort(), th)+'</select>'+(isAdmin()?'<button class="btn" id="sinkL">Sinkronkan kalender</button><button class="btn utama" id="tambahL">+ Tambah</button>':'')+'</div></div>'+
-    '<p class="sub" style="margin-top:0">Dipakai untuk menghitung tenggat (hari kerja = Senin–Jumat, selain tanggal yang dicentang "dihitung libur"). Sumber otomatis: kalender Google "Hari Libur di Indonesia", disinkronkan tiap minggu.'+(isAdmin()?' Hapus centang bila tanggal itu tetap hari kerja.':'')+'</p>'+
+    '<select id="thL">'+opsi(Object.keys(tahun).sort(), th)+'</select>'+(isUtama()?'<button class="btn" id="sinkL">Sinkronkan kalender</button><button class="btn utama" id="tambahL">+ Tambah</button>':'')+'</div></div>'+
+    '<p class="sub" style="margin-top:0">Dipakai untuk menghitung tenggat (hari kerja = Senin–Jumat, selain tanggal yang dicentang "dihitung libur"). Sumber otomatis: kalender Google "Hari Libur di Indonesia", disinkronkan tiap minggu.'+(isUtama()?' Hapus centang bila tanggal itu tetap hari kerja.':'')+'</p>'+
     (list.length?'<table class="t"><thead><tr><th style="width:190px">Tanggal</th><th>Keterangan</th><th style="width:90px">Sumber</th><th style="width:120px">Dihitung libur</th></tr></thead><tbody>'+list.map(function(l){
-      return '<tr><td>'+esc(tglIndo(l.tanggal,true))+'</td><td>'+esc(l.keterangan)+'</td><td class="sub">'+esc(l.sumber)+'</td><td>'+(isAdmin()?'<input type="checkbox" class="cl" data-t="'+esc(l.tanggal)+'" style="min-height:0"'+(l.dihitung?' checked':'')+'>'+(l.sumber==='Manual'?' <button class="btn kecil bahaya hl" data-t="'+esc(l.tanggal)+'">Hapus</button>':''):(l.dihitung?'Ya':'Tidak'))+'</td></tr>'; }).join('')+'</tbody></table>'
+      return '<tr><td>'+esc(tglIndo(l.tanggal,true))+'</td><td>'+esc(l.keterangan)+'</td><td class="sub">'+esc(l.sumber)+'</td><td>'+(isUtama()?'<input type="checkbox" class="cl" data-t="'+esc(l.tanggal)+'" style="min-height:0"'+(l.dihitung?' checked':'')+'>'+(l.sumber==='Manual'?' <button class="btn kecil bahaya hl" data-t="'+esc(l.tanggal)+'">Hapus</button>':''):(l.dihitung?'Ya':'Tidak'))+'</td></tr>'; }).join('')+'</tbody></table>'
       :'<div class="kosong">Belum ada data hari libur untuk '+esc(th)+'.</div>');
   $('#thL').addEventListener('change', function(){ tahunLibur=this.value; vLibur(); });
-  if(!isAdmin()) return;
+  if(!isUtama()) return;
   $$('.cl').forEach(function(c){ c.addEventListener('change', function(){ var t=this; api('simpanLibur',{tanggal:t.getAttribute('data-t'), dihitung:t.checked}).then(function(j){ D.libur=j.libur; toast('Tersimpan · tenggat dihitung ulang'); muatData(); }).catch(function(e){ t.checked=!t.checked; toast(e.message); }); }); });
   $$('.hl').forEach(function(b){ b.addEventListener('click', function(){ if(confirm('Hapus tanggal ini?')) api('simpanLibur',{tanggal:b.getAttribute('data-t'), hapus:true}).then(function(){ toast('Dihapus'); muatData(); }).catch(function(e){ toast(e.message); }); }); });
   $('#sinkL').onclick=function(){ var b=this; b.disabled=true; api('sinkronLibur').then(function(j){ toast(j.hasil); return muatData(); }).catch(function(e){ toast(e.message); }).finally(function(){ b.disabled=false; }); };
@@ -727,10 +735,10 @@ function eksporExcel(){
     var rows=list.map(function(k){ return { 'No. Kasus':k.no, 'Tanggal Dibuka':k.tanggalDibuka, 'Asal':k.asal, 'Kategori':k.kategori, 'Ringkasan':k.ringkasan, 'Aturan Dilanggar':k.aturan,
       'Pelanggar':k.pelanggar, 'Usaha/Objek':k.objek, 'NIK':k.nik, 'No. HP':k.hp, 'Kecamatan':k.kecamatan, 'Desa/Kel.':k.desa, 'Alamat Kejadian':k.alamat,
       'Tahap Saat Ini':k.tahap, 'Tanggal Tahap':k.tanggalTahap, 'Tenggat':k.status==='Selesai'?'':k.tenggat, 'Lewat Tenggat':lewat(k)?'Ya':'', 'Status':k.status, 'Hasil Akhir':k.hasil,
-      'Tanggal Selesai':k.tanggalSelesai, 'Tiket Aduan':k.tiket.join(', ') }; });
+      'Tanggal Selesai':k.tanggalSelesai, 'Ditutup Oleh':k.status==='Selesai'?penutup(k):'', 'Tiket Aduan':k.tiket.join(', ') }; });
     var nos={}; list.forEach(function(k){ nos[k.no]=1; });
     var riw=D.riwayat.filter(function(r){ return nos[r.no]; }).sort(function(a,b){ return a.no===b.no?(a.tanggal<b.tanggal?-1:1):(a.no<b.no?-1:1); })
-      .map(function(r){ return { 'No. Kasus':r.no, 'Tahap':r.tahap, 'Tanggal':r.tanggal, 'Nomor Surat':r.nomorSurat, 'Petugas':r.petugas, 'Tenggat':r.tenggat, 'Catatan':r.catatan, 'Jumlah Berkas':r.berkas.length, 'Dicatat Oleh':r.dicatatOleh }; });
+      .map(function(r){ return { 'No. Kasus':r.no, 'Tahap':r.tahap, 'Tanggal':r.tanggal, 'Nomor Surat':r.nomorSurat, 'Petugas':r.petugas, 'Tenggat':r.tenggat, 'Catatan':r.catatan, 'Jumlah Berkas':r.berkas.length, 'Dicatat Oleh':nm(r.dicatatOleh) }; });
     var wb=XLSX.utils.book_new();
     var ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'No. Kasus':'(tidak ada data)'}]); ws['!cols']=Object.keys(rows[0]||{a:1}).map(function(){ return {wch:18}; });
     XLSX.utils.book_append_sheet(wb, ws, 'Kasus');
@@ -774,8 +782,8 @@ function pdfKasus(no){
       ['Pelanggar',k.pelanggar||'-'],['Usaha/objek',k.objek||'-'],['NIK',k.nik||'-'],['No. HP',k.hp?'+'+k.hp:'-'],['Alamat pelanggar',k.alamatPelanggar||'-'],
       ['Lokasi',(k.alamat?k.alamat+', ':'')+'Desa/Kel. '+k.desa+', Kec. '+k.kecamatan+(k.lat?' ('+k.lat+', '+k.lng+')':'')],
       ['Tahap saat ini',(k.tahap||'-')+(k.tenggat&&k.status!=='Selesai'?' · tenggat '+tglIndo(k.tenggat)+(lewat(k)?' (LEWAT)':''):'')]];
-    if(k.status==='Selesai') baris.push(['Selesai',tglIndo(k.tanggalSelesai)+' · '+k.hasil]);
-    if(k.catatan) baris.push(['Catatan',k.catatan]);
+    if(k.status==='Selesai') baris.push(['Selesai',tglIndo(k.tanggalSelesai)+' · '+k.hasil+(penutup(k)?' · ditutup oleh '+penutup(k):'')]);
+    if(k.catatan) baris.push(['Catatan',catatanTampil(k.catatan)]);
     doc.autoTable({ startY:y, body:baris, theme:'plain', styles:{fontSize:9, cellPadding:1.5}, columnStyles:{0:{cellWidth:38, fontStyle:'bold', textColor:[90,90,90]}} });
     doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.text('Riwayat tahapan', 14, doc.lastAutoTable.finalY+9);
     doc.autoTable({ startY:doc.lastAutoTable.finalY+12, head:[['Tanggal','Tahap','Nomor surat','Tenggat','Petugas / catatan','Berkas']],
@@ -800,7 +808,7 @@ function pdfKasus(no){
 /* ---------- mulai ---------- */
 (function(){
   var s=ambil('ppud_sesi');
-  if(s && s.token && s.me && s.me.kedaluwarsa > Date.now()){ TOKEN=s.token; ME=s.me; masuk(); }
+  if(s && s.token && s.me && s.me.kedaluwarsa > Date.now() && Date.now()-(Number(ambil('ppud_aktif'))||0) < BATAS_DIAM){ TOKEN=s.token; ME=s.me; catatAktivitas(); masuk(); }
   else { simpan('ppud_sesi', null); tampil('layarLogin'); }
 })();
 </script>
