@@ -402,7 +402,7 @@ function isiAduan(){
     .sort(function(a,b){ return a.waktu<b.waktu?1:-1; });
   $('#listAduan').innerHTML = list.length ? '<div class="daftar">'+list.map(function(a){
     var p = a.status==='Baru'?'p-merah':a.status==='Ditolak'?'':'p-hijau';
-    return '<div class="item" onclick="bukaAduan(\''+esc(a.tiket)+'\')"><div class="a"><div><b>'+esc(a.kategori)+'</b> · <span class="sub">'+esc(a.tiket)+'</span></div><span class="pill '+p+'">'+esc(a.status)+'</span></div>'+
+    return '<div class="item" onclick="bukaAduan(\''+esc(a.tiket)+'\')"><div class="a"><div><b>'+esc(a.kategori)+'</b> · <span class="sub">'+esc(a.tiket)+'</span></div><div style="text-align:right"><span class="pill '+p+'">'+esc(a.status)+'</span>'+(a.statusOleh?'<div class="sub" style="font-size:12px;margin-top:2px;white-space:nowrap">'+(a.status==='Baru'?'dikembalikan ':'oleh ')+esc(nm(a.statusOleh))+'</div>':'')+'</div></div>'+
       '<div class="sub">'+esc(waktuIndo(a.waktu))+' · Desa/Kel. '+esc(a.desa)+', Kec. '+esc(a.kecamatan)+(a.foto.length?' · '+a.foto.length+' foto':'')+'</div>'+
       '<div style="margin-top:4px">'+esc(a.uraian.length>180?a.uraian.slice(0,180)+'…':a.uraian)+'</div></div>'; }).join('')+'</div>'
     : '<div class="kosong">Tidak ada aduan'+(filterAduan.status!=='Semua'?' berstatus '+filterAduan.status:'')+'.</div>';
@@ -417,7 +417,7 @@ function bukaAduan(tiket){
     else aksi = '<button class="btn" onclick="gabungAduan(\''+esc(a.tiket)+'\')">Tautkan ke kasus lain</button><button class="btn" onclick="kasusDariAduan(\''+esc(a.tiket)+'\')">Buat kasus tambahan</button>';
   }
   modal('Aduan '+a.tiket,
-    '<dl class="dl"><dt>Status</dt><dd>'+esc(a.status)+(a.alasanTolak?' — '+esc(a.alasanTolak):'')+'</dd>'+
+    '<dl class="dl"><dt>Status</dt><dd>'+esc(a.status)+(a.statusOleh?' · '+(a.status==='Baru'?'dikembalikan oleh ':'')+esc(nm(a.statusOleh))+(a.waktuStatus?' · '+esc(waktuIndo(a.waktuStatus)):''):'')+(a.alasanTolak?'<div>Alasan: '+esc(a.alasanTolak)+'</div>':'')+'</dd>'+
     (kasus.length?'<dt>Kasus</dt><dd>'+kasus.map(function(n){ return '<a href="#kasus/'+encodeURIComponent(n)+'" onclick="tutupModal()">'+esc(n)+'</a>'; }).join(', ')+'</dd>':'')+
     '<dt>Waktu masuk</dt><dd>'+esc(waktuIndo(a.waktu))+' WIB</dd><dt>Kategori</dt><dd>'+esc(a.kategori)+'</dd>'+
     '<dt>Pelapor</dt><dd>'+esc(a.nama)+' · '+(isAdmin()?'<a href="https://wa.me/'+esc(a.wa)+'" target="_blank" rel="noopener">+'+esc(a.wa)+'</a>':'+'+esc(a.wa))+'</dd>'+
