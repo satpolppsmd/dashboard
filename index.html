@@ -248,7 +248,7 @@ function api(action, data){
 function tampil(id){ ['layarLogin','layarGanti','aplikasi'].forEach(function(x){ $('#'+x).classList.toggle('hide', x!==id); }); }
 function keluar(pesan){
   if(TOKEN && !pesan) api('logout').catch(function(){});
-  TOKEN=null; ME=null; D=null; simpan('ppud_sesi', null);
+  TOKEN=null; ME=null; D=null; tiketDikenal=null; simpan('ppud_sesi', null); var nb=$('#notif'); if(nb) nb.remove();
   tampil('layarLogin'); $('#lgGalat').textContent = pesan||''; $('#lgPass').value='';
 }
 $('#formLogin').addEventListener('submit', function(e){
@@ -283,10 +283,36 @@ document.addEventListener('click', function(){ $('#menuAkun').classList.add('hid
 $('#menuAkun').addEventListener('click', function(e){ var a=e.target.getAttribute('data-aksi'); if(!a) return;
   if(a==='keluar') keluar(); if(a==='ganti') bukaGanti(false); if(a==='muatUlang') muatData(); });
 
-function muatData(){
-  return api('data').then(function(j){ D=j; ME=j.me; render(); })
-    .catch(function(err){ if(TOKEN) $('#isi').innerHTML='<div class="kartu galat">'+esc(err.message)+' <button class="btn kecil" onclick="muatData()">Coba lagi</button></div>'; });
+var terakhirMuat=0, sedangSegar=false, tiketDikenal=null;
+function muatData(diam){
+  return api('data').then(function(j){ var y=window.scrollY; D=j; ME=j.me; terakhirMuat=Date.now(); render(); if(diam) window.scrollTo(0,y); cekAduanBaru(); })
+    .catch(function(err){ if(diam) return; if(TOKEN) $('#isi').innerHTML='<div class="kartu galat">'+esc(err.message)+' <button class="btn kecil" onclick="muatData()">Coba lagi</button></div>'; });
 }
+
+function cekAduanBaru(){
+  var b=D.aduan.filter(function(a){ return a.status==='Baru'; }).map(function(a){ return a.tiket; });
+  if(tiketDikenal){ var n=b.filter(function(t){ return tiketDikenal.indexOf(t)<0; }).length; if(n) beriTahu(n); }
+  tiketDikenal=b;
+}
+function beriTahu(n){
+  var e=$('#notif');
+  if(e){ n+=Number(e.getAttribute('data-n'))||0; } else { e=document.createElement('div'); e.id='notif'; e.style.cssText='position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:250;background:#fff;border:1px solid var(--garis,#dfe3ea);border-left:4px solid var(--kuning,#f5c400);border-radius:10px;box-shadow:0 6px 24px rgba(16,32,80,.18);padding:10px 12px 10px 14px;display:flex;gap:10px;align-items:center;font-size:14px;max-width:92vw;width:max-content;white-space:nowrap'; document.body.appendChild(e); }
+  e.setAttribute('data-n', n);
+  e.innerHTML='<span>\ud83d\udd14 <b>'+n+' aduan baru</b> masuk</span><button class="btn kecil" id="notifLihat">Lihat</button><button id="notifTutup" title="Tutup" style="border:0;background:none;font-size:18px;cursor:pointer;color:#667">\u00d7</button>';
+  $('#notifLihat').onclick=function(){ e.remove(); location.hash='aduan'; };
+  $('#notifTutup').onclick=function(){ e.remove(); };
+}
+function sibuk(){
+  if($('#modalBg')) return true;
+  if($('#aplikasi').classList.contains('hide')) return true;
+  var a=document.activeElement; return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+}
+function segarkan(){
+  if(!TOKEN || !D || sedangSegar || sibuk()) return;
+  sedangSegar=true; muatData(true).finally(function(){ sedangSegar=false; });
+}
+setInterval(function(){ if(document.visibilityState==='visible' && Date.now()-terakhirMuat>=5*60*1000) segarkan(); }, 30*1000);
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible' && Date.now()-terakhirMuat>=30*1000) segarkan(); });
 
 /* ---------- routing ---------- */
 window.addEventListener('hashchange', function(){ if(D) render(); });
