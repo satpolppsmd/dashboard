@@ -108,6 +108,9 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 .f .bt{color:var(--merah);font-style:normal}
 .galat{color:var(--merah);font-size:13px;margin-top:8px}
 .aksi{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.alatPeta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}.alatPeta select{flex:0 1 auto}
+.legenda{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px}.legenda .dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;margin-right:5px;vertical-align:-1px;border:1px solid #fff;box-shadow:0 0 0 1px #c9d2e3}
+.petaKosong{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:500;background:rgba(255,255,255,.95);border:1px solid var(--garis);border-radius:8px;padding:8px 12px;font-size:13px;color:#4a5568;text-align:center;max-width:80%;pointer-events:none}.petaKosong[hidden]{display:none}
 #peta,#petaPilih{height:300px;border-radius:var(--r);border:1px solid var(--garis);z-index:1}
 #petaPilih{height:220px}
 .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#1d2433;color:#fff;padding:10px 16px;border-radius:10px;z-index:200;font-size:14px;max-width:90vw}
@@ -168,7 +171,8 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
   .dl{grid-template-columns:1fr;gap:0}.dl dt{margin-top:8px}
   .bar{grid-template-columns:110px 1fr 28px}
   .tutup-bg{padding:0;align-items:stretch}.modal{border-radius:0;min-height:100%}
-  .alat .seg{width:100%;display:flex}.alat .seg button{flex:1}
+  .alat .seg,.alatPeta .seg{width:100%;display:flex}.alat .seg button,.alatPeta .seg button{flex:1}
+  .alatPeta select{flex:1 1 calc(50% - 4px);min-width:0}.alatPeta #pPer{flex-basis:100%}
   .alat input[type=search]{flex:1 1 0;min-width:0}
   .fwrap{display:none;width:100%;grid-template-columns:1fr 1fr;gap:8px}.fwrap.buka{display:grid}.fwrap select{width:100%}
   .fwrap label{grid-column:1/-1}
@@ -225,7 +229,8 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbyqhP4Fw0-v4nlVlRn4CjpoiQLfL_rB4mW51B24AXBqShoNvH_M-rZ_8siAGlut5vsN/exec';
 var LOGO_PEMKAB = 'data:image/png;base64,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';
-var D = null, TOKEN = null, ME = null, peta = null;
+var D = null, TOKEN = null, ME = null, peta = null, lapPeta = null;
+var FP_AWAL = { status:'Berjalan', periode:'tahun', kategori:'', kecamatan:'' }, filterPeta = Object.assign({}, FP_AWAL);
 var BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 var BLN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 var HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
@@ -295,7 +300,7 @@ function keluar(pesan){
 $('#formLogin').addEventListener('submit', function(e){
   e.preventDefault(); var b=$('#lgBtn'); b.disabled=true; $('#lgGalat').textContent='';
   api('login',{ username: $('#lgUser').value.trim(), password: $('#lgPass').value })
-    .then(function(j){ TOKEN=j.token; ME=j.me; aktSimpan=0; catatAktivitas(); simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#lgPass').value=''; masuk(); })
+    .then(function(j){ TOKEN=j.token; ME=j.me; aktSimpan=0; filterPeta=Object.assign({}, FP_AWAL); catatAktivitas(); simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#lgPass').value=''; masuk(); })
     .catch(function(err){ $('#lgGalat').textContent=err.message; })
     .finally(function(){ b.disabled=false; });
 });
@@ -359,7 +364,7 @@ document.addEventListener('visibilitychange', function(){ if(document.visibility
 /* ---------- routing ---------- */
 window.addEventListener('hashchange', function(){ if(D) render(); });
 function render(){
-  if(peta){ peta.remove(); peta=null; }
+  if(peta){ peta.remove(); peta=null; lapPeta=null; }
   var h = location.hash.replace(/^#\/?/,'') || 'beranda';
   var bag = h.split('/');
   var baru = D.aduan.filter(function(a){ return a.status==='Baru'; }).length;
@@ -405,14 +410,46 @@ function vBeranda(){
       '<div class="kartu"><h2>Kasus berjalan per kategori</h2>'+bars(hitung(berjalan,'kategori'))+'</div>'+
       '<div class="kartu"><h2>Kasus berjalan per kecamatan</h2>'+bars(hitung(berjalan,'kecamatan'),null,8)+'</div>'+
     '</div>'+
-    '<div class="kartu" style="margin-top:12px"><h2>Sebaran kasus berjalan</h2><div id="peta"></div><div class="sub" style="margin-top:6px">Merah = lewat tenggat. Hanya kasus yang memiliki titik lokasi.</div></div>';
-  var titik = berjalan.filter(function(k){ return k.lat && k.lng && isFinite(+k.lat) && isFinite(+k.lng) && Math.abs(+k.lng) <= 180; });
+    '<div class="kartu" style="margin-top:12px"><h2>Sebaran kasus</h2><div id="alatPeta" class="alatPeta"></div><div style="position:relative"><div id="peta"></div><div id="petaKosong" class="petaKosong" hidden>Tidak ada kasus dengan titik lokasi untuk pilihan ini</div></div>'+
+    '<div class="sub legenda"><span><span class="dot" style="background:#1f4bb5"></span>Berjalan</span><span><span class="dot" style="background:#b42318"></span>Lewat tenggat</span><span><span class="dot" style="background:#8a94a6"></span>Selesai</span></div>'+
+    '<div class="sub" style="margin-top:4px">Hanya kasus yang memiliki titik lokasi.</div></div>';
   if(!window.L){ $('#peta').innerHTML='<div class="kosong">Peta tidak dapat dimuat.</div>'; return; }
   peta = L.map('peta').setView([-6.86,107.95],10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'© OpenStreetMap' }).addTo(peta);
-  var b=[]; titik.forEach(function(k){ var ll=[+k.lat,+k.lng]; b.push(ll); try{
-    L.circleMarker(ll,{ radius:8, color:'#fff', weight:2, fillColor: lewat(k)?'#b42318':'#1f4bb5', fillOpacity:.9 }).addTo(peta)
-      .bindPopup('<b>'+esc(k.no)+'</b><br>'+esc(judulKasus(k))+'<br>'+esc(k.tahap||'')+'<br><a href="#kasus/'+encodeURIComponent(k.no)+'">Buka</a>'); }catch(e){} });
+  lapPeta = L.layerGroup().addTo(peta);
+  alatPeta(); isiPeta();
+}
+function alatPeta(){
+  var f = filterPeta;
+  var kat = D.kategori.slice(); D.kasus.forEach(function(k){ if(k.kategori && kat.indexOf(k.kategori)<0) kat.push(k.kategori); });
+  $('#alatPeta').innerHTML = '<div class="seg" id="segPeta">'+['Berjalan','Selesai','Semua'].map(function(s){ return '<button type="button" data-s="'+s+'" class="'+(f.status===s?'on':'')+'">'+s+'</button>'; }).join('')+'</div>'+
+    (f.status!=='Berjalan' ? '<select id="pPer" title="Periode kasus selesai">'+opsi([['bulan','Selesai bulan ini'],['tahun','Selesai tahun ini'],['semua','Selesai semua waktu']], f.periode)+'</select>' : '')+
+    '<select id="pKat">'+opsi(kat, f.kategori, 'Semua kategori')+'</select>'+
+    '<select id="pKec">'+opsi(Object.keys(D.wilayah).sort(), f.kecamatan, 'Semua kecamatan')+'</select>';
+  $('#segPeta').querySelectorAll('button').forEach(function(b){ b.addEventListener('click', function(){ f.status=this.getAttribute('data-s'); alatPeta(); isiPeta(); }); });
+  var map={pPer:'periode',pKat:'kategori',pKec:'kecamatan'};
+  Object.keys(map).forEach(function(id){ var el=$('#'+id); if(el) el.addEventListener('change', function(){ f[map[id]]=this.value; isiPeta(); }); });
+}
+function isiPeta(){
+  if(!peta || !lapPeta) return;
+  var f = filterPeta, t = D.hariIni;
+  var cocokPeriode = function(k){ var s=k.tanggalSelesai||''; return f.periode==='semua' || (f.periode==='bulan' ? s.slice(0,7)===t.slice(0,7) : s.slice(0,4)===t.slice(0,4)); };
+  var titik = D.kasus.filter(function(k){
+    var sel = k.status==='Selesai';
+    if(f.status==='Berjalan' && sel) return false;
+    if(f.status==='Selesai' && !sel) return false;
+    if(sel && !cocokPeriode(k)) return false;
+    if(f.kategori && k.kategori!==f.kategori) return false;
+    if(f.kecamatan && k.kecamatan!==f.kecamatan) return false;
+    return k.lat && k.lng && isFinite(+k.lat) && isFinite(+k.lng) && Math.abs(+k.lng) <= 180; });
+  lapPeta.clearLayers();
+  var b=[]; titik.forEach(function(k){ var ll=[+k.lat,+k.lng], sel=k.status==='Selesai'; b.push(ll); try{
+    var isi = sel
+      ? '<b>'+esc(k.no)+'</b><br>'+esc(judulKasus(k))+'<br>Selesai '+esc(tglIndo(k.tanggalSelesai))+(k.hasil?' · '+esc(k.hasil):'')+'<br>Ditutup oleh '+esc(penutup(k))
+      : '<b>'+esc(k.no)+'</b><br>'+esc(judulKasus(k))+'<br>'+esc(k.tahap||'');
+    L.circleMarker(ll,{ radius:8, color:'#fff', weight:2, fillColor: sel?'#8a94a6':(lewat(k)?'#b42318':'#1f4bb5'), fillOpacity:.9 }).addTo(lapPeta)
+      .bindPopup(isi+'<br><a href="#kasus/'+encodeURIComponent(k.no)+'">Lihat rincian</a>'); }catch(e){} });
+  var ks=$('#petaKosong'); if(ks) ks.hidden = b.length>0;
   if(b.length>1) peta.fitBounds(b,{padding:[30,30],maxZoom:14}); else if(b.length) peta.setView(b[0],14);
 }
 function kotakKegiatan(t){
