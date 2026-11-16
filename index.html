@@ -316,7 +316,7 @@ function masuk(){
   if(ME.wajibGanti){ bukaGanti(true); return; }
   tampil('aplikasi');
   $('#btnAkun').textContent = ME.nama.split(' ')[0] + ' ▾';
-  $('#infoAkun').innerHTML = '<b style="color:var(--teks)">'+esc(ME.nama)+'</b><br>'+esc(ME.username)+' · '+esc(ME.peran)+'<br>Keluar otomatis setelah 1 jam tanpa aktivitas';
+  $('#infoAkun').innerHTML = '<b style="color:var(--teks)">'+esc(ME.nama)+'</b><br>'+esc(ME.username)+' · '+esc(ME.peran)+'<br><small style="font-size:12px;opacity:.85">Keluar otomatis setelah 1 jam tanpa aktivitas</small>';
   muatData();
 }
 $('#btnAkun').addEventListener('click', function(e){ e.stopPropagation(); $('#menuAkun').classList.toggle('hide'); });
