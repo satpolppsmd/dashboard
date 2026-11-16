@@ -175,11 +175,15 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
   .g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g2,.g3{grid-template-columns:1fr}
   .only-desk{display:none!important}.only-mob{display:block}
   nav.tab{position:fixed;bottom:0;left:0;right:0;z-index:60;border-top:1px solid var(--garis);border-bottom:0}
-  nav.tab .in{justify-content:space-around;padding:0}
-  nav.tab a{flex-direction:column;gap:0;font-size:11px;padding:7px 4px 9px;border-bottom:0;border-top:3px solid transparent;position:relative}
+  nav.tab .in{justify-content:space-around;padding:0;gap:0}
+  nav.tab a{flex:1 1 0;min-width:0;flex-direction:column;gap:3px;font-size:10.5px;letter-spacing:-.2px;padding:7px 0 8px;border-bottom:0;border-top:3px solid transparent;position:relative}
+nav.tab a .lb{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+nav.tab{padding-bottom:env(safe-area-inset-bottom)}
   nav.tab a.on{border-top-color:var(--biru)}
-  nav.tab a .ic{font-size:18px;line-height:1.2}
-  nav.tab .n{position:absolute;top:2px;right:2px}
+  nav.tab a .ic{display:block;line-height:0}
+nav.tab a .ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav.tab a.on .ic svg{stroke-width:2.2}
+  nav.tab .n{position:absolute;top:3px;left:calc(50% + 6px);right:auto;font-size:10px;line-height:15px;padding:0 5px}
   .judul small{display:none}
   .f{grid-template-columns:1fr}
   .dl{grid-template-columns:1fr;gap:0}.dl dt{margin-top:8px}
@@ -384,6 +388,15 @@ document.addEventListener('visibilitychange', function(){ if(document.visibility
 
 /* ---------- routing ---------- */
 window.addEventListener('hashchange', function(){ if(D) render(); });
+var IKON_NAV = {
+  beranda: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9v11a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9"/>',
+  aduan: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>',
+  kasus: '<rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="3.5" rx="1"/><path d="M9 11h6M9 15h6M9 19h3"/>',
+  kalender: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h2M14 14h2M8 17.5h2"/>',
+  bestie: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17 6.6 19.9l1-6.1-4.4-4.3 6.1-.9z"/>',
+  libur: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+  pengguna: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M17.5 14.3a6.5 6.5 0 0 1 4 6.2"/>'
+};
 function render(){
   if(peta){ peta.remove(); peta=null; lapPeta=null; }
   hentiB();
@@ -391,11 +404,11 @@ function render(){
   var bag = h.split('/');
   var baru = D.aduan.filter(function(a){ return a.status==='Baru'; }).length;
   var nLewat = D.kasus.filter(lewat).length;
-  var menu = [['beranda','Beranda','⌂'],['aduan','Aduan','✉',baru],['kasus','Kasus','▤',nLewat],['kalender','Kalender','▦']];
-  if(isAdmin()) menu.push(['bestie','BESTIE','★']);
-  if(isUtama()) menu.push(['libur','Hari libur','☼']);
-  if(isUtama()) menu.push(['pengguna','Pengguna','☺']);
-  $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob">'+m[2]+'</span>'+m[1]+(m[3]?'<span class="n">'+m[3]+'</span>':'')+'</a>'; }).join('');
+  var menu = [['beranda','Beranda'],['aduan','Aduan',baru],['kasus','Kasus',nLewat],['kalender','Kalender']];
+  if(isAdmin()) menu.push(['bestie','BESTIE']);
+  if(isUtama()) menu.push(['libur','Hari libur']);
+  if(isUtama()) menu.push(['pengguna','Pengguna']);
+  $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob"><svg viewBox="0 0 24 24" aria-hidden="true">'+(IKON_NAV[m[0]]||'')+'</svg></span><span class="lb">'+m[1]+'</span>'+(m[2]?'<span class="n">'+m[2]+'</span>':'')+'</a>'; }).join('');
   var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, kalender: vKalender, libur: vLibur, pengguna: vPengguna,
     bestie: bag[1] ? function(){ vBestieSesi(decodeURIComponent(bag[1])); } : vBestie }[bag[0]] || vBeranda;
   f(); window.scrollTo(0,0);
@@ -1058,7 +1071,7 @@ function isiRekapB(){
     '<div class="sub">'+esc(S.jenjang)+' · '+esc(tglIndo(S.tanggal,true))+' · '+S.soal.length+' soal · dibuat '+esc(nm(S.dibuatOleh))+'</div></div>'+
     '<div class="alatB">'+tombolStatusB(S.status)+'</div></div>'+
     '<div class="alatB" style="margin-top:12px;justify-content:flex-start"><button class="btn" onclick="qrB()">QR &amp; tautan</button><button class="btn" onclick="ubahSesiB()">Ubah sesi</button>'+
-    '<button class="btn" onclick="eksporB()">Unduh Excel</button><button class="btn" onclick="muatRekapB(RB.sesi.kode)">Muat ulang</button></div>'+
+    '<button class="btn" onclick="eksporB()">Unduh Excel</button><button class="btn" onclick="muatRekapB(RB.sesi.kode)">Muat ulang</button>'+(isUtama()?'<button class="btn bahaya" onclick="hapusSesiB()">Hapus sesi</button>':'')+'</div>'+
     (terbuka?'<p class="sub" style="margin:10px 0 0">Rekap diperbarui otomatis setiap 30 detik selama tes dibuka. Perubahan status terlihat di HP siswa paling lambat ±15 detik.</p>':'')+'</div>';
   h+='<div class="grid g2" style="margin-top:12px"><div class="kartu"><h2>Hasil pre-test dan post-test</h2><table class="t"><thead><tr><th>Indikator</th><th style="text-align:right">Pre-test</th><th style="text-align:right">Post-test</th></tr></thead><tbody>'+
     baris('Jumlah peserta yang mengerjakan',H.pre.n,H.post.n)+baris('Rata-rata skor',f1(H.pre.rata),f1(H.post.rata))+
@@ -1083,6 +1096,21 @@ function ubahStatusB(status, label){
     'Post-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan post-test.', 'Selesai':'Siswa tidak bisa lagi mengirim post-test (tenggang 5 menit untuk yang sedang mengirim).' }[status];
   if(!confirm(label+' untuk '+S.kode+' ('+S.sekolah+')?\n\n'+ket)) return;
   api('bestieStatus',{kode:S.kode, status:status}).then(function(){ toast('Status: '+status); muatRekapB(S.kode); }).catch(function(e){ toast(e.message); });
+}
+function hapusSesiB(){
+  if(!isUtama()) return;
+  var S=RB.sesi, n=RB.jawaban.length, buka=(S.status==='Pre-test dibuka'||S.status==='Post-test dibuka');
+  if(buka){ alert('Tes sesi '+S.kode+' masih dibuka. Tutup dulu sebelum menghapus.'); return; }
+  modal('Hapus sesi '+S.kode, '<p style="margin-top:0">Sesi <b>'+esc(S.kode)+'</b> · '+esc(S.sekolah)+' · '+esc(S.jenjang)+' · '+esc(tglIndo(S.tanggal,true))+' akan dihapus dari dashboard.</p>'+
+    '<p class="sub">'+(n?'Sesi ini berisi <b>'+n+' jawaban siswa</b>. ':'Sesi ini belum berisi jawaban. ')+'Data sesi'+(n?' dan jawabannya':'')+' dipindah ke tab "Arsip Sesi"'+(n?' dan "Arsip Jawaban"':'')+' di spreadsheet BESTIE, tidak hilang. QR dan tautan sesi ini tidak bisa dipakai lagi.</p>'+
+    (n?'<div class="f"><label class="pn wajib"><span>Ketik <b>'+esc(S.kode)+'</b> untuk konfirmasi <i class="bt">*</i></span><input id="bsK" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></label></div>':'')+
+    '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn bahaya" id="ok">Hapus sesi</button></div>');
+  $('#ok').onclick=function(){ var b=this, g=$('#mg'), k=n?$('#bsK').value.trim().toUpperCase():'';
+    if(n && k!==S.kode){ g.textContent='Kode yang diketik tidak sama dengan '+S.kode+'.'; return; }
+    b.disabled=true; g.textContent='';
+    api('bestieHapusSesi',{ kode:S.kode, konfirmasi:k }).then(function(j){ tutupModal(); hentiB(); toast('Sesi '+j.kode+' dihapus'+(j.jawaban?' · '+j.jawaban+' jawaban dipindah ke arsip':'')); location.hash='bestie'; })
+      .catch(function(e){ b.disabled=false; g.textContent=e.message; });
+  };
 }
 function ubahSesiB(){ var S=RB.sesi; formSesiB({ kode:S.kode, sekolah:S.sekolah, jenjang:S.jenjang, tanggal:S.tanggal, adaJawaban:RB.jawaban.length>0 }); }
 
