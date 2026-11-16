@@ -158,6 +158,19 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 .kegb{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--garis);cursor:pointer}.kegb:first-child{border-top:0}
 .kegb .tgk{min-width:54px;text-align:center;border-radius:8px;background:var(--latar);padding:4px 2px;font-size:12px;line-height:1.2}.kegb .tgk b{display:block;font-size:17px}
 .fwrap{display:contents}
+.kepalaB{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}.kepalaB h1{margin-bottom:10px}
+.alatB{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.naikB{margin-top:10px;background:var(--latar);border-radius:8px;padding:9px 12px;font-size:14px}.naikB b{font-size:17px}
+.soalB{display:grid;grid-template-columns:minmax(0,1fr) 90px 38px;gap:2px 8px;align-items:center;font-size:13px;padding:5px 0;border-top:1px solid var(--garis)}.soalB:first-of-type{border-top:0}
+.soalB .nmB{grid-row:span 2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;color:var(--abu)}.soalB .nmB b{color:var(--teks)}
+.soalB span{text-align:right;font-variant-numeric:tabular-nums}
+.barB{background:var(--latar);border-radius:4px;height:9px;overflow:hidden}.barB i{display:block;height:100%;background:var(--biru2)}.barB i.pre{background:#9fb3e6}
+.qrGrid{display:grid;grid-template-columns:1.6fr 1fr .75fr;gap:14px;align-items:end}.qrGrid div{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.qrGrid img{width:100%;border:1px solid var(--garis);border-radius:8px;background:#fff}
+.soalE{border:1px solid var(--garis);border-radius:10px;padding:10px 12px;margin-top:10px;display:grid;gap:6px}
+.kepalaE{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pilE{display:flex;align-items:center;gap:8px;margin:0}.pilE input[type=text]{flex:1;min-width:0}.pilE input[type=radio]{width:18px;height:18px;min-height:0;accent-color:var(--biru);flex:none}
+.pilE b{width:14px;color:var(--abu)}
 @media (max-width:760px){
   .g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g2,.g3{grid-template-columns:1fr}
   .only-desk{display:none!important}.only-mob{display:block}
@@ -174,6 +187,7 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
   .tutup-bg{padding:0;align-items:stretch}.modal{border-radius:0;min-height:100%}
   .alat .seg,.alatPeta .seg{width:100%;display:flex}.alat .seg button,.alatPeta .seg button{flex:1}
   .alatPeta select{flex:1 1 calc(50% - 4px);min-width:0}.alatPeta #pPer{flex-basis:100%}
+  .alatB{justify-content:flex-start}.qrGrid{grid-template-columns:1fr}.soalB{grid-template-columns:minmax(0,1fr) 70px 36px}
   .alat input[type=search]{flex:1 1 0;min-width:0}
   .fwrap{display:none;width:100%;grid-template-columns:1fr 1fr;gap:8px}.fwrap.buka{display:grid}.fwrap select{width:100%}
   .fwrap label{grid-column:1/-1}
@@ -372,15 +386,18 @@ document.addEventListener('visibilitychange', function(){ if(document.visibility
 window.addEventListener('hashchange', function(){ if(D) render(); });
 function render(){
   if(peta){ peta.remove(); peta=null; lapPeta=null; }
+  hentiB();
   var h = location.hash.replace(/^#\/?/,'') || 'beranda';
   var bag = h.split('/');
   var baru = D.aduan.filter(function(a){ return a.status==='Baru'; }).length;
   var nLewat = D.kasus.filter(lewat).length;
   var menu = [['beranda','Beranda','⌂'],['aduan','Aduan','✉',baru],['kasus','Kasus','▤',nLewat],['kalender','Kalender','▦']];
+  if(isAdmin()) menu.push(['bestie','BESTIE','★']);
   if(isUtama()) menu.push(['libur','Hari libur','☼']);
   if(isUtama()) menu.push(['pengguna','Pengguna','☺']);
   $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob">'+m[2]+'</span>'+m[1]+(m[3]?'<span class="n">'+m[3]+'</span>':'')+'</a>'; }).join('');
-  var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, kalender: vKalender, libur: vLibur, pengguna: vPengguna }[bag[0]] || vBeranda;
+  var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, kalender: vKalender, libur: vLibur, pengguna: vPengguna,
+    bestie: bag[1] ? function(){ vBestieSesi(decodeURIComponent(bag[1])); } : vBestie }[bag[0]] || vBeranda;
   f(); window.scrollTo(0,0);
 }
 
@@ -952,6 +969,264 @@ function formPengguna(username){
       .then(function(j){ D.pengguna=j.pengguna; tutupModal(); toast('Pengguna tersimpan'); isiPengguna(); }).catch(function(e){ g.textContent=e.message; }).finally(function(){ b.disabled=false; }); };
 }
 function resetPw(username){ if(confirm('Reset password '+username+' menjadi sama dengan username?')) api('resetPassword',{username:username}).then(function(j){ toast(j.pesan); vPengguna(); }).catch(function(e){ toast(e.message); }); }
+
+/* ---------- BESTIE: pre-test & post-test (khusus admin) ---------- */
+var BESTIE_URL = 'https://satpolppsmd.github.io/bestie/';
+var BS = null, bsTimer = null, bsDraf = null;
+var BS_WARNA = { 'Belum dibuka':'', 'Pre-test dibuka':'p-kuning', 'Ditutup':'p-biru', 'Post-test dibuka':'p-kuning', 'Selesai':'p-hijau' };
+function pillB(st){ return '<span class="pill '+(BS_WARNA[st]||'')+'">'+esc(st)+'</span>'; }
+function tautanB(kode){ return BESTIE_URL+'?k='+encodeURIComponent(kode); }
+function hentiB(){ if(bsTimer){ clearInterval(bsTimer); bsTimer=null; } }
+
+function vBestie(){
+  if(!isAdmin()){ location.hash='beranda'; return; }
+  $('#isi').innerHTML='<div class="kepalaB"><h1>BESTIE · Pre-test &amp; Post-test</h1><div class="alatB">'+
+    (isUtama()?'<button class="btn" onclick="bankSoalB()">Bank soal</button>':'')+'<button class="btn utama" onclick="formSesiB()">+ Sesi baru</button></div></div>'+
+    '<p class="sub" style="margin-top:-6px">Halaman siswa hanya bisa dibuka lewat QR atau tautan sesi. Tidak ditautkan dari landing page.</p><div id="listB" class="sub">Memuat…</div>';
+  api('bestieData').then(function(j){ BS=j; isiListB(); }).catch(function(e){ $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
+}
+function isiListB(){
+  if(!BS.sesi.length){ $('#listB').innerHTML='<div class="kartu kosong">Belum ada sesi. Klik <b>+ Sesi baru</b> untuk membuat sesi pertama.</div>'; return; }
+  $('#listB').innerHTML='<table class="t"><thead><tr><th>Kode</th><th>Sekolah</th><th class="only-desk">Jenjang</th><th class="only-desk">Tanggal</th><th>Status</th><th class="only-desk" style="text-align:right">Pre</th><th class="only-desk" style="text-align:right">Post</th></tr></thead><tbody>'+
+    BS.sesi.map(function(s){ return '<tr class="klik" onclick="location.hash=\'bestie/'+esc(s.kode)+'\'"><td><b>'+esc(s.kode)+'</b></td><td>'+esc(s.sekolah)+
+      '<div class="sub only-mob">'+esc(s.jenjang)+' · '+esc(tglIndo(s.tanggal))+' · pre '+s.nPre+' · post '+s.nPost+'</div></td><td class="only-desk">'+esc(s.jenjang)+'</td><td class="only-desk">'+esc(tglIndo(s.tanggal))+'</td><td>'+pillB(s.status)+'</td>'+
+      '<td class="only-desk" style="text-align:right">'+s.nPre+'</td><td class="only-desk" style="text-align:right">'+s.nPost+'</td></tr>'; }).join('')+'</tbody></table>';
+}
+
+function formSesiB(x){
+  x = x || { kode:'', sekolah:'', jenjang:'SMP', tanggal:D.hariIni };
+  var terkunci = x.kode && x.adaJawaban;
+  modal(x.kode?'Ubah sesi '+x.kode:'Sesi BESTIE baru', '<div class="f"><label class="pn wajib"><span>Nama sekolah <i class="bt">*</i></span><input id="bsS" maxlength="150" value="'+esc(x.sekolah)+'" placeholder="mis. SMP Negeri 1 Sumedang"></label>'+
+    '<label class="wajib"><span>Jenjang <i class="bt">*</i></span><select id="bsJ"'+(terkunci?' disabled':'')+'>'+opsi(['SMP','SMA'],x.jenjang)+'</select></label>'+
+    '<label class="wajib"><span>Tanggal sesi <i class="bt">*</i></span><input type="date" id="bsT" value="'+esc(x.tanggal)+'"></label></div>'+
+    '<p class="sub">'+(terkunci?'Jenjang tidak bisa diubah karena sudah ada jawaban siswa.':x.kode?'Mengubah jenjang akan mengganti soal sesi ini dengan bank soal jenjang baru.':'Soal diambil dari bank soal jenjang yang dipilih saat ini, lalu dikunci untuk sesi ini. Perubahan bank soal nanti tidak mengubah sesi yang sudah dibuat.')+'</p>'+
+    '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="ok">'+(x.kode?'Simpan':'Buat sesi')+'</button></div>');
+  $('#ok').onclick=function(){ var b=this, g=$('#mg'); b.disabled=true; g.textContent='';
+    api('bestieSimpanSesi',{ kode:x.kode, sekolah:$('#bsS').value, jenjang:$('#bsJ').value, tanggal:$('#bsT').value })
+      .then(function(j){ tutupModal(); toast(x.kode?'Sesi tersimpan':'Sesi '+j.kode+' dibuat'); if(location.hash==='#bestie/'+j.kode) vBestieSesi(j.kode); else location.hash='bestie/'+j.kode; })
+      .catch(function(e){ g.textContent=e.message; }).finally(function(){ b.disabled=false; }); };
+}
+
+/* ---------- rincian sesi & rekap ---------- */
+var RB = null;
+function vBestieSesi(kode){
+  if(!isAdmin()){ location.hash='beranda'; return; }
+  $('#isi').innerHTML='<a href="#bestie" class="sub" style="text-decoration:none">‹ Semua sesi BESTIE</a><div id="rinB" class="sub" style="margin-top:10px">Memuat…</div>';
+  muatRekapB(kode);
+  hentiB();
+  bsTimer=setInterval(function(){ if(location.hash!=='#bestie/'+kode){ hentiB(); return; }
+    if(RB && /dibuka/.test(RB.sesi.status) && document.visibilityState==='visible' && !sibuk()) muatRekapB(kode, true); }, 30000);
+}
+function muatRekapB(kode, diam){
+  return api('bestieRekap',{kode:kode}).then(function(j){ var y=window.scrollY; RB=j; isiRekapB(); if(diam) window.scrollTo(0,y); })
+    .catch(function(e){ if(!diam) $('#rinB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
+}
+function kunciSiswaB(j){ return String(j.kelas).toUpperCase().replace(/\s+/g,'')+'|'+String(+j.absen||j.absen); }
+function hitungB(R){
+  var pre={}, post={};
+  R.jawaban.forEach(function(j){ var k=kunciSiswaB(j);
+    if(j.tes==='pre'){ if(!pre[k]) pre[k]=j; }
+    else { var c=post[k]; if(!c) post[k]={ best:j, n:1, semua:[j.skor] }; else { c.n++; c.semua.push(j.skor); if(j.skor>c.best.skor) c.best=j; } } });
+  var lPre=Object.keys(pre).map(function(k){ return pre[k]; }), lPost=Object.keys(post).map(function(k){ return post[k].best; });
+  function ind(l){ var n=l.length; if(!n) return { n:0 };
+    var sk=l.map(function(x){ return x.skor; }), jml=sk.reduce(function(a,b){ return a+b; },0);
+    return { n:n, rata:jml/n, maks:Math.max.apply(null,sk), min:Math.min.apply(null,sk), tuntas:sk.filter(function(x){ return x>=70; }).length/n*100 }; }
+  var soal=R.sesi.soal.map(function(q,i){
+    function pct(l){ if(!l.length) return null; return l.filter(function(x){ return x.jawaban[q.id]===q.k; }).length/l.length*100; }
+    return { no:i+1, q:q, pre:pct(lPre), post:pct(lPost) }; });
+  var kunci={}; Object.keys(pre).concat(Object.keys(post)).forEach(function(k){ kunci[k]=1; });
+  var siswa=Object.keys(kunci).map(function(k){ var a=pre[k], b=post[k]; var ref=b?b.best:a;
+    return { kelas:ref.kelas, absen:ref.absen, nama:(b?b.best.nama:a.nama), pre:a?a.skor:null, post:b?b.best.skor:null, nPost:b?b.n:0, semuaPost:b?b.semua:[],
+      selisih:(a&&b)?b.best.skor-a.skor:null }; })
+    .sort(function(x,y){ return x.kelas===y.kelas ? (+x.absen)-(+y.absen) : (x.kelas<y.kelas?-1:1); });
+  var iPre=ind(lPre), iPost=ind(lPost);
+  return { pre:iPre, post:iPost, naik:(iPre.n&&iPost.n)?iPost.rata-iPre.rata:null, soal:soal, siswa:siswa };
+}
+function f1(x){ return x==null||isNaN(x)?'–':(Math.round(x*10)/10).toString().replace('.',','); }
+function tombolStatusB(st){
+  var b={ 'Belum dibuka':[['Pre-test dibuka','Buka pre-test','utama']],
+    'Pre-test dibuka':[['Ditutup','Tutup pre-test','utama']],
+    'Ditutup':[['Post-test dibuka','Buka post-test','utama'],['Pre-test dibuka','Buka lagi pre-test','']],
+    'Post-test dibuka':[['Selesai','Tutup post-test','utama']],
+    'Selesai':[['Post-test dibuka','Buka lagi post-test','']] }[st]||[];
+  return b.map(function(x){ return '<button class="btn '+x[2]+'" onclick="ubahStatusB(\''+x[0]+'\',\''+x[1]+'\')">'+x[1]+'</button>'; }).join('');
+}
+function isiRekapB(){
+  var S=RB.sesi, H=hitungB(RB), terbuka=/dibuka/.test(S.status);
+  var baris=function(l,a,b){ return '<tr><td>'+l+'</td><td style="text-align:right">'+a+'</td><td style="text-align:right">'+b+'</td></tr>'; };
+  var h='<div class="kartu"><div class="kepalaB"><div><h1 style="margin:0">'+esc(S.kode)+' '+pillB(S.status)+'</h1><div style="font-size:16px;font-weight:600;margin-top:4px">'+esc(S.sekolah)+'</div>'+
+    '<div class="sub">'+esc(S.jenjang)+' · '+esc(tglIndo(S.tanggal,true))+' · '+S.soal.length+' soal · dibuat '+esc(nm(S.dibuatOleh))+'</div></div>'+
+    '<div class="alatB">'+tombolStatusB(S.status)+'</div></div>'+
+    '<div class="alatB" style="margin-top:12px;justify-content:flex-start"><button class="btn" onclick="qrB()">QR &amp; tautan</button><button class="btn" onclick="ubahSesiB()">Ubah sesi</button>'+
+    '<button class="btn" onclick="eksporB()">Unduh Excel</button><button class="btn" onclick="muatRekapB(RB.sesi.kode)">Muat ulang</button></div>'+
+    (terbuka?'<p class="sub" style="margin:10px 0 0">Rekap diperbarui otomatis setiap 30 detik selama tes dibuka. Perubahan status terlihat di HP siswa paling lambat ±15 detik.</p>':'')+'</div>';
+  h+='<div class="grid g2" style="margin-top:12px"><div class="kartu"><h2>Hasil pre-test dan post-test</h2><table class="t"><thead><tr><th>Indikator</th><th style="text-align:right">Pre-test</th><th style="text-align:right">Post-test</th></tr></thead><tbody>'+
+    baris('Jumlah peserta yang mengerjakan',H.pre.n,H.post.n)+baris('Rata-rata skor',f1(H.pre.rata),f1(H.post.rata))+
+    baris('Skor tertinggi / terendah',H.pre.n?H.pre.maks+' / '+H.pre.min:'–',H.post.n?H.post.maks+' / '+H.post.min:'–')+
+    baris('Persentase ketuntasan (skor ≥ 70)',H.pre.n?f1(H.pre.tuntas)+'%':'–',H.post.n?f1(H.post.tuntas)+'%':'–')+'</tbody></table>'+
+    '<div class="naikB">Peningkatan rata-rata (post-test − pre-test): <b>'+(H.naik==null?'–':(H.naik>0?'+':'')+f1(H.naik))+'</b></div>'+
+    '<p class="sub" style="margin-bottom:0">Post-test memakai nilai terbaik tiap siswa (maks. 2 kali). Siswa dipasangkan lewat kelas + nomor absen.</p></div>'+
+    '<div class="kartu"><h2>Persentase benar per soal</h2><div class="legenda" style="margin:0 0 8px"><span><span class="dot" style="background:#9fb3e6"></span>Pre-test</span><span><span class="dot" style="background:#1f4bb5"></span>Post-test</span></div>'+
+    H.soal.map(function(s){ return '<div class="soalB" title="'+esc(s.q.t)+'"><div class="nmB"><b>'+s.no+'.</b> '+esc(s.q.t)+'</div>'+
+      '<div class="barB"><i class="pre" style="width:'+(s.pre||0)+'%"></i></div><span>'+(s.pre==null?'–':Math.round(s.pre)+'%')+'</span>'+
+      '<div class="barB"><i style="width:'+(s.post||0)+'%"></i></div><span>'+(s.post==null?'–':Math.round(s.post)+'%')+'</span></div>'; }).join('')+'</div></div>';
+  h+='<div class="kartu" style="margin-top:12px"><h2>Daftar siswa ('+H.siswa.length+')</h2>'+(H.siswa.length?'<div style="overflow-x:auto"><table class="t"><thead><tr><th>Nama</th><th>Kelas</th><th>Absen</th><th style="text-align:right">Pre</th><th style="text-align:right">Post</th><th style="text-align:right" class="only-desk">Selisih</th></tr></thead><tbody>'+
+    H.siswa.map(function(s){ return '<tr><td>'+esc(s.nama)+'</td><td>'+esc(s.kelas)+'</td><td>'+esc(s.absen)+'</td><td style="text-align:right">'+(s.pre==null?'–':s.pre)+'</td>'+
+      '<td style="text-align:right">'+(s.post==null?'–':'<b'+(s.post>=70?' style="color:var(--hijau)"':'')+'>'+s.post+'</b>'+(s.nPost>1?'<div class="sub">'+s.semuaPost.join(' / ')+'</div>':''))+'</td>'+
+      '<td style="text-align:right" class="only-desk">'+(s.selisih==null?'–':(s.selisih>0?'+':'')+s.selisih)+'</td></tr>'; }).join('')+'</tbody></table></div>'
+    :'<div class="kosong">Belum ada siswa yang mengirim jawaban.</div>')+'</div>';
+  $('#rinB').innerHTML=h;
+}
+function ubahStatusB(status, label){
+  var S=RB.sesi;
+  var ket={ 'Pre-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan pre-test.', 'Ditutup':'Siswa tidak bisa lagi mengirim pre-test (kecuali yang sedang mengirim, diberi tenggang 5 menit).',
+    'Post-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan post-test.', 'Selesai':'Siswa tidak bisa lagi mengirim post-test (tenggang 5 menit untuk yang sedang mengirim).' }[status];
+  if(!confirm(label+' untuk '+S.kode+' ('+S.sekolah+')?\n\n'+ket)) return;
+  api('bestieStatus',{kode:S.kode, status:status}).then(function(){ toast('Status: '+status); muatRekapB(S.kode); }).catch(function(e){ toast(e.message); });
+}
+function ubahSesiB(){ var S=RB.sesi; formSesiB({ kode:S.kode, sekolah:S.sekolah, jenjang:S.jenjang, tanggal:S.tanggal, adaJawaban:RB.jawaban.length>0 }); }
+
+function eksporB(){
+  var S=RB.sesi, H=hitungB(RB);
+  muatSkrip('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js').then(function(){
+    var wb=XLSX.utils.book_new(), r=function(x){ return x==null||isNaN(x)?'':Math.round(x*10)/10; };
+    var ring=[['Rekap Pre-test & Post-test BESTIE'],[],['Kode sesi',S.kode],['Sekolah',S.sekolah],['Jenjang',S.jenjang],['Tanggal',S.tanggal],['Status',S.status],['Jumlah soal',S.soal.length],[],
+      ['Indikator','Pre-test','Post-test'],['Jumlah peserta yang mengerjakan',H.pre.n,H.post.n],['Rata-rata skor',r(H.pre.rata),r(H.post.rata)],
+      ['Skor tertinggi',H.pre.n?H.pre.maks:'',H.post.n?H.post.maks:''],['Skor terendah',H.pre.n?H.pre.min:'',H.post.n?H.post.min:''],
+      ['Persentase ketuntasan (skor ≥ 70)',H.pre.n?r(H.pre.tuntas):'',H.post.n?r(H.post.tuntas):''],[],['Peningkatan rata-rata (post − pre)',r(H.naik)],[],
+      ['Diunduh',waktuIndo(new Date(Date.now()+7*3600e3).toISOString().replace('T',' '))],['Oleh',ME.nama]];
+    var ws=XLSX.utils.aoa_to_sheet(ring); ws['!cols']=[{wch:36},{wch:14},{wch:14}]; XLSX.utils.book_append_sheet(wb, ws, 'Ringkasan');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(H.siswa.length?H.siswa.map(function(s){ return { 'Nama':s.nama, 'Kelas':s.kelas, 'No. Absen':+s.absen||s.absen, 'Skor Pre-test':s.pre==null?'':s.pre,
+      'Skor Post-test (terbaik)':s.post==null?'':s.post, 'Selisih':s.selisih==null?'':s.selisih, 'Jumlah Post-test':s.nPost, 'Semua Skor Post-test':s.semuaPost.join(' / '), 'Tuntas (≥70)':s.post==null?'':(s.post>=70?'Ya':'Tidak') }; }):[{'Nama':'(belum ada data)'}]), 'Per siswa');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(H.soal.map(function(s){ return { 'No':s.no, 'Pertanyaan':s.q.t, 'Kunci':'ABCD'.charAt(s.q.k)+'. '+s.q.p[s.q.k], '% Benar Pre-test':r(s.pre), '% Benar Post-test':r(s.post) }; })), 'Per soal');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(RB.jawaban.length?RB.jawaban.map(function(j){ return { 'Waktu':j.waktu, 'Tes':j.tes==='pre'?'Pre-test':'Post-test', 'Nama':j.nama, 'Kelas':j.kelas, 'No. Absen':+j.absen||j.absen,
+      'Percobaan':j.percobaan, 'Benar':j.benar, 'Jumlah Soal':j.jumlah, 'Skor':j.skor, 'Durasi (detik)':j.durasi }; }):[{'Waktu':'(belum ada data)'}]), 'Semua kiriman');
+    XLSX.writeFile(wb, 'rekap-bestie-'+S.kode+'-'+S.tanggal+'.xlsx');
+  }).catch(function(e){ toast(e.message); });
+}
+
+/* ---------- QR bergaya ---------- */
+function muatGambar(src){ return new Promise(function(ok,gagal){ var i=new Image(); i.onload=function(){ ok(i); }; i.onerror=function(){ gagal(new Error('Gambar gagal dimuat.')); }; i.src=src; }); }
+function bungkusTeks(c, teks, maks){ var kata=String(teks).split(' '), baris=[], b=''; kata.forEach(function(k){ var u=b?b+' '+k:k; if(c.measureText(u).width>maks && b){ baris.push(b); b=k; } else b=u; }); if(b) baris.push(b); return baris; }
+function tulisB(c, teks, x, y, font, warna, rata, maks, jarak){
+  c.font=font; c.fillStyle=warna; c.textAlign=rata||'left'; c.textBaseline='top';
+  var l=maks?bungkusTeks(c,teks,maks):[teks]; l.forEach(function(t,i){ c.fillText(t,x,y+i*(jarak||0)); }); return y+l.length*(jarak||0);
+}
+function kotakBulat(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+var FONT_B='system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+function gambarKartuB(jenis, qr, logo1, logo2, S){
+  var W={lebar:1920,persegi:1080,a4:1654}[jenis], Hh={lebar:1080,persegi:1080,a4:2339}[jenis];
+  var cv=document.createElement('canvas'); cv.width=W; cv.height=Hh; var c=cv.getContext('2d');
+  var biru='#12307a', biru2='#1f4bb5', kuning='#f7c600', teks='#1d2433', abu='#5b6577';
+  var url=tautanB(S.kode).replace(/^https:\/\//,''), tglT=tglIndo(S.tanggal,true);
+  function gradien(x,y,w,h){ var g=c.createLinearGradient(x,y,x+w,y+h); g.addColorStop(0,biru); g.addColorStop(1,biru2); return g; }
+  function qrKotak(x,y,s){ c.save(); c.shadowColor='rgba(18,48,122,.18)'; c.shadowBlur=s*0.05; c.shadowOffsetY=s*0.015; c.fillStyle='#fff'; kotakBulat(c,x,y,s,s,s*0.06); c.fill(); c.restore();
+    c.strokeStyle=kuning; c.lineWidth=s*0.012; kotakBulat(c,x,y,s,s,s*0.06); c.stroke(); var p=s*0.06; c.drawImage(qr,x+p,y+p,s-2*p,s-2*p); }
+  function pilKode(cx,y,ukuran){ c.font='700 '+ukuran+'px '+FONT_B; var t='Kode sesi: '+S.kode, w=c.measureText(t).width+ukuran*1.4, h=ukuran*1.7;
+    c.fillStyle=kuning; kotakBulat(c,cx-w/2,y,w,h,h/2); c.fill(); tulisB(c,t,cx,y+(h-ukuran)/2-ukuran*0.05,'700 '+ukuran+'px '+FONT_B,teks,'center'); return y+h; }
+  c.fillStyle='#fff'; c.fillRect(0,0,W,Hh);
+  if(jenis==='lebar'){
+    var L=860; c.fillStyle=gradien(0,0,L,Hh); c.fillRect(0,0,L,Hh); c.fillStyle=kuning; c.fillRect(L,0,16,Hh);
+    c.globalAlpha=.07; c.fillStyle='#fff'; c.beginPath(); c.arc(L-60,Hh+40,360,0,7); c.fill(); c.beginPath(); c.arc(80,-60,220,0,7); c.fill(); c.globalAlpha=1;
+    c.drawImage(logo1,90,80,logo1.width/logo1.height*120,120); c.drawImage(logo2,90+logo1.width/logo1.height*120+30,80,logo2.width/logo2.height*120,120);
+    var y=tulisB(c,'PRE-TEST & POST-TEST',90,270,'700 40px '+FONT_B,kuning,'left',0,48);
+    y=tulisB(c,'BESTIE',84,y+4,'800 170px '+FONT_B,'#fff','left',0,175);
+    y=tulisB(c,'Bersama Siswa Tertib dan Edukatif',90,y,'500 38px '+FONT_B,'rgba(255,255,255,.92)','left',0,46);
+    c.fillStyle=kuning; c.fillRect(90,y+40,90,8);
+    y=tulisB(c,S.sekolah,90,y+80,'700 52px '+FONT_B,'#fff','left',L-180,62);
+    tulisB(c,S.jenjang+' · '+tglT,90,y+10,'500 34px '+FONT_B,'rgba(255,255,255,.9)','left',L-180,42);
+    tulisB(c,'Satpol PP Kabupaten Sumedang · Bidang PPUD',90,Hh-80,'500 28px '+FONT_B,'rgba(255,255,255,.75)','left');
+    var cx=L+16+(W-L-16)/2, s=600;
+    tulisB(c,'Pindai untuk mengerjakan',cx,95,'800 52px '+FONT_B,biru,'center');
+    qrKotak(cx-s/2,190,s);
+    var y2=pilKode(cx,190+s+40,40);
+    tulisB(c,url,cx,y2+28,'500 28px '+FONT_B,abu,'center');
+  } else {
+    var A=jenis==='a4', k=A?W/1080:1, band=A?560:330;
+    c.fillStyle=gradien(0,0,W,band); c.fillRect(0,0,W,band); c.fillStyle=kuning; c.fillRect(0,band,W,14*k);
+    c.globalAlpha=.07; c.fillStyle='#fff'; c.beginPath(); c.arc(W-40*k,band,260*k,0,7); c.fill(); c.globalAlpha=1;
+    var lh=(A?150:100), lw1=logo1.width/logo1.height*lh, lw2=logo2.width/logo2.height*lh, lx=W/2-(lw1+lw2+24*k)/2;
+    c.drawImage(logo1,lx,(A?70:40),lw1,lh); c.drawImage(logo2,lx+lw1+24*k,(A?70:40),lw2,lh);
+    var yb=tulisB(c,'PRE-TEST & POST-TEST',W/2,(A?250:160),'700 '+(A?46:30)+'px '+FONT_B,kuning,'center',0,(A?56:38));
+    tulisB(c,'BESTIE',W/2,yb,'800 '+(A?150:96)+'px '+FONT_B,'#fff','center');
+    var y=tulisB(c,S.sekolah,W/2,band+(A?80:44),'700 '+(A?64:42)+'px '+FONT_B,teks,'center',W-160*k,(A?76:50));
+    y=tulisB(c,S.jenjang+' · '+tglT,W/2,y+6,'500 '+(A?38:28)+'px '+FONT_B,abu,'center',0,(A?46:34));
+    var s=A?760:440; y+= (A?50:24);
+    if(A) y=tulisB(c,'Pindai untuk mengerjakan',W/2,y,'800 '+60+'px '+FONT_B,biru,'center',0,90);
+    qrKotak(W/2-s/2,y,s); y+=s+(A?50:26);
+    y=pilKode(W/2,y,A?46:30);
+    if(!A){ tulisB(c,'Pindai untuk mengerjakan · '+url,W/2,y+18,'500 22px '+FONT_B,abu,'center'); }
+    else {
+      tulisB(c,url,W/2,y+30,'500 34px '+FONT_B,abu,'center');
+      var langkah=['Pindai QR dengan kamera HP.','Isi nama, kelas, dan nomor absen. Isi sama persis saat pre-test dan post-test.','Kerjakan '+S.soal.length+' soal dalam 5 menit, lalu kirim.'];
+      var ly=y+110; c.fillStyle='#f3f6fc'; kotakBulat(c,140,ly-30,W-280,310,30); c.fill();
+      langkah.forEach(function(t,i){ c.fillStyle=biru; c.beginPath(); c.arc(220,ly+38+i*92,30,0,7); c.fill(); tulisB(c,String(i+1),220,ly+20+i*92,'700 36px '+FONT_B,'#fff','center');
+        tulisB(c,t,280,ly+18+i*92,'500 34px '+FONT_B,teks,'left',W-480,42); });
+      c.fillStyle=biru; c.fillRect(0,Hh-110,W,110); tulisB(c,'Satpol PP Kabupaten Sumedang · Bidang Penegakan Perundang-undangan Daerah',W/2,Hh-72,'500 32px '+FONT_B,'#fff','center');
+    }
+  }
+  return cv;
+}
+function qrB(){
+  var S=RB.sesi, url=tautanB(S.kode);
+  modal('QR & tautan '+S.kode, '<div class="f"><label class="pn"><span>Tautan untuk siswa</span><div style="display:flex;gap:8px"><input id="bsUrl" readonly value="'+esc(url)+'" style="flex:1"><button class="btn" id="salinB">Salin</button></div></label></div>'+
+    '<div id="qrPrev" class="sub" style="margin-top:14px">Menyiapkan QR…</div>', true);
+  $('#salinB').onclick=function(){ var i=$('#bsUrl'); i.select(); try{ navigator.clipboard.writeText(url).then(function(){ toast('Tautan disalin'); }); }catch(e){ document.execCommand('copy'); toast('Tautan disalin'); } };
+  var logoSat=document.querySelector('img[alt="Lambang Satpol PP"]').src;
+  muatSkrip('https://cdn.jsdelivr.net/npm/qr-code-styling@1.9.2/lib/qr-code-styling.js').then(function(){
+    var q=new QRCodeStyling({ width:1000, height:1000, type:'canvas', data:url, margin:0, image:logoSat,
+      qrOptions:{ errorCorrectionLevel:'H' }, dotsOptions:{ type:'rounded', color:'#12307a' },
+      cornersSquareOptions:{ type:'extra-rounded', color:'#1f4bb5' }, cornersDotOptions:{ type:'dot', color:'#12307a' },
+      backgroundOptions:{ color:'#ffffff' }, imageOptions:{ margin:10, imageSize:0.3, hideBackgroundDots:true } });
+    return q.getRawData('png');
+  }).then(function(blob){ return Promise.all([muatGambar(URL.createObjectURL(blob)), muatGambar(LOGO_PEMKAB), muatGambar(logoSat)]); })
+  .then(function(g){
+    var hasil={ lebar:gambarKartuB('lebar',g[0],g[1],g[2],S), persegi:gambarKartuB('persegi',g[0],g[1],g[2],S), a4:gambarKartuB('a4',g[0],g[1],g[2],S) };
+    if(!$('#qrPrev')) return;
+    $('#qrPrev').innerHTML='<div class="qrGrid">'+
+      '<div><img src="'+hasil.lebar.toDataURL('image/png')+'" alt="QR 16:9"><b>Slide 16:9</b><button class="btn kecil" data-u="lebar">Unduh PNG</button></div>'+
+      '<div><img src="'+hasil.persegi.toDataURL('image/png')+'" alt="QR persegi"><b>Persegi</b><button class="btn kecil" data-u="persegi">Unduh PNG</button></div>'+
+      '<div><img src="'+hasil.a4.toDataURL('image/jpeg',.92)+'" alt="QR A4"><b>A4 siap cetak</b><button class="btn kecil" data-u="a4">Unduh PDF</button></div></div>';
+    [].forEach.call($('#qrPrev').querySelectorAll('button[data-u]'), function(b){ b.onclick=function(){
+      var j=b.getAttribute('data-u'), nama='QR-BESTIE-'+S.kode+'-'+{lebar:'16x9',persegi:'persegi',a4:'A4'}[j];
+      if(j!=='a4'){ var a=document.createElement('a'); a.href=hasil[j].toDataURL('image/png'); a.download=nama+'.png'; document.body.appendChild(a); a.click(); a.remove(); return; }
+      b.disabled=true; muatSkrip('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js').then(function(){
+        var pdf=new jspdf.jsPDF({ unit:'mm', format:'a4' }); pdf.addImage(hasil.a4.toDataURL('image/jpeg',.95),'JPEG',0,0,210,297); pdf.save(nama+'.pdf');
+      }).catch(function(e){ toast(e.message); }).finally(function(){ b.disabled=false; }); }; });
+  }).catch(function(e){ if($('#qrPrev')) $('#qrPrev').innerHTML='<div class="galat">'+esc(e.message||'Gagal membuat QR.')+'</div>'; });
+}
+
+/* ---------- bank soal (Admin Utama) ---------- */
+function bankSoalB(){
+  if(!isUtama()) return;
+  bsDraf = { j:'SMP', SMP:JSON.parse(JSON.stringify(BS.bank.SMP)), SMA:JSON.parse(JSON.stringify(BS.bank.SMA)) };
+  modal('Bank soal BESTIE', '<div id="bankB"></div>', true); isiBankB();
+}
+function ambilBankB(){
+  var l=bsDraf[bsDraf.j]; [].forEach.call(document.querySelectorAll('#bankB .soalE'), function(el,i){ var q=l[i]; if(!q) return;
+    q.t=el.querySelector('textarea').value; q.p=[0,1,2,3].map(function(k){ return el.querySelector('input[data-p="'+k+'"]').value; });
+    var r=el.querySelector('input[type=radio]:checked'); q.k=r?+r.value:null; });
+}
+function isiBankB(){
+  var l=bsDraf[bsDraf.j];
+  $('#bankB').innerHTML='<div class="seg" id="segBank"><button data-j="SMP" class="'+(bsDraf.j==='SMP'?'on':'')+'">SMP</button><button data-j="SMA" class="'+(bsDraf.j==='SMA'?'on':'')+'">SMA</button></div>'+
+    '<p class="sub">Perubahan hanya berlaku untuk sesi yang dibuat sesudahnya. Sesi yang sudah ada tetap memakai soalnya sendiri. Skor = (benar ÷ jumlah soal) × 100. Saat ini '+l.length+' soal.</p>'+
+    l.map(function(q,i){ return '<div class="soalE"><div class="kepalaE"><b>Soal '+(i+1)+'</b><span><button class="btn kecil" data-a="naik" data-i="'+i+'"'+(i===0?' disabled':'')+' title="Naik">↑</button> <button class="btn kecil" data-a="turun" data-i="'+i+'"'+(i===l.length-1?' disabled':'')+' title="Turun">↓</button> <button class="btn kecil bahaya" data-a="hapus" data-i="'+i+'">Hapus</button></span></div>'+
+      '<textarea rows="2" placeholder="Pertanyaan">'+esc(q.t)+'</textarea>'+
+      [0,1,2,3].map(function(k){ return '<label class="pilE"><input type="radio" name="kB'+i+'" value="'+k+'"'+(q.k===k?' checked':'')+' title="Tandai sebagai kunci"><b>'+'ABCD'.charAt(k)+'</b><input type="text" data-p="'+k+'" value="'+esc((q.p||[])[k]||'')+'" placeholder="Pilihan '+'ABCD'.charAt(k)+'"></label>'; }).join('')+'</div>'; }).join('')+
+    '<button class="btn" id="tambahE" style="margin-top:10px"'+(l.length>=30?' disabled':'')+'>+ Tambah soal</button>'+
+    '<p class="sub">Pilih bulatan di kiri pilihan untuk menandai kunci jawaban. Urutan soal dan pilihan tetap diacak untuk setiap siswa.</p>'+
+    '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Tutup</button><button class="btn utama" id="ok">Simpan soal '+bsDraf.j+'</button></div>';
+  [].forEach.call($('#segBank').querySelectorAll('button'), function(b){ b.onclick=function(){ ambilBankB(); bsDraf.j=b.getAttribute('data-j'); isiBankB(); }; });
+  [].forEach.call(document.querySelectorAll('#bankB button[data-a]'), function(b){ b.onclick=function(){ ambilBankB(); var i=+b.getAttribute('data-i'), a=b.getAttribute('data-a'), l=bsDraf[bsDraf.j];
+    if(a==='hapus'){ if(!confirm('Hapus soal '+(i+1)+'?')) return; l.splice(i,1); }
+    if(a==='naik'){ var x=l[i]; l[i]=l[i-1]; l[i-1]=x; } if(a==='turun'){ var y=l[i]; l[i]=l[i+1]; l[i+1]=y; }
+    isiBankB(); }; });
+  $('#tambahE').onclick=function(){ ambilBankB(); bsDraf[bsDraf.j].push({ t:'', p:['','','',''], k:null }); isiBankB(); var e=document.querySelectorAll('#bankB .soalE'); e[e.length-1].scrollIntoView({block:'center'}); e[e.length-1].querySelector('textarea').focus(); };
+  $('#ok').onclick=function(){ ambilBankB(); var b=this, g=$('#mg'); b.disabled=true; g.textContent='';
+    api('bestieSimpanSoal',{ jenjang:bsDraf.j, soal:bsDraf[bsDraf.j] }).then(function(j){ BS.bank=j.bank; bsDraf[bsDraf.j]=JSON.parse(JSON.stringify(j.bank[bsDraf.j])); toast('Soal '+bsDraf.j+' tersimpan ('+j.bank[bsDraf.j].length+' soal)'); isiBankB(); })
+      .catch(function(e){ g.textContent=e.message; }).finally(function(){ if($('#ok')) $('#ok').disabled=false; }); };
+}
 
 /* ---------- ekspor ---------- */
 function muatSkrip(src){ return new Promise(function(ok,gagal){ if(document.querySelector('script[src="'+src+'"]')) return ok(); var s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=function(){ gagal(new Error('Gagal memuat pustaka ekspor.')); }; document.head.appendChild(s); }); }
