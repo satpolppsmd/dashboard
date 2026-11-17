@@ -1614,6 +1614,16 @@ function resetPw(username){ if(confirm('Reset password '+username+' menjadi sama
 
 /* ---------- BESTIE: pre-test & post-test (khusus admin) ---------- */
 var BESTIE_URL = 'https://satpolppsumedang.my.id/bestie/';
+/* Apps Script BESTIE: aksi 'sinkron' menyalin sesi ke Cloudflare (jalur utama siswa) dan menarik jawaban baru ke sheet */
+var BESTIE_API = 'https://script.google.com/macros/s/AKfycbzlveALckwRQXS6Bm8PlBnkDyo8Iq__MvF-EPSaRIxGP_2dIn3DyzsSIbIWQ8KsG0bb/exec';
+function sinkronB(paksa){
+  var ctl=window.AbortController?new AbortController():null, t=ctl?setTimeout(function(){ ctl.abort(); },40000):null;
+  return fetch(BESTIE_API,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({ action:'sinkron', paksa:!!paksa }), signal:ctl?ctl.signal:undefined })
+    .then(function(r){ return r.json(); }).then(function(j){ if(t) clearTimeout(t); return j; }).catch(function(){ if(t) clearTimeout(t); return null; });
+}
+function adaBaruB(j){ var d=j&&j.disalin; return !!(d && (d.jawaban+d.kuesioner+d.buklet)>0); }
+/* setelah sesi dibuat/diubah/dibuka/ditutup: kirim segera ke Cloudflare (ulang sekali bila sinkron lain sedang berjalan) */
+function dorongB(){ return sinkronB(true).then(function(j){ if(j && (j.jalan||j.sibuk)) return new Promise(function(ok){ setTimeout(function(){ sinkronB(true).then(ok); },4000); }); return j; }); }
 var BS = null, bsTimer = null, bsDraf = null;
 var BS_WARNA = { 'Belum dibuka':'', 'Pre-test dibuka':'p-kuning', 'Ditutup':'p-biru', 'Post-test dibuka':'p-kuning', 'Selesai':'p-hijau' };
 function pillB(st){ return '<span class="pill '+(BS_WARNA[st]||'')+'">'+esc(st)+'</span>'; }
@@ -1625,7 +1635,9 @@ function vBestie(){
   $('#isi').innerHTML='<div class="kepalaB"><h1>BESTIE · Pre-test &amp; Post-test</h1><div class="alatB">'+
     (isUtama()?'<button class="btn" onclick="bankSoalB()">Bank soal</button><button class="btn" onclick="bankKueB()">Kuesioner</button>':'')+'<button class="btn utama" onclick="formSesiB()">+ Sesi baru</button></div></div>'+
     '<p class="sub" style="margin-top:-6px">Halaman siswa hanya bisa dibuka lewat QR atau tautan sesi. Tidak ditautkan dari landing page.</p><div id="listB" class="sub">Memuat…</div>';
-  api('bestieData').then(function(j){ BS=j; isiListB(); }).catch(function(e){ $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
+  api('bestieData').then(function(j){ BS=j; isiListB();
+    sinkronB().then(function(s){ if(adaBaruB(s) && location.hash==='#bestie') api('bestieData').then(function(j2){ BS=j2; isiListB(); }); });
+  }).catch(function(e){ $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
 }
 /* label jenjang: data tetap 'SMA', tampilan 'SMA/SMK' */
 function jjB(j){ return j==='SMA'?'SMA/SMK':(j||''); }
@@ -1649,7 +1661,7 @@ function formSesiB(x){
     '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="ok">'+(x.kode?'Simpan':'Buat sesi')+'</button></div>');
   $('#ok').onclick=function(){ var b=this, g=$('#mg'); b.disabled=true; g.textContent='';
     api('bestieSimpanSesi',{ kode:x.kode, sekolah:$('#bsS').value, jenjang:$('#bsJ').value, tanggal:$('#bsT').value })
-      .then(function(j){ tutupModal(); toast(x.kode?'Sesi tersimpan':'Sesi '+j.kode+' dibuat'); if(location.hash==='#bestie/'+j.kode) vBestieSesi(j.kode); else location.hash='bestie/'+j.kode; })
+      .then(function(j){ tutupModal(); toast(x.kode?'Sesi tersimpan':'Sesi '+j.kode+' dibuat'); dorongB(); if(location.hash==='#bestie/'+j.kode) vBestieSesi(j.kode); else location.hash='bestie/'+j.kode; })
       .catch(function(e){ g.textContent=e.message; }).finally(function(){ b.disabled=false; }); };
 }
 
@@ -1663,8 +1675,10 @@ function vBestieSesi(kode){
   bsTimer=setInterval(function(){ if(location.hash!=='#bestie/'+kode){ hentiB(); return; }
     if(RB && /dibuka/.test(RB.sesi.status) && document.visibilityState==='visible' && !sibuk()) muatRekapB(kode, true); }, 30000);
 }
-function muatRekapB(kode, diam){
-  return api('bestieRekap',{kode:kode}).then(function(j){ var y=window.scrollY; RB=j; isiRekapB(); if(diam) window.scrollTo(0,y); })
+function muatRekapB(kode, diam, tanpaSinkron){
+  return api('bestieRekap',{kode:kode}).then(function(j){ var y=window.scrollY; RB=j; isiRekapB(); if(diam) window.scrollTo(0,y);
+      if(!tanpaSinkron) sinkronB().then(function(s){ if(adaBaruB(s) && location.hash==='#bestie/'+kode) muatRekapB(kode, true, true); });   // tarik jawaban terbaru dari Cloudflare
+    })
     .catch(function(e){ if(!diam) $('#rinB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
 }
 function kunciSiswaB(j){ return String(j.kelas).toUpperCase().replace(/\s+/g,'')+'|'+String(+j.absen||j.absen); }
@@ -1706,7 +1720,7 @@ function isiRekapB(){
     '<div class="alatB">'+tombolStatusB(S.status)+'</div></div>'+
     '<div class="alatB" style="margin-top:12px;justify-content:flex-start"><button class="btn" onclick="qrB()">QR &amp; tautan</button><button class="btn" onclick="ubahSesiB()">Ubah sesi</button>'+
     '<button class="btn" onclick="eksporB()">Unduh Excel</button><button class="btn" onclick="muatRekapB(RB.sesi.kode)">Muat ulang</button>'+(isUtama()?'<button class="btn bahaya" onclick="hapusSesiB()">Hapus sesi</button>':'')+'</div>'+
-    (terbuka?'<p class="sub" style="margin:10px 0 0">Rekap diperbarui otomatis setiap 30 detik selama tes dibuka. HP siswa yang sedang menunggu memeriksa status sendiri kira-kira setiap 45 detik; siswa juga bisa mengetuk "Periksa sekarang".</p>':'')+'</div>';
+    (terbuka?'<p class="sub" style="margin:10px 0 0">Rekap diperbarui otomatis setiap 30 detik selama tes dibuka. Perubahan status sampai ke HP siswa dalam beberapa detik (jalur utama) atau ±45 detik (jalur cadangan); siswa juga bisa mengetuk "Periksa sekarang".</p>':'')+'</div>';
   h+='<div class="grid g2" style="margin-top:12px"><div class="kartu"><h2>Hasil pre-test dan post-test</h2><table class="t"><thead><tr><th>Indikator</th><th style="text-align:right">Pre-test</th><th style="text-align:right">Post-test</th></tr></thead><tbody>'+
     baris('Jumlah peserta yang mengerjakan',H.pre.n,H.post.n)+baris('Rata-rata skor',f1(H.pre.rata),f1(H.post.rata))+
     baris('Skor tertinggi / terendah',H.pre.n?H.pre.maks+' / '+H.pre.min:'–',H.post.n?H.post.maks+' / '+H.post.min:'–')+
@@ -1783,7 +1797,8 @@ function ubahStatusB(status, label){
   var ket={ 'Pre-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan pre-test.', 'Ditutup':'Siswa tidak bisa lagi mengirim pre-test (kecuali yang sedang mengirim, diberi tenggang 10 menit).',
     'Post-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan post-test.', 'Selesai':'Siswa tidak bisa lagi mengirim post-test (tenggang 10 menit untuk yang sedang mengirim).' }[status];
   if(!confirm(label+' untuk '+S.kode+' ('+S.sekolah+')?\n\n'+ket)) return;
-  api('bestieStatus',{kode:S.kode, status:status}).then(function(){ toast('Status: '+status); muatRekapB(S.kode); }).catch(function(e){ toast(e.message); });
+  api('bestieStatus',{kode:S.kode, status:status}).then(function(){ toast('Status: '+status+' · mengirim ke HP siswa…'); return dorongB(); })
+    .then(function(j){ toast(j && j.ok && !j.belum ? 'Status: '+status+' · terkirim ke HP siswa' : 'Status: '+status); muatRekapB(S.kode, false, true); }).catch(function(e){ toast(e.message); });
 }
 function hapusSesiB(){
   if(!isUtama()) return;
@@ -1796,7 +1811,7 @@ function hapusSesiB(){
   $('#ok').onclick=function(){ var b=this, g=$('#mg'), k=n?$('#bsK').value.trim().toUpperCase():'';
     if(n && k!==S.kode){ g.textContent='Kode yang diketik tidak sama dengan '+S.kode+'.'; return; }
     b.disabled=true; g.textContent='';
-    api('bestieHapusSesi',{ kode:S.kode, konfirmasi:k }).then(function(j){ tutupModal(); hentiB(); toast('Sesi '+j.kode+' dihapus'+(j.jawaban?' · '+j.jawaban+' jawaban dipindah ke arsip':'')); location.hash='bestie'; })
+    api('bestieHapusSesi',{ kode:S.kode, konfirmasi:k }).then(function(j){ tutupModal(); hentiB(); dorongB(); toast('Sesi '+j.kode+' dihapus'+(j.jawaban?' · '+j.jawaban+' jawaban dipindah ke arsip':'')); location.hash='bestie'; })
       .catch(function(e){ b.disabled=false; g.textContent=e.message; });
   };
 }
