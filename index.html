@@ -998,13 +998,15 @@ function vBestie(){
     '<p class="sub" style="margin-top:-6px">Halaman siswa hanya bisa dibuka lewat QR atau tautan sesi. Tidak ditautkan dari landing page.</p><div id="listB" class="sub">Memuat…</div>';
   api('bestieData').then(function(j){ BS=j; isiListB(); }).catch(function(e){ $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
 }
+/* label jenjang: data tetap 'SMA', tampilan 'SMA/SMK' */
+function jjB(j){ return j==='SMA'?'SMA/SMK':(j||''); }
 /* buklet: jumlah HP unik yang membuka / mengunduh */
 function bukletTeksB(b){ b=b||{}; return (b.lihat||0)+' lihat · '+(b.unduh||0)+' unduh'; }
 function isiListB(){
   if(!BS.sesi.length){ $('#listB').innerHTML='<div class="kartu kosong">Belum ada sesi. Klik <b>+ Sesi baru</b> untuk membuat sesi pertama.</div>'; return; }
   $('#listB').innerHTML='<table class="t"><thead><tr><th>Kode</th><th>Sekolah</th><th class="only-desk">Jenjang</th><th class="only-desk">Tanggal</th><th>Status</th><th class="only-desk" style="text-align:right">Pre</th><th class="only-desk" style="text-align:right">Post</th><th class="only-desk" style="text-align:right">Buklet</th></tr></thead><tbody>'+
     BS.sesi.map(function(s){ return '<tr class="klik" onclick="location.hash=\'bestie/'+esc(s.kode)+'\'"><td><b>'+esc(s.kode)+'</b></td><td>'+esc(s.sekolah)+
-      '<div class="sub only-mob">'+esc(s.jenjang)+' · '+esc(tglIndo(s.tanggal))+' · pre '+s.nPre+' · post '+s.nPost+' · buklet '+bukletTeksB(s.buklet)+'</div></td><td class="only-desk">'+esc(s.jenjang)+'</td><td class="only-desk">'+esc(tglIndo(s.tanggal))+'</td><td>'+pillB(s.status)+'</td>'+
+      '<div class="sub only-mob">'+esc(jjB(s.jenjang))+' · '+esc(tglIndo(s.tanggal))+' · pre '+s.nPre+' · post '+s.nPost+' · buklet '+bukletTeksB(s.buklet)+'</div></td><td class="only-desk">'+esc(jjB(s.jenjang))+'</td><td class="only-desk">'+esc(tglIndo(s.tanggal))+'</td><td>'+pillB(s.status)+'</td>'+
       '<td class="only-desk" style="text-align:right">'+s.nPre+'</td><td class="only-desk" style="text-align:right">'+s.nPost+'</td><td class="only-desk" style="text-align:right;white-space:nowrap">'+bukletTeksB(s.buklet)+'</td></tr>'; }).join('')+'</tbody></table>';
 }
 
@@ -1012,7 +1014,7 @@ function formSesiB(x){
   x = x || { kode:'', sekolah:'', jenjang:'SMP', tanggal:D.hariIni };
   var terkunci = x.kode && x.adaJawaban;
   modal(x.kode?'Ubah sesi '+x.kode:'Sesi BESTIE baru', '<div class="f"><label class="pn wajib"><span>Nama sekolah <i class="bt">*</i></span><input id="bsS" maxlength="150" value="'+esc(x.sekolah)+'" placeholder="mis. SMP Negeri 1 Sumedang"></label>'+
-    '<label class="wajib"><span>Jenjang <i class="bt">*</i></span><select id="bsJ"'+(terkunci?' disabled':'')+'>'+opsi(['SMP','SMA'],x.jenjang)+'</select></label>'+
+    '<label class="wajib"><span>Jenjang <i class="bt">*</i></span><select id="bsJ"'+(terkunci?' disabled':'')+'>'+opsi([['SMP','SMP'],['SMA','SMA/SMK']],x.jenjang)+'</select></label>'+
     '<label class="wajib"><span>Tanggal sesi <i class="bt">*</i></span><input type="date" id="bsT" value="'+esc(x.tanggal)+'"></label></div>'+
     '<p class="sub">'+(terkunci?'Jenjang tidak bisa diubah karena sudah ada jawaban siswa.':x.kode?'Mengubah jenjang akan mengganti soal sesi ini dengan bank soal jenjang baru.':'Soal diambil dari bank soal jenjang yang dipilih saat ini, lalu dikunci untuk sesi ini. Perubahan bank soal nanti tidak mengubah sesi yang sudah dibuat.')+'</p>'+
     '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="ok">'+(x.kode?'Simpan':'Buat sesi')+'</button></div>');
@@ -1070,8 +1072,8 @@ function isiRekapB(){
   var S=RB.sesi, H=hitungB(RB), terbuka=/dibuka/.test(S.status);
   var baris=function(l,a,b){ return '<tr><td>'+l+'</td><td style="text-align:right">'+a+'</td><td style="text-align:right">'+b+'</td></tr>'; };
   var h='<div class="kartu"><div class="kepalaB"><div><h1 style="margin:0">'+esc(S.kode)+' '+pillB(S.status)+'</h1><div style="font-size:16px;font-weight:600;margin-top:4px">'+esc(S.sekolah)+'</div>'+
-    '<div class="sub">'+esc(S.jenjang)+' · '+esc(tglIndo(S.tanggal,true))+' · '+S.soal.length+' soal · dibuat '+esc(nm(S.dibuatOleh))+'</div>'+
-    '<div class="sub">Buklet '+esc(S.jenjang)+': dilihat <b>'+((RB.buklet||{}).lihat||0)+'</b> HP · diunduh <b>'+((RB.buklet||{}).unduh||0)+'</b> HP</div></div>'+
+    '<div class="sub">'+esc(jjB(S.jenjang))+' · '+esc(tglIndo(S.tanggal,true))+' · '+S.soal.length+' soal · dibuat '+esc(nm(S.dibuatOleh))+'</div>'+
+    '<div class="sub">Buklet '+esc(jjB(S.jenjang))+': dilihat <b>'+((RB.buklet||{}).lihat||0)+'</b> HP · diunduh <b>'+((RB.buklet||{}).unduh||0)+'</b> HP</div></div>'+
     '<div class="alatB">'+tombolStatusB(S.status)+'</div></div>'+
     '<div class="alatB" style="margin-top:12px;justify-content:flex-start"><button class="btn" onclick="qrB()">QR &amp; tautan</button><button class="btn" onclick="ubahSesiB()">Ubah sesi</button>'+
     '<button class="btn" onclick="eksporB()">Unduh Excel</button><button class="btn" onclick="muatRekapB(RB.sesi.kode)">Muat ulang</button>'+(isUtama()?'<button class="btn bahaya" onclick="hapusSesiB()">Hapus sesi</button>':'')+'</div>'+
@@ -1104,7 +1106,7 @@ function hapusSesiB(){
   if(!isUtama()) return;
   var S=RB.sesi, n=RB.jawaban.length, buka=(S.status==='Pre-test dibuka'||S.status==='Post-test dibuka');
   if(buka){ alert('Tes sesi '+S.kode+' masih dibuka. Tutup dulu sebelum menghapus.'); return; }
-  modal('Hapus sesi '+S.kode, '<p style="margin-top:0">Sesi <b>'+esc(S.kode)+'</b> · '+esc(S.sekolah)+' · '+esc(S.jenjang)+' · '+esc(tglIndo(S.tanggal,true))+' akan dihapus dari dashboard.</p>'+
+  modal('Hapus sesi '+S.kode, '<p style="margin-top:0">Sesi <b>'+esc(S.kode)+'</b> · '+esc(S.sekolah)+' · '+esc(jjB(S.jenjang))+' · '+esc(tglIndo(S.tanggal,true))+' akan dihapus dari dashboard.</p>'+
     '<p class="sub">'+(n?'Sesi ini berisi <b>'+n+' jawaban siswa</b>. ':'Sesi ini belum berisi jawaban. ')+'Data sesi'+(n?' dan jawabannya':'')+' dipindah ke tab "Arsip Sesi"'+(n?' dan "Arsip Jawaban"':'')+' di spreadsheet BESTIE, tidak hilang. QR dan tautan sesi ini tidak bisa dipakai lagi.</p>'+
     (n?'<div class="f"><label class="pn wajib"><span>Ketik <b>'+esc(S.kode)+'</b> untuk konfirmasi <i class="bt">*</i></span><input id="bsK" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></label></div>':'')+
     '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn bahaya" id="ok">Hapus sesi</button></div>');
@@ -1121,7 +1123,7 @@ function eksporB(){
   var S=RB.sesi, H=hitungB(RB);
   muatSkrip('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js').then(function(){
     var wb=XLSX.utils.book_new(), r=function(x){ return x==null||isNaN(x)?'':Math.round(x*10)/10; };
-    var ring=[['Rekap Pre-test & Post-test BESTIE'],[],['Kode sesi',S.kode],['Sekolah',S.sekolah],['Jenjang',S.jenjang],['Tanggal',S.tanggal],['Status',S.status],['Jumlah soal',S.soal.length],[],
+    var ring=[['Rekap Pre-test & Post-test BESTIE'],[],['Kode sesi',S.kode],['Sekolah',S.sekolah],['Jenjang',jjB(S.jenjang)],['Tanggal',S.tanggal],['Status',S.status],['Jumlah soal',S.soal.length],[],
       ['Indikator','Pre-test','Post-test'],['Jumlah peserta yang mengerjakan',H.pre.n,H.post.n],['Rata-rata skor',r(H.pre.rata),r(H.post.rata)],
       ['Skor tertinggi',H.pre.n?H.pre.maks:'',H.post.n?H.post.maks:''],['Skor terendah',H.pre.n?H.pre.min:'',H.post.n?H.post.min:''],
       ['Persentase ketuntasan (skor ≥ 70)',H.pre.n?r(H.pre.tuntas):'',H.post.n?r(H.post.tuntas):''],[],['Peningkatan rata-rata (post − pre)',r(H.naik)],[],
@@ -1166,7 +1168,7 @@ function gambarKartuB(jenis, qr, logo1, logo2, S){
     y=tulisB(c,'Bersama Siswa Tertib dan Edukatif',90,y,'500 38px '+FONT_B,'rgba(255,255,255,.92)','left',0,46);
     c.fillStyle=kuning; c.fillRect(90,y+40,90,8);
     y=tulisB(c,S.sekolah,90,y+80,'700 52px '+FONT_B,'#fff','left',L-180,62);
-    tulisB(c,S.jenjang+' · '+tglT,90,y+10,'500 34px '+FONT_B,'rgba(255,255,255,.9)','left',L-180,42);
+    tulisB(c,jjB(S.jenjang)+' · '+tglT,90,y+10,'500 34px '+FONT_B,'rgba(255,255,255,.9)','left',L-180,42);
     tulisB(c,'Satpol PP Kabupaten Sumedang · Bidang PPUD',90,Hh-80,'500 28px '+FONT_B,'rgba(255,255,255,.75)','left');
     var cx=L+16+(W-L-16)/2, s=600;
     tulisB(c,'Pindai untuk mengerjakan',cx,95,'800 52px '+FONT_B,biru,'center');
@@ -1182,7 +1184,7 @@ function gambarKartuB(jenis, qr, logo1, logo2, S){
     var yb=tulisB(c,'PRE-TEST & POST-TEST',W/2,(A?250:160),'700 '+(A?46:30)+'px '+FONT_B,kuning,'center',0,(A?56:38));
     tulisB(c,'BESTIE',W/2,yb,'800 '+(A?150:96)+'px '+FONT_B,'#fff','center');
     var y=tulisB(c,S.sekolah,W/2,band+(A?80:44),'700 '+(A?64:42)+'px '+FONT_B,teks,'center',W-160*k,(A?76:50));
-    y=tulisB(c,S.jenjang+' · '+tglT,W/2,y+6,'500 '+(A?38:28)+'px '+FONT_B,abu,'center',0,(A?46:34));
+    y=tulisB(c,jjB(S.jenjang)+' · '+tglT,W/2,y+6,'500 '+(A?38:28)+'px '+FONT_B,abu,'center',0,(A?46:34));
     var s=A?760:440; y+= (A?50:24);
     if(A) y=tulisB(c,'Pindai untuk mengerjakan',W/2,y,'800 '+60+'px '+FONT_B,biru,'center',0,90);
     qrKotak(W/2-s/2,y,s); y+=s+(A?50:26);
@@ -1241,14 +1243,14 @@ function ambilBankB(){
 }
 function isiBankB(){
   var l=bsDraf[bsDraf.j];
-  $('#bankB').innerHTML='<div class="seg" id="segBank"><button data-j="SMP" class="'+(bsDraf.j==='SMP'?'on':'')+'">SMP</button><button data-j="SMA" class="'+(bsDraf.j==='SMA'?'on':'')+'">SMA</button></div>'+
+  $('#bankB').innerHTML='<div class="seg" id="segBank"><button data-j="SMP" class="'+(bsDraf.j==='SMP'?'on':'')+'">SMP</button><button data-j="SMA" class="'+(bsDraf.j==='SMA'?'on':'')+'">SMA/SMK</button></div>'+
     '<p class="sub">Perubahan hanya berlaku untuk sesi yang dibuat sesudahnya. Sesi yang sudah ada tetap memakai soalnya sendiri. Skor = (benar ÷ jumlah soal) × 100. Saat ini '+l.length+' soal.</p>'+
     l.map(function(q,i){ return '<div class="soalE"><div class="kepalaE"><b>Soal '+(i+1)+'</b><span><button class="btn kecil" data-a="naik" data-i="'+i+'"'+(i===0?' disabled':'')+' title="Naik">↑</button> <button class="btn kecil" data-a="turun" data-i="'+i+'"'+(i===l.length-1?' disabled':'')+' title="Turun">↓</button> <button class="btn kecil bahaya" data-a="hapus" data-i="'+i+'">Hapus</button></span></div>'+
       '<textarea rows="2" placeholder="Pertanyaan">'+esc(q.t)+'</textarea>'+
       [0,1,2,3].map(function(k){ return '<label class="pilE"><input type="radio" name="kB'+i+'" value="'+k+'"'+(q.k===k?' checked':'')+' title="Tandai sebagai kunci"><b>'+'ABCD'.charAt(k)+'</b><input type="text" data-p="'+k+'" value="'+esc((q.p||[])[k]||'')+'" placeholder="Pilihan '+'ABCD'.charAt(k)+'"></label>'; }).join('')+'</div>'; }).join('')+
     '<button class="btn" id="tambahE" style="margin-top:10px"'+(l.length>=30?' disabled':'')+'>+ Tambah soal</button>'+
     '<p class="sub">Pilih bulatan di kiri pilihan untuk menandai kunci jawaban. Urutan soal dan pilihan tetap diacak untuk setiap siswa.</p>'+
-    '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Tutup</button><button class="btn utama" id="ok">Simpan soal '+bsDraf.j+'</button></div>';
+    '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Tutup</button><button class="btn utama" id="ok">Simpan soal '+jjB(bsDraf.j)+'</button></div>';
   [].forEach.call($('#segBank').querySelectorAll('button'), function(b){ b.onclick=function(){ ambilBankB(); bsDraf.j=b.getAttribute('data-j'); isiBankB(); }; });
   [].forEach.call(document.querySelectorAll('#bankB button[data-a]'), function(b){ b.onclick=function(){ ambilBankB(); var i=+b.getAttribute('data-i'), a=b.getAttribute('data-a'), l=bsDraf[bsDraf.j];
     if(a==='hapus'){ if(!confirm('Hapus soal '+(i+1)+'?')) return; l.splice(i,1); }
@@ -1256,7 +1258,7 @@ function isiBankB(){
     isiBankB(); }; });
   $('#tambahE').onclick=function(){ ambilBankB(); bsDraf[bsDraf.j].push({ t:'', p:['','','',''], k:null }); isiBankB(); var e=document.querySelectorAll('#bankB .soalE'); e[e.length-1].scrollIntoView({block:'center'}); e[e.length-1].querySelector('textarea').focus(); };
   $('#ok').onclick=function(){ ambilBankB(); var b=this, g=$('#mg'); b.disabled=true; g.textContent='';
-    api('bestieSimpanSoal',{ jenjang:bsDraf.j, soal:bsDraf[bsDraf.j] }).then(function(j){ BS.bank=j.bank; bsDraf[bsDraf.j]=JSON.parse(JSON.stringify(j.bank[bsDraf.j])); toast('Soal '+bsDraf.j+' tersimpan ('+j.bank[bsDraf.j].length+' soal)'); isiBankB(); })
+    api('bestieSimpanSoal',{ jenjang:bsDraf.j, soal:bsDraf[bsDraf.j] }).then(function(j){ BS.bank=j.bank; bsDraf[bsDraf.j]=JSON.parse(JSON.stringify(j.bank[bsDraf.j])); toast('Soal '+jjB(bsDraf.j)+' tersimpan ('+j.bank[bsDraf.j].length+' soal)'); isiBankB(); })
       .catch(function(e){ g.textContent=e.message; }).finally(function(){ if($('#ok')) $('#ok').disabled=false; }); };
 }
 
