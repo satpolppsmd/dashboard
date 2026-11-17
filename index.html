@@ -168,6 +168,13 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 .qrGrid{display:grid;grid-template-columns:1.6fr 1fr .75fr;gap:14px;align-items:end}.qrGrid div{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .qrGrid img{width:100%;border:1px solid var(--garis);border-radius:8px;background:#fff}
 .soalE{border:1px solid var(--garis);border-radius:10px;padding:10px 12px;margin-top:10px;display:grid;gap:6px}
+.kueB{padding:7px 0;border-top:1px solid var(--garis);font-size:13px}.kueB:first-of-type{border-top:0}
+.kueB .nmK{color:var(--abu);margin-bottom:4px}.kueB .nmK b{color:var(--teks)}
+.kueBaris{display:flex;align-items:center;gap:8px}.rataK{min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.tumpukB{flex:1;display:flex;height:12px;border-radius:4px;overflow:hidden;background:var(--latar)}.tumpukB i{display:block;height:100%}
+.kueB .sub{font-size:11.5px;margin-top:2px}
+.legK{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--abu);margin:0 0 8px}.legK i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.saranB{max-height:320px;overflow:auto;display:grid;gap:6px}.saranB div{background:var(--latar);border-radius:8px;padding:8px 10px;font-size:13.5px;overflow-wrap:anywhere}
 .kepalaE{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .pilE{display:flex;align-items:center;gap:8px;margin:0}.pilE input[type=text]{flex:1;min-width:0}.pilE input[type=radio]{width:18px;height:18px;min-height:0;accent-color:var(--biru);flex:none}
 .pilE b{width:14px;color:var(--abu)}
@@ -1616,7 +1623,7 @@ function hentiB(){ if(bsTimer){ clearInterval(bsTimer); bsTimer=null; } }
 function vBestie(){
   if(!isAdmin()){ location.hash='beranda'; return; }
   $('#isi').innerHTML='<div class="kepalaB"><h1>BESTIE · Pre-test &amp; Post-test</h1><div class="alatB">'+
-    (isUtama()?'<button class="btn" onclick="bankSoalB()">Bank soal</button>':'')+'<button class="btn utama" onclick="formSesiB()">+ Sesi baru</button></div></div>'+
+    (isUtama()?'<button class="btn" onclick="bankSoalB()">Bank soal</button><button class="btn" onclick="bankKueB()">Kuesioner</button>':'')+'<button class="btn utama" onclick="formSesiB()">+ Sesi baru</button></div></div>'+
     '<p class="sub" style="margin-top:-6px">Halaman siswa hanya bisa dibuka lewat QR atau tautan sesi. Tidak ditautkan dari landing page.</p><div id="listB" class="sub">Memuat…</div>';
   api('bestieData').then(function(j){ BS=j; isiListB(); }).catch(function(e){ $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
 }
@@ -1626,10 +1633,10 @@ function jjB(j){ return j==='SMA'?'SMA/SMK':(j||''); }
 function bukletTeksB(b){ b=b||{}; return (b.lihat||0)+' lihat · '+(b.unduh||0)+' unduh'; }
 function isiListB(){
   if(!BS.sesi.length){ $('#listB').innerHTML='<div class="kartu kosong">Belum ada sesi. Klik <b>+ Sesi baru</b> untuk membuat sesi pertama.</div>'; return; }
-  $('#listB').innerHTML='<table class="t"><thead><tr><th>Kode</th><th>Sekolah</th><th class="only-desk">Jenjang</th><th class="only-desk">Tanggal</th><th>Status</th><th class="only-desk" style="text-align:right">Pre</th><th class="only-desk" style="text-align:right">Post</th><th class="only-desk" style="text-align:right">Buklet</th></tr></thead><tbody>'+
+  $('#listB').innerHTML='<table class="t"><thead><tr><th>Kode</th><th>Sekolah</th><th class="only-desk">Jenjang</th><th class="only-desk">Tanggal</th><th>Status</th><th class="only-desk" style="text-align:right">Pre</th><th class="only-desk" style="text-align:right">Post</th><th class="only-desk" style="text-align:right">Kuesioner</th><th class="only-desk" style="text-align:right">Buklet</th></tr></thead><tbody>'+
     BS.sesi.map(function(s){ return '<tr class="klik" onclick="location.hash=\'bestie/'+esc(s.kode)+'\'"><td><b>'+esc(s.kode)+'</b></td><td>'+esc(s.sekolah)+
-      '<div class="sub only-mob">'+esc(jjB(s.jenjang))+' · '+esc(tglIndo(s.tanggal))+' · pre '+s.nPre+' · post '+s.nPost+' · buklet '+bukletTeksB(s.buklet)+'</div></td><td class="only-desk">'+esc(jjB(s.jenjang))+'</td><td class="only-desk">'+esc(tglIndo(s.tanggal))+'</td><td>'+pillB(s.status)+'</td>'+
-      '<td class="only-desk" style="text-align:right">'+s.nPre+'</td><td class="only-desk" style="text-align:right">'+s.nPost+'</td><td class="only-desk" style="text-align:right;white-space:nowrap">'+bukletTeksB(s.buklet)+'</td></tr>'; }).join('')+'</tbody></table>';
+      '<div class="sub only-mob">'+esc(jjB(s.jenjang))+' · '+esc(tglIndo(s.tanggal))+' · pre '+s.nPre+' · post '+s.nPost+' · kuesioner '+(s.nKue||0)+' · buklet '+bukletTeksB(s.buklet)+'</div></td><td class="only-desk">'+esc(jjB(s.jenjang))+'</td><td class="only-desk">'+esc(tglIndo(s.tanggal))+'</td><td>'+pillB(s.status)+'</td>'+
+      '<td class="only-desk" style="text-align:right">'+s.nPre+'</td><td class="only-desk" style="text-align:right">'+s.nPost+'</td><td class="only-desk" style="text-align:right">'+(s.nKue||0)+'</td><td class="only-desk" style="text-align:right;white-space:nowrap">'+bukletTeksB(s.buklet)+'</td></tr>'; }).join('')+'</tbody></table>';
 }
 
 function formSesiB(x){
@@ -1710,6 +1717,7 @@ function isiRekapB(){
     H.soal.map(function(s){ return '<div class="soalB" title="'+esc(s.q.t)+'"><div class="nmB"><b>'+s.no+'.</b> '+esc(s.q.t)+'</div>'+
       '<div class="barB"><i class="pre" style="width:'+(s.pre||0)+'%"></i></div><span>'+(s.pre==null?'–':Math.round(s.pre)+'%')+'</span>'+
       '<div class="barB"><i style="width:'+(s.post||0)+'%"></i></div><span>'+(s.post==null?'–':Math.round(s.post)+'%')+'</span></div>'; }).join('')+'</div></div>';
+  h+=kueKartuB(hitungKueB(RB));
   h+='<div class="kartu" style="margin-top:12px"><h2>Daftar siswa ('+H.siswa.length+')</h2>'+(H.siswa.length?'<div style="overflow-x:auto"><table class="t"><thead><tr><th>Nama</th><th>Kelas</th><th>Absen</th><th style="text-align:right">Pre</th><th style="text-align:right">Post</th><th style="text-align:right" class="only-desk">Selisih</th></tr></thead><tbody>'+
     H.siswa.map(function(s){ return '<tr><td>'+esc(s.nama)+'</td><td>'+esc(s.kelas)+'</td><td>'+esc(s.absen)+'</td><td style="text-align:right">'+(s.pre==null?'–':s.pre)+'</td>'+
       '<td style="text-align:right">'+(s.post==null?'–':'<b'+(s.post>=70?' style="color:var(--hijau)"':'')+'>'+s.post+'</b>'+(s.nPost>1?'<div class="sub">'+s.semuaPost.join(' / ')+'</div>':''))+'</td>'+
@@ -1717,6 +1725,59 @@ function isiRekapB(){
     :'<div class="kosong">Belum ada siswa yang mengirim jawaban.</div>')+'</div>';
   $('#rinB').innerHTML=h;
 }
+/* ---------- kuesioner pelaksanaan (Likert 1–5) ---------- */
+var LIK_B = ['Sangat tidak setuju','Tidak setuju','Netral','Setuju','Sangat setuju'];
+var LIK_W = ['#c62828','#ef9a9a','#c9d2e3','#8fb0e8','#1f4bb5'];
+function hitungKueB(R){
+  var butir=(R.sesi.kuesioner||[]), isi=R.kuesioner||[];
+  var per=butir.map(function(q,i){ var d=[0,0,0,0,0], n=0, j=0;
+    isi.forEach(function(x){ var v=+x.jawaban[q.id]; if(v>=1&&v<=5){ d[v-1]++; n++; j+=v; } });
+    return { no:i+1, q:q, n:n, d:d, rata:n?j/n:null }; });
+  var ada=per.filter(function(p){ return p.n; }), rata=ada.length?ada.reduce(function(a,p){ return a+p.rata; },0)/ada.length:null;
+  var saran=isi.filter(function(x){ return String(x.saran||'').trim(); }).map(function(x){ return { waktu:x.waktu, t:String(x.saran).trim() }; }).reverse();
+  return { n:isi.length, per:per, rata:rata, saran:saran, belumDikunci:!!R.sesi.kuesionerBelumDikunci };
+}
+function kueKartuB(K){
+  var h='<div class="kartu" style="margin-top:12px"><h2>Kuesioner pelaksanaan ('+K.n+' pengisi)</h2>';
+  if(!K.n) return h+'<div class="kosong">Belum ada siswa yang mengisi kuesioner. Kuesioner muncul setelah siswa mengirim post-test, sebelum nilainya tampil.</div>'+
+    (K.belumDikunci?'<p class="sub" style="margin-bottom:0">Pernyataan diambil dari daftar kuesioner saat ini dan dikunci untuk sesi ini ketika siswa pertama mengirim post-test.</p>':'')+'</div>';
+  h+='<div class="naikB" style="margin:0 0 10px">Rata-rata keseluruhan: <b>'+f1(K.rata)+'</b> dari 5</div>'+
+    '<div class="legK">'+LIK_B.map(function(l,i){ return '<span><i style="background:'+LIK_W[i]+'"></i>'+(i+1)+' '+l+'</span>'; }).join('')+'</div>'+
+    K.per.map(function(p){ return '<div class="kueB"><div class="nmK"><b>'+p.no+'.</b> '+esc(p.q.t)+'</div><div class="kueBaris"><div class="tumpukB">'+
+      p.d.map(function(x,i){ return x?'<i style="width:'+(x/p.n*100)+'%;background:'+LIK_W[i]+'"></i>':''; }).join('')+'</div><b class="rataK">'+f1(p.rata)+'</b></div>'+
+      '<div class="sub">'+p.d.map(function(x,i){ return (i+1)+': '+x; }).join(' · ')+'</div></div>'; }).join('');
+  h+='<h3 style="margin:16px 0 6px;font-size:15px">Kritik dan saran ('+K.saran.length+')</h3>'+(K.saran.length?'<div class="saranB">'+K.saran.map(function(x){ return '<div>'+esc(x.t).replace(/\n/g,'<br>')+'</div>'; }).join('')+'</div>':'<div class="sub">Belum ada.</div>')+
+    '<p class="sub" style="margin-bottom:0">Ditampilkan tanpa nama. Isian lengkap per siswa ada di tab "Kuesioner" spreadsheet BESTIE.</p></div>';
+  return h;
+}
+
+/* ---------- daftar pernyataan kuesioner (Admin Utama) ---------- */
+var bkDraf = null;
+function bankKueB(){
+  if(!isUtama()) return;
+  bkDraf = JSON.parse(JSON.stringify(BS.kuesioner||[]));
+  modal('Kuesioner pelaksanaan BESTIE', '<div id="bankK"></div>', true); isiBankKueB();
+}
+function ambilKueB(){ [].forEach.call(document.querySelectorAll('#bankK .soalE'), function(el,i){ if(bkDraf[i]) bkDraf[i].t=el.querySelector('textarea').value; }); }
+function isiBankKueB(){
+  var l=bkDraf;
+  $('#bankK').innerHTML='<p class="sub" style="margin-top:0">Diisi siswa setelah mengirim post-test (wajib), sebelum nilainya tampil. Skala 1–5: Sangat Tidak Setuju, Tidak Setuju, Netral, Setuju, Sangat Setuju. Sama untuk SMP dan SMA/SMK. '+
+    'Perubahan berlaku untuk sesi baru dan sesi yang belum ada siswa mengirim post-test. Saat ini '+l.length+' pernyataan.</p>'+
+    l.map(function(q,i){ return '<div class="soalE"><div class="kepalaE"><b>Pernyataan '+(i+1)+'</b><span><button class="btn kecil" data-a="naik" data-i="'+i+'"'+(i===0?' disabled':'')+' title="Naik">↑</button> <button class="btn kecil" data-a="turun" data-i="'+i+'"'+(i===l.length-1?' disabled':'')+' title="Turun">↓</button> <button class="btn kecil bahaya" data-a="hapus" data-i="'+i+'">Hapus</button></span></div>'+
+      '<textarea rows="2" maxlength="300" placeholder="Tulis pernyataan, mis. Materi BESTIE mudah saya pahami.">'+esc(q.t)+'</textarea></div>'; }).join('')+
+    '<button class="btn" id="tambahK" style="margin-top:10px"'+(l.length>=20?' disabled':'')+'>+ Tambah pernyataan</button>'+
+    '<p class="sub">Tulis sebagai pernyataan (bukan pertanyaan) supaya cocok dengan pilihan setuju/tidak setuju. Kolom kritik dan saran (tidak wajib) selalu ada di akhir.</p>'+
+    '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Tutup</button><button class="btn utama" id="ok">Simpan kuesioner</button></div>';
+  [].forEach.call(document.querySelectorAll('#bankK button[data-a]'), function(b){ b.onclick=function(){ ambilKueB(); var i=+b.getAttribute('data-i'), a=b.getAttribute('data-a'), l=bkDraf;
+    if(a==='hapus'){ if(!confirm('Hapus pernyataan '+(i+1)+'?')) return; l.splice(i,1); }
+    if(a==='naik'){ var x=l[i]; l[i]=l[i-1]; l[i-1]=x; } if(a==='turun'){ var y=l[i]; l[i]=l[i+1]; l[i+1]=y; }
+    isiBankKueB(); }; });
+  $('#tambahK').onclick=function(){ ambilKueB(); bkDraf.push({ t:'' }); isiBankKueB(); var e=document.querySelectorAll('#bankK .soalE'); e[e.length-1].scrollIntoView({block:'center'}); e[e.length-1].querySelector('textarea').focus(); };
+  $('#ok').onclick=function(){ ambilKueB(); var b=this, g=$('#mg'); b.disabled=true; g.textContent='';
+    api('bestieSimpanKuesioner',{ butir:bkDraf }).then(function(j){ BS.kuesioner=j.kuesioner; bkDraf=JSON.parse(JSON.stringify(j.kuesioner)); toast('Kuesioner tersimpan ('+j.kuesioner.length+' pernyataan)'); isiBankKueB(); })
+      .catch(function(e){ g.textContent=e.message; }).finally(function(){ if($('#ok')) $('#ok').disabled=false; }); };
+}
+
 function ubahStatusB(status, label){
   var S=RB.sesi;
   var ket={ 'Pre-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan pre-test.', 'Ditutup':'Siswa tidak bisa lagi mengirim pre-test (kecuali yang sedang mengirim, diberi tenggang 5 menit).',
@@ -1742,7 +1803,7 @@ function hapusSesiB(){
 function ubahSesiB(){ var S=RB.sesi; formSesiB({ kode:S.kode, sekolah:S.sekolah, jenjang:S.jenjang, tanggal:S.tanggal, adaJawaban:RB.jawaban.length>0 }); }
 
 function eksporB(){
-  var S=RB.sesi, H=hitungB(RB);
+  var S=RB.sesi, H=hitungB(RB), K=hitungKueB(RB);
   muatSkrip('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js').then(function(){
     var wb=XLSX.utils.book_new(), r=function(x){ return x==null||isNaN(x)?'':Math.round(x*10)/10; };
     var ring=[['Rekap Pre-test & Post-test BESTIE'],[],['Kode sesi',S.kode],['Sekolah',S.sekolah],['Jenjang',jjB(S.jenjang)],['Tanggal',S.tanggal],['Status',S.status],['Jumlah soal',S.soal.length],[],
@@ -1750,6 +1811,7 @@ function eksporB(){
       ['Skor tertinggi',H.pre.n?H.pre.maks:'',H.post.n?H.post.maks:''],['Skor terendah',H.pre.n?H.pre.min:'',H.post.n?H.post.min:''],
       ['Persentase ketuntasan (skor ≥ 70)',H.pre.n?r(H.pre.tuntas):'',H.post.n?r(H.post.tuntas):''],[],['Peningkatan rata-rata (post − pre)',r(H.naik)],[],
       ['Buklet dilihat (jumlah HP)',(RB.buklet||{}).lihat||0],['Buklet diunduh (jumlah HP)',(RB.buklet||{}).unduh||0],[],
+      ['Jumlah pengisi kuesioner',K.n],['Rata-rata kuesioner (skala 1–5)',r(K.rata)],[],
       ['Diunduh',waktuIndo(new Date(Date.now()+7*3600e3).toISOString().replace('T',' '))],['Oleh',ME.nama]];
     var ws=XLSX.utils.aoa_to_sheet(ring); ws['!cols']=[{wch:36},{wch:14},{wch:14}]; XLSX.utils.book_append_sheet(wb, ws, 'Ringkasan');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(H.siswa.length?H.siswa.map(function(s){ return { 'Nama':s.nama, 'Kelas':s.kelas, 'No. Absen':+s.absen||s.absen, 'Skor Pre-test':s.pre==null?'':s.pre,
@@ -1757,6 +1819,10 @@ function eksporB(){
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(H.soal.map(function(s){ return { 'No':s.no, 'Pertanyaan':s.q.t, 'Kunci':'ABCD'.charAt(s.q.k)+'. '+s.q.p[s.q.k], '% Benar Pre-test':r(s.pre), '% Benar Post-test':r(s.post) }; })), 'Per soal');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(RB.jawaban.length?RB.jawaban.map(function(j){ return { 'Waktu':j.waktu, 'Tes':j.tes==='pre'?'Pre-test':'Post-test', 'Nama':j.nama, 'Kelas':j.kelas, 'No. Absen':+j.absen||j.absen,
       'Percobaan':j.percobaan, 'Benar':j.benar, 'Jumlah Soal':j.jumlah, 'Skor':j.skor, 'Durasi (detik)':j.durasi }; }):[{'Waktu':'(belum ada data)'}]), 'Semua kiriman');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(K.per.length?K.per.map(function(p){ var o={ 'No':p.no, 'Pernyataan':p.q.t, 'Jumlah Pengisi':p.n, 'Rata-rata (1–5)':r(p.rata) };
+      LIK_B.forEach(function(l,i){ o[(i+1)+' '+l]=p.d[i]; }); LIK_B.forEach(function(l,i){ o['% '+(i+1)]=p.n?r(p.d[i]/p.n*100):''; }); return o; }):[{'No':'(belum ada data)'}]), 'Kuesioner');
+    var resp=(RB.kuesioner||[]).map(function(x,i){ var o={ 'Responden':i+1, 'Waktu':x.waktu }; K.per.forEach(function(p){ o[p.no+'. '+p.q.t.slice(0,60)]=x.jawaban[p.q.id]||''; }); o['Kritik dan Saran']=x.saran||''; return o; });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resp.length?resp:[{'Responden':'(belum ada data)'}]), 'Isian kuesioner');
     XLSX.writeFile(wb, 'rekap-bestie-'+S.kode+'-'+S.tanggal+'.xlsx');
   }).catch(function(e){ toast(e.message); });
 }
