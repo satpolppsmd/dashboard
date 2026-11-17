@@ -1706,7 +1706,7 @@ function isiRekapB(){
     '<div class="alatB">'+tombolStatusB(S.status)+'</div></div>'+
     '<div class="alatB" style="margin-top:12px;justify-content:flex-start"><button class="btn" onclick="qrB()">QR &amp; tautan</button><button class="btn" onclick="ubahSesiB()">Ubah sesi</button>'+
     '<button class="btn" onclick="eksporB()">Unduh Excel</button><button class="btn" onclick="muatRekapB(RB.sesi.kode)">Muat ulang</button>'+(isUtama()?'<button class="btn bahaya" onclick="hapusSesiB()">Hapus sesi</button>':'')+'</div>'+
-    (terbuka?'<p class="sub" style="margin:10px 0 0">Rekap diperbarui otomatis setiap 30 detik selama tes dibuka. Perubahan status terlihat di HP siswa paling lambat ±15 detik.</p>':'')+'</div>';
+    (terbuka?'<p class="sub" style="margin:10px 0 0">Rekap diperbarui otomatis setiap 30 detik selama tes dibuka. HP siswa yang sedang menunggu memeriksa status sendiri kira-kira setiap 45 detik; siswa juga bisa mengetuk "Periksa sekarang".</p>':'')+'</div>';
   h+='<div class="grid g2" style="margin-top:12px"><div class="kartu"><h2>Hasil pre-test dan post-test</h2><table class="t"><thead><tr><th>Indikator</th><th style="text-align:right">Pre-test</th><th style="text-align:right">Post-test</th></tr></thead><tbody>'+
     baris('Jumlah peserta yang mengerjakan',H.pre.n,H.post.n)+baris('Rata-rata skor',f1(H.pre.rata),f1(H.post.rata))+
     baris('Skor tertinggi / terendah',H.pre.n?H.pre.maks+' / '+H.pre.min:'–',H.post.n?H.post.maks+' / '+H.post.min:'–')+
@@ -1780,8 +1780,8 @@ function isiBankKueB(){
 
 function ubahStatusB(status, label){
   var S=RB.sesi;
-  var ket={ 'Pre-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan pre-test.', 'Ditutup':'Siswa tidak bisa lagi mengirim pre-test (kecuali yang sedang mengirim, diberi tenggang 5 menit).',
-    'Post-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan post-test.', 'Selesai':'Siswa tidak bisa lagi mengirim post-test (tenggang 5 menit untuk yang sedang mengirim).' }[status];
+  var ket={ 'Pre-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan pre-test.', 'Ditutup':'Siswa tidak bisa lagi mengirim pre-test (kecuali yang sedang mengirim, diberi tenggang 10 menit).',
+    'Post-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan post-test.', 'Selesai':'Siswa tidak bisa lagi mengirim post-test (tenggang 10 menit untuk yang sedang mengirim).' }[status];
   if(!confirm(label+' untuk '+S.kode+' ('+S.sekolah+')?\n\n'+ket)) return;
   api('bestieStatus',{kode:S.kode, status:status}).then(function(){ toast('Status: '+status); muatRekapB(S.kode); }).catch(function(e){ toast(e.message); });
 }
