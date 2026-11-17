@@ -998,12 +998,14 @@ function vBestie(){
     '<p class="sub" style="margin-top:-6px">Halaman siswa hanya bisa dibuka lewat QR atau tautan sesi. Tidak ditautkan dari landing page.</p><div id="listB" class="sub">Memuat…</div>';
   api('bestieData').then(function(j){ BS=j; isiListB(); }).catch(function(e){ $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
 }
+/* buklet: jumlah HP unik yang membuka / mengunduh */
+function bukletTeksB(b){ b=b||{}; return (b.lihat||0)+' lihat · '+(b.unduh||0)+' unduh'; }
 function isiListB(){
   if(!BS.sesi.length){ $('#listB').innerHTML='<div class="kartu kosong">Belum ada sesi. Klik <b>+ Sesi baru</b> untuk membuat sesi pertama.</div>'; return; }
-  $('#listB').innerHTML='<table class="t"><thead><tr><th>Kode</th><th>Sekolah</th><th class="only-desk">Jenjang</th><th class="only-desk">Tanggal</th><th>Status</th><th class="only-desk" style="text-align:right">Pre</th><th class="only-desk" style="text-align:right">Post</th></tr></thead><tbody>'+
+  $('#listB').innerHTML='<table class="t"><thead><tr><th>Kode</th><th>Sekolah</th><th class="only-desk">Jenjang</th><th class="only-desk">Tanggal</th><th>Status</th><th class="only-desk" style="text-align:right">Pre</th><th class="only-desk" style="text-align:right">Post</th><th class="only-desk" style="text-align:right">Buklet</th></tr></thead><tbody>'+
     BS.sesi.map(function(s){ return '<tr class="klik" onclick="location.hash=\'bestie/'+esc(s.kode)+'\'"><td><b>'+esc(s.kode)+'</b></td><td>'+esc(s.sekolah)+
-      '<div class="sub only-mob">'+esc(s.jenjang)+' · '+esc(tglIndo(s.tanggal))+' · pre '+s.nPre+' · post '+s.nPost+'</div></td><td class="only-desk">'+esc(s.jenjang)+'</td><td class="only-desk">'+esc(tglIndo(s.tanggal))+'</td><td>'+pillB(s.status)+'</td>'+
-      '<td class="only-desk" style="text-align:right">'+s.nPre+'</td><td class="only-desk" style="text-align:right">'+s.nPost+'</td></tr>'; }).join('')+'</tbody></table>';
+      '<div class="sub only-mob">'+esc(s.jenjang)+' · '+esc(tglIndo(s.tanggal))+' · pre '+s.nPre+' · post '+s.nPost+' · buklet '+bukletTeksB(s.buklet)+'</div></td><td class="only-desk">'+esc(s.jenjang)+'</td><td class="only-desk">'+esc(tglIndo(s.tanggal))+'</td><td>'+pillB(s.status)+'</td>'+
+      '<td class="only-desk" style="text-align:right">'+s.nPre+'</td><td class="only-desk" style="text-align:right">'+s.nPost+'</td><td class="only-desk" style="text-align:right;white-space:nowrap">'+bukletTeksB(s.buklet)+'</td></tr>'; }).join('')+'</tbody></table>';
 }
 
 function formSesiB(x){
@@ -1068,7 +1070,8 @@ function isiRekapB(){
   var S=RB.sesi, H=hitungB(RB), terbuka=/dibuka/.test(S.status);
   var baris=function(l,a,b){ return '<tr><td>'+l+'</td><td style="text-align:right">'+a+'</td><td style="text-align:right">'+b+'</td></tr>'; };
   var h='<div class="kartu"><div class="kepalaB"><div><h1 style="margin:0">'+esc(S.kode)+' '+pillB(S.status)+'</h1><div style="font-size:16px;font-weight:600;margin-top:4px">'+esc(S.sekolah)+'</div>'+
-    '<div class="sub">'+esc(S.jenjang)+' · '+esc(tglIndo(S.tanggal,true))+' · '+S.soal.length+' soal · dibuat '+esc(nm(S.dibuatOleh))+'</div></div>'+
+    '<div class="sub">'+esc(S.jenjang)+' · '+esc(tglIndo(S.tanggal,true))+' · '+S.soal.length+' soal · dibuat '+esc(nm(S.dibuatOleh))+'</div>'+
+    '<div class="sub">Buklet '+esc(S.jenjang)+': dilihat <b>'+((RB.buklet||{}).lihat||0)+'</b> HP · diunduh <b>'+((RB.buklet||{}).unduh||0)+'</b> HP</div></div>'+
     '<div class="alatB">'+tombolStatusB(S.status)+'</div></div>'+
     '<div class="alatB" style="margin-top:12px;justify-content:flex-start"><button class="btn" onclick="qrB()">QR &amp; tautan</button><button class="btn" onclick="ubahSesiB()">Ubah sesi</button>'+
     '<button class="btn" onclick="eksporB()">Unduh Excel</button><button class="btn" onclick="muatRekapB(RB.sesi.kode)">Muat ulang</button>'+(isUtama()?'<button class="btn bahaya" onclick="hapusSesiB()">Hapus sesi</button>':'')+'</div>'+
@@ -1122,6 +1125,7 @@ function eksporB(){
       ['Indikator','Pre-test','Post-test'],['Jumlah peserta yang mengerjakan',H.pre.n,H.post.n],['Rata-rata skor',r(H.pre.rata),r(H.post.rata)],
       ['Skor tertinggi',H.pre.n?H.pre.maks:'',H.post.n?H.post.maks:''],['Skor terendah',H.pre.n?H.pre.min:'',H.post.n?H.post.min:''],
       ['Persentase ketuntasan (skor ≥ 70)',H.pre.n?r(H.pre.tuntas):'',H.post.n?r(H.post.tuntas):''],[],['Peningkatan rata-rata (post − pre)',r(H.naik)],[],
+      ['Buklet dilihat (jumlah HP)',(RB.buklet||{}).lihat||0],['Buklet diunduh (jumlah HP)',(RB.buklet||{}).unduh||0],[],
       ['Diunduh',waktuIndo(new Date(Date.now()+7*3600e3).toISOString().replace('T',' '))],['Oleh',ME.nama]];
     var ws=XLSX.utils.aoa_to_sheet(ring); ws['!cols']=[{wch:36},{wch:14},{wch:14}]; XLSX.utils.book_append_sheet(wb, ws, 'Ringkasan');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(H.siswa.length?H.siswa.map(function(s){ return { 'Nama':s.nama, 'Kelas':s.kelas, 'No. Absen':+s.absen||s.absen, 'Skor Pre-test':s.pre==null?'':s.pre,
