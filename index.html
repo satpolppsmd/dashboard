@@ -194,6 +194,8 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 .pilihL{display:grid;gap:2px;max-height:55vh;overflow-y:auto;border:1px solid var(--garis);border-radius:8px;padding:4px}
 .cekB{display:flex;gap:10px;align-items:flex-start;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1.35}.cekB:hover{background:var(--latar)}.cekB input{width:18px;height:18px;min-height:0;margin-top:1px;flex:none;accent-color:var(--biru)}
 .srW{background:var(--kuningbg);color:var(--kuningtx);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:14px}.srW.merah{background:var(--merahbg);color:var(--merah)}.srW ul{margin:4px 0 0;padding-left:18px}
+.cariT{display:flex;gap:6px;margin-bottom:6px}.cariT input{flex:1;min-width:0}
+.hasilT{display:flex;flex-direction:column;gap:4px;margin-bottom:6px}.hasilT:empty{display:none}.hasilT button{text-align:left;border:1px solid var(--garis);background:#fff;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;color:inherit}.hasilT button:hover{background:var(--birubg)}.hasilT .sub{font-size:12.5px}
 .prK{margin:0;padding-left:22px;font-size:14px;line-height:1.5}.prK li{margin-bottom:6px;text-align:justify}
 .srLangkah{border-top:1px solid var(--garis);padding:12px 0 4px}.srLangkah:first-of-type{border-top:0}.srLangkah>.sub{margin:2px 0 8px}
 .srS{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:8px 0;border-top:1px dashed var(--garis)}.srS:first-child{border-top:0}.srS>div{min-width:0}.srS .tx{font-size:13.5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
@@ -214,7 +216,7 @@ nav.tab a.on .ic svg{stroke-width:2.2}
   .f{grid-template-columns:1fr}
   .dl{grid-template-columns:1fr;gap:0}.dl dt{margin-top:8px}
   .bar{grid-template-columns:110px 1fr 28px}
-  .tutup-bg{padding:0;align-items:stretch}.modal{border-radius:0;min-height:100%}
+  .tutup-bg{padding:0;display:block}.modal{border-radius:0;min-height:100%}
   .alat .seg,.alatPeta .seg{width:100%;display:flex}.alat .seg button,.alatPeta .seg button{flex:1}
   .alatPeta select{flex:1 1 calc(50% - 4px);min-width:0}.alatPeta #pPer{flex-basis:100%}
   .alatB{justify-content:flex-start}.qrGrid{grid-template-columns:1fr}.soalB{grid-template-columns:minmax(0,1fr) 70px 36px}
@@ -1514,7 +1516,7 @@ function vUndanganForm(id){
     if(!s){ $('#isi').innerHTML='<div class="kartu galat">Surat tidak ditemukan.</div>'; return; }
     SF=JSON.parse(JSON.stringify(s.data)); SF.id=s.id; SF.nomor=s.nomor;
   }
-  SF.jenis='Undangan'; SF.acara=SF.acara||{}; SF.penerima=SF.penerima||[]; SF.dasar=SF.dasar||[];
+  unKetik={}; SF.jenis='Undangan'; SF.acara=SF.acara||{}; SF.penerima=SF.penerima||[]; SF.dasar=SF.dasar||[];
   var s0=id==='baru'?null:(SRD.surat||[]).filter(function(x){ return x.id===id; })[0], a=SF.acara;
   $('#isi').innerHTML='<a href="#surat" class="sub" style="text-decoration:none">‹ Semua surat</a>'+
     '<h1 style="margin-top:8px">'+(SF.id?'Undangan':'Undangan baru')+'</h1>'+
@@ -1525,7 +1527,7 @@ function vUndanganForm(id){
     '<section class="kartu"><h2>2. Hal &amp; penerima</h2>'+
       '<div class="f"><label class="pn">Hal<input id="unHal" placeholder="mis. Undangan Rapat Koordinasi terkait …"></label></div>'+
       '<div class="sub" style="margin:12px 0 6px">Penerima (<span id="unJml"></span>) · tanpa “Yth.”</div><div id="unPen"></div>'+
-      '<div class="alat" style="margin:4px 0 0"><button class="btn" onclick="unPilihPenerima()">+ Pilih dari daftar</button><button class="btn" onclick="unTambahPenerima()">+ Ketik baru</button></div>'+
+      '<div class="alat" style="margin:4px 0 0"><button class="btn" onclick="unPilihPerangkat()">+ Perangkat daerah</button><button class="btn" onclick="unPilihPenerima()">+ Pilih dari daftar</button><button class="btn" onclick="unTambahPenerima()">+ Ketik baru</button></div>'+
       '<div id="unInfo" class="srW" style="margin:10px 0 0;background:var(--birubg);color:inherit"></div>'+
       '<div class="f srF"><label>di<input id="unDi" placeholder="Tempat"></label><label>Lampiran<input id="unLamp"></label>'+
       '<div class="sub pn" style="margin-top:-6px">Lampiran dikosongkan = otomatis (“-” atau “1 (satu)”).</div></div></section>'+
@@ -1576,16 +1578,21 @@ function unPilihModel(m){
 function unGambarPenerima(){
   var L=SF.penerima;
   $('#unPen').innerHTML=L.length? L.map(function(p,i){
+    var pd=unPerangkatDari(p.nama);
     return '<div class="srD dg" data-i="'+i+'"><span class="no">'+SR_PEGANG+(i+1)+'.</span><div><textarea class="auto" rows="1" data-k="nama" placeholder="mis. Kepala Dinas …">'+esc(p.nama||'')+'</textarea>'+
-      '<input data-k="cq" value="'+esc(p.cq||'')+'" placeholder="cq. … (opsional)" style="width:100%;margin-top:4px"></div><div class="tb">'+
+      (pd?unPilihCq(pd, p.cq, i):'')+
+      '<input data-k="cq" value="'+esc(p.cq||'')+'" placeholder="cq. … (opsional)" style="width:100%;margin-top:4px'+(pd && !unKetik[i] && (!p.cq || unCqDikenal(pd,p.cq))?';display:none':'')+'"></div><div class="tb">'+
       '<button class="btn kecil" title="Naik" onclick="unGeserPen('+i+',-1)"'+(i?'':' disabled')+'>↑</button><button class="btn kecil" title="Turun" onclick="unGeserPen('+i+',1)"'+(i<L.length-1?'':' disabled')+'>↓</button>'+
       '<button class="btn kecil bahaya" title="Hapus" onclick="unHapusPen('+i+')">✕</button></div></div>'; }).join('')
     :'<div class="sub" style="margin-bottom:8px">Belum ada penerima.</div>';
   [].forEach.call(document.querySelectorAll('#unPen [data-k]'), function(e){
     var i=+e.closest('.srD').getAttribute('data-i'), k=e.getAttribute('data-k'); if(e.tagName==='TEXTAREA') srTinggi(e);
     e.oninput=function(){ SF.penerima[i][k]=e.value; if(e.tagName==='TEXTAREA') srTinggi(e); unUbah(true); };
-    e.onchange=function(){ var v=k==='nama'?e.value.replace(/^\s*yth\.?\s*/i,''):e.value.replace(/^\s*cq\.?\s*/i,''); if(v!==e.value){ e.value=v; SF.penerima[i][k]=v; } unUbah(); }; });
-  srSeret($('#unPen'), '.srD', function(a,b){ srPindahkan(SF.penerima,a,b); unUbah(); unGambarPenerima(); });
+    e.onchange=function(){ var v=k==='nama'?e.value.replace(/^\s*yth\.?\s*/i,''):e.value.replace(/^\s*cq\.?\s*/i,''); if(v!==e.value){ e.value=v; SF.penerima[i][k]=v; } unUbah(); if(k==='nama' || e.parentNode.querySelector('select[data-cq]')) unGambarPenerima(); }; });
+  [].forEach.call(document.querySelectorAll('#unPen select[data-cq]'), function(sel){ sel.onchange=function(){
+    var i=+sel.getAttribute('data-cq'); if(sel.value==='__lain'){ unKetik[i]=1; var inp=sel.parentNode.querySelector('input[data-k=cq]'); inp.style.display=''; inp.focus(); inp.select(); return; }
+    delete unKetik[i]; SF.penerima[i].cq=sel.value==='__tanpa'?'':sel.value; unUbah(); unGambarPenerima(); }; });
+  srSeret($('#unPen'), '.srD', function(a,b){ unKetik={}; srPindahkan(SF.penerima,a,b); unUbah(); unGambarPenerima(); });
   unGambarInfo();
 }
 function unGambarInfo(){
@@ -1596,9 +1603,50 @@ function unGambarInfo(){
     :'<b>'+n+' penerima</b> → Yth. '+esc(UndanganDocx.TERLAMPIR)+' · Lampiran: '+esc(UndanganDocx.teksLampiran(SF))+' · halaman Daftar Undangan ditambahkan.';
   $('#unLamp').placeholder='otomatis: '+UndanganDocx.teksLampiran({ penerima:SF.penerima });
 }
+/* Perangkat daerah (sheet "Perangkat Daerah"): pilih pimpinan sebagai Yth., lalu cq. dari daftar unitnya. */
+function unNorm(t){ return String(t||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function unPerangkatDari(nama){ var n=unNorm(nama); if(!n) return null; return (SRD.perangkat||[]).filter(function(p){ return unNorm(p.yth)===n; })[0]||null; }
+function unUnit(pd){ return String(pd.unit||'').split('\n').map(function(l){ var m=l.match(/^\s*(-*)\s*(.*?)\s*$/); return { lvl:Math.min(2,m[1].length), nama:m[2] }; }).filter(function(u){ return u.nama; }); }
+var unKetik={};   // baris penerima yang cq.-nya sedang diketik sendiri
+function unCqDikenal(pd, cq){ return unUnit(pd).some(function(u){ return unNorm(u.nama)===unNorm(cq); }); }
+function unPilihCq(pd, cq, i){
+  var U=unUnit(pd); if(!U.length) return ''; var ada=unCqDikenal(pd, cq), lain=(cq&&!ada)||unKetik[i];
+  return '<select data-cq="'+i+'" style="width:100%;margin-top:4px" aria-label="cq. dari daftar">'+
+    '<option value=""'+(!cq&&!lain?' selected':'')+'>cq. (opsional): pilih bidang/bagian…</option>'+
+    U.map(function(u){ var on=!lain&&unNorm(u.nama)===unNorm(cq); return '<option value="'+esc(u.nama)+'"'+(on?' selected':'')+'>'+(u.lvl?new Array(u.lvl*2-1).join('\u00a0\u00a0')+'– ':'')+esc(u.nama)+'</option>'; }).join('')+
+    (cq?'<option value="__tanpa">(tanpa cq.)</option>':'')+'<option value="__lain"'+(lain?' selected':'')+'>Ketik cq. sendiri…</option></select>';
+}
+var unSaringPD={ q:'', k:'' };
+function unPilihPerangkat(){
+  var L=SRD.perangkat||[], K=[]; L.forEach(function(p){ if(p.kelompok && K.indexOf(p.kelompok)<0) K.push(p.kelompok); });
+  if(!L.length){ toast('Daftar perangkat daerah belum ada.'); return; }
+  modal('Pilih perangkat daerah', '<div class="alat"><input type="search" id="unPDq" placeholder="Cari dinas, badan, camat…" value="'+esc(unSaringPD.q)+'"></div>'+
+    '<div class="seg" id="unPDk" style="margin-bottom:10px;display:flex;flex-wrap:wrap"><button data-k="">Semua</button>'+K.map(function(k){ return '<button data-k="'+esc(k)+'">'+esc(k)+'</button>'; }).join('')+'</div>'+
+    '<div class="sub" style="margin-bottom:6px">cq. (bidang/bagian/seksi) dipilih setelah ditambahkan, di baris penerima.</div>'+
+    '<div class="pilihL" id="unPDL"></div><div class="aksi"><span class="sub" id="unPDn" style="margin-right:auto"></span><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="unPDok">Tambahkan</button></div>', true);
+  var dipilih={}, ada={}; SF.penerima.forEach(function(p){ ada[unNorm(p.nama)]=1; });
+  function gambar(){
+    var q=unNorm(unSaringPD.q);
+    [].forEach.call($('#unPDk').children, function(b){ b.classList.toggle('on', b.getAttribute('data-k')===unSaringPD.k); });
+    var T=L.filter(function(p){ return (!unSaringPD.k || p.kelompok===unSaringPD.k) && (!q || unNorm(p.nama+' '+p.yth).indexOf(q)>=0); });
+    $('#unPDL').innerHTML=T.length? T.map(function(p){ var k=unNorm(p.yth), on=ada[k];
+      return '<label class="cekB"><input type="checkbox" data-k="'+esc(k)+'"'+(on||dipilih[k]?' checked':'')+(on?' disabled':'')+'><span>'+esc(p.yth)+(p.kelompok!=='Kecamatan' && unNorm(p.yth).indexOf(unNorm(p.nama))<0?'<br><span class="sub">'+esc(p.nama)+'</span>':'')+'</span></label>'; }).join('')
+      :'<div class="kosong">Tidak ada yang cocok.</div>';
+    [].forEach.call(document.querySelectorAll('#unPDL input[data-k]'), function(c){ c.onchange=function(){ var k=c.getAttribute('data-k'); if(c.checked) dipilih[k]=1; else delete dipilih[k]; hitung(); }; });
+    hitung();
+  }
+  function hitung(){ $('#unPDn').textContent=Object.keys(dipilih).length+' dipilih'; }
+  $('#unPDq').oninput=function(){ unSaringPD.q=this.value; gambar(); };
+  [].forEach.call($('#unPDk').children, function(b){ b.onclick=function(){ unSaringPD.k=b.getAttribute('data-k'); gambar(); }; });
+  $('#unPDok').onclick=function(){
+    SF.penerima=SF.penerima.filter(function(p){ return String(p.nama||'').trim(); });
+    L.forEach(function(p){ if(dipilih[unNorm(p.yth)]) SF.penerima.push({ nama:p.yth, cq:'' }); });
+    tutupModal(); unUbah(); unGambarPenerima(); };
+  gambar(); setTimeout(function(){ var e=$('#unPDq'); if(e && window.innerWidth>760) e.focus(); }, 50);
+}
 function unTambahPenerima(){ SF.penerima.push({ nama:'', cq:'' }); unGambarPenerima(); var t=document.querySelectorAll('#unPen textarea'); t=t[t.length-1]; if(t) t.focus(); }
-function unGeserPen(i,a){ var x=SF.penerima.splice(i,1)[0]; SF.penerima.splice(i+a,0,x); unUbah(); unGambarPenerima(); }
-function unHapusPen(i){ SF.penerima.splice(i,1); unUbah(); unGambarPenerima(); }
+function unGeserPen(i,a){ unKetik={}; var x=SF.penerima.splice(i,1)[0]; SF.penerima.splice(i+a,0,x); unUbah(); unGambarPenerima(); }
+function unHapusPen(i){ unKetik={}; SF.penerima.splice(i,1); unUbah(); unGambarPenerima(); }
 function unKunciP(p){ return (String(p.nama||'').trim()+'|'+String(p.cq||'').trim()).toLowerCase(); }
 function unPilihPenerima(){
   var q='';
@@ -2144,7 +2192,8 @@ function formKasus(no, pre, tiket){
     '<label class="wajib"><span>Kecamatan <i class="bt">*</i></span><select id="kKec">'+opsi(kec,k.kecamatan,'Pilih…')+'</select></label>'+
     '<label class="wajib"><span>Desa/Kelurahan <i class="bt">*</i></span><select id="kDesa"></select></label>'+
     '<label class="pn">Alamat/patokan kejadian<input id="kAl" maxlength="500" value="'+esc(k.alamat)+'"></label>'+
-    '<div class="pn" style="grid-column:1/-1"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="sub">Titik lokasi (opsional) — ketuk peta</span><span><button type="button" class="btn kecil" id="kGps">📍 GPS</button> <button type="button" class="btn kecil" id="kHapusTitik">Hapus titik</button></span></div><div id="petaPilih"></div><div class="sub" id="kTitik"></div></div>'+
+    '<div class="pn" style="grid-column:1/-1"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="sub">Titik lokasi (opsional)</span><span><button type="button" class="btn kecil" id="kGps">📍 GPS</button> <button type="button" class="btn kecil" id="kHapusTitik">Hapus titik</button></span></div>'+
+      '<div class="cariT"><input type="search" id="kCari" maxlength="120" placeholder="Cari tempat, mis. McDonald\'s Jatinangor" enterkeyhint="search"><button type="button" class="btn kecil" id="kCariBtn">Cari</button></div><div class="hasilT" id="kHasil"></div><div id="petaPilih"></div><div class="sub" id="kTitik"></div></div>'+
     '<label class="pn">Catatan<textarea id="kCat" style="min-height:60px">'+esc(k.catatan)+'</textarea></label>'+
     '</div><div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="ok">'+(no?'Simpan perubahan':'Buat kasus')+'</button></div>', true);
   var isiDesa=function(v){ var d=(D.wilayah[$('#kKec').value]||[]).slice().sort(); $('#kDesa').innerHTML=opsi(d,v,'Pilih…'); };
@@ -2159,6 +2208,16 @@ function formKasus(no, pre, tiket){
   setTimeout(function(){ pp.invalidateSize(); }, 200);
   $('#kGps').onclick=function(){ if(!navigator.geolocation){ toast('GPS tidak tersedia'); return; } navigator.geolocation.getCurrentPosition(function(p){ set([p.coords.latitude,p.coords.longitude]); pp.setView(titik,17); }, function(){ toast('Lokasi tidak dapat diambil'); }, {enableHighAccuracy:true, timeout:15000}); };
   $('#kHapusTitik').onclick=function(){ set(null); };
+  var cari=function(){ var q=$('#kCari').value.trim(), b=$('#kCariBtn'), h=$('#kHasil'); if(q.length<3){ toast('Ketik minimal 3 huruf.'); return; }
+    b.disabled=true; b.textContent='Mencari…';
+    api('cariTempat',{ q:q }).then(function(j){
+      h.innerHTML=j.hasil.length? j.hasil.map(function(x,i){ return '<button type="button" data-i="'+i+'"><b>'+esc(x.nama)+'</b>'+(x.sumedang?'':' <span class="pill">di luar Sumedang</span>')+'<div class="sub">'+esc(x.alamat)+'</div></button>'; }).join('')
+        :'<div class="sub">Tempat tidak ditemukan. Coba kata lain, atau ketuk peta.</div>';
+      [].forEach.call(h.querySelectorAll('button[data-i]'), function(t){ t.onclick=function(){ var x=j.hasil[+t.getAttribute('data-i')];
+        set([x.lat,x.lng]); pp.setView([x.lat,x.lng],17); if(!$('#kAl').value.trim()) $('#kAl').value=x.alamat; h.innerHTML=''; toast('Titik dipasang. Geser pin bila perlu.'); }; });
+    }).catch(function(e){ h.innerHTML='<div class="sub" style="color:var(--merah)">'+esc(e.message)+'</div>'; })
+      .finally(function(){ b.disabled=false; b.textContent='Cari'; }); };
+  $('#kCariBtn').onclick=cari; $('#kCari').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); cari(); } });
   } else { $('#petaPilih').innerHTML='<div class="kosong">Peta tidak dapat dimuat.</div>'; $('#kGps').onclick=$('#kHapusTitik').onclick=function(){}; }
   var idKirimK = buatIdKirim();
   $('#ok').onclick=function(){
