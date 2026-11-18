@@ -184,6 +184,10 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 .cek{display:flex!important;flex-direction:row!important;gap:8px;align-items:center;font-size:14px;color:var(--teks);margin-top:8px;cursor:pointer}.cek input{width:18px;height:18px;min-height:0;accent-color:var(--biru)}
 .srJ{border:1px solid var(--garis);border-radius:10px;padding:12px;margin-bottom:12px;background:#fbfcfe}
 .srTim{border:1px solid var(--garis);border-radius:10px;padding:10px 12px;margin-top:12px;background:#fff}
+#unPen .srD>div:nth-child(2) textarea,#unPen .srD input{width:100%}
+.pegang{touch-action:none;cursor:grab;color:#8a94a8;font-size:18px;line-height:1;padding:6px 4px;user-select:none;-webkit-user-select:none;flex:none}.pegang:active{cursor:grabbing}
+.srD.dg{grid-template-columns:52px minmax(0,1fr) auto}.srD.dg .no{display:flex;align-items:flex-start;justify-content:flex-end;gap:2px;padding-top:4px}.srD.dg .no .pegang{padding-top:3px}
+.diseret{position:relative;z-index:20;background:#fff;box-shadow:0 8px 22px rgba(18,48,122,.22);border-radius:8px}.ikutGeser{transition:transform .15s ease}body.lagiSeret{user-select:none;-webkit-user-select:none;cursor:grabbing}
 .srF{grid-template-columns:1fr 1fr;margin-top:8px}.srF .pn{grid-column:1/-1}
 .srP .pr{display:flex;gap:6px;align-items:center;padding:6px 0;border-top:1px solid var(--garis)}.srP .pr:first-child{border-top:0}.srP .pr .no{width:24px;color:var(--abu);text-align:right;flex:none}.srP .pr .nm{flex:1;min-width:0;line-height:1.3}.srP .pr .nm b{font-size:14px}.srP .pr .nm .sub{font-size:12px}
 .srP .pr.koor{background:var(--birubg);border-radius:8px;padding-left:4px;padding-right:4px}.btn.kb.on{background:var(--biru);border-color:var(--biru);color:#fff}
@@ -219,7 +223,8 @@ nav.tab a.on .ic svg{stroke-width:2.2}
   main{padding-top:12px}
   .srD{grid-template-columns:22px minmax(0,1fr)}.srD .tb{grid-column:2;justify-content:flex-end;margin-top:-2px}
   .srF{grid-template-columns:1fr 1fr}.srF label.pn{grid-column:1/-1}
-  .srP .pr{flex-wrap:wrap;row-gap:4px}.srP .pr .nm{flex:1 1 calc(100% - 32px)}.srP .pr .kb{margin-left:30px;margin-right:auto}
+  .srP .pr{flex-wrap:wrap;row-gap:4px}.srP .pr .nm{flex:1 1 calc(100% - 60px)}.srP .pr .kb{margin-left:58px;margin-right:auto}
+  .srD.dg{grid-template-columns:48px minmax(0,1fr)}
 }
 @media print{header.top,nav.tab,.alat,.aksi,.btn{display:none!important}main{padding:0}}
 </style>
@@ -656,11 +661,250 @@ var SuratDocx = (function () {
     isiDraf: isiDraf, docxCadangan: docxCadangan, teksSalin: teksSalin, validasi: validasi, namaBerkas: namaBerkas,
     tglPanjang: tglPanjang, hari: hari, pukul: pukul, teksUntuk: teksUntuk };
 })();
+/* Surat Undangan — pengisi draf "Surat Biasa" kosong dari e-office & pembuat .docx cadangan (tanpa server).
+ * Satu penerima: Yth. langsung nama penerima, Lampiran "-".
+ * Banyak penerima: Yth. "(Daftar Undangan Terlampir)", Lampiran "1 (satu)", halaman Daftar Undangan.
+ * Bergantung pada JSZip, DOMParser, XMLSerializer (di Node disuntikkan lewat UndanganDocx.pasang()).
+ */
+var UndanganDocx = (function () {
+  var W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  var LIB = { JSZip: typeof JSZip !== 'undefined' ? JSZip : null,
+    DOMParser: typeof DOMParser !== 'undefined' ? DOMParser : null,
+    XMLSerializer: typeof XMLSerializer !== 'undefined' ? XMLSerializer : null };
+  var HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  var BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  var FONT = 'Arial';
+  var TERLAMPIR = '(Daftar Undangan Terlampir)';
 
-/* ---------- SURAT (Surat Perintah) ---------- */
+  var MODEL = {
+    rakor: { nama: 'Rapat koordinasi',
+      pembuka: 'Disampaikan dengan hormat, dalam rangka …, dengan ini kami mengundang kehadiran Bapak/Ibu pada:',
+      penutup: 'Mengingat pentingnya hal tersebut di atas, kami mohon Bapak/Ibu dapat hadir tepat pada waktunya, atas perhatian dan kerjasamanya kami sampaikan terima kasih.',
+      acara: '', catatan: '' },
+    panggil: { nama: 'Pemanggilan',
+      pembuka: 'Berdasarkan hasil peninjauan lapangan dalam rangka Penegakan Perda dan/atau Perkada di Kabupaten Sumedang, kepada Pemilik/Pengelola/Penanggungjawab … yang berlokasi di …, dengan ini kami mengundang kehadiran Saudara tanpa mewakilkan pada:',
+      penutup: 'Mengingat pentingnya hal tersebut di atas, kami mohon Bapak/Ibu agar dapat hadir tepat pada waktunya, atas perhatian dan kerjasamanya kami sampaikan terima kasih.',
+      acara: 'Permintaan Keterangan',
+      catatan: 'Untuk pengelola kegiatan usaha di atas agar membawa dokumen administrasi/perizinan terkait dengan aktivitas kegiatan usahanya.' }
+  };
+
+  /* ---------- teks ---------- */
+  function tglObj(s) { var m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null; }
+  function tglPanjang(s) { var d = tglObj(s); return d ? d.getUTCDate() + ' ' + BULAN[d.getUTCMonth()] + ' ' + d.getUTCFullYear() : ''; }
+  function hari(s) { var d = tglObj(s); return d ? HARI[d.getUTCDay()] : ''; }
+  function jam(j) { return String(j || '').replace(':', '.'); }
+  function pukul(a) { var m = jam(a.jamMulai), s = jam(a.jamSelesai); if (!m) return ''; return s ? m + ' - ' + s + ' WIB' : m + ' WIB - Selesai'; }
+  function rapikanAkhir(t) { return String(t || '').trim().replace(/[;.,:\s]+$/, ''); }
+  function bersihYth(t) { return String(t || '').trim().replace(/^yth\.?\s*/i, ''); }
+  function penerima(s) { return (s.penerima || []).map(function (p) { return { nama: bersihYth(p && p.nama), cq: String((p && p.cq) || '').trim().replace(/^cq\.?\s*/i, '') }; })
+      .filter(function (p) { return p.nama; }); }
+  function banyak(s) { return penerima(s).length > 1; }
+  function teksLampiran(s) { var l = String(s.lampiran || '').trim(); return l || (banyak(s) ? '1 (satu)' : '-'); }
+  function teksDi(s) { return String(s.di || '').trim() || 'Tempat'; }
+  function barisAcara(s) {
+    var a = s.acara || {}, b = [['Hari', hari(a.tanggal)], ['Tanggal', tglPanjang(a.tanggal)], ['Pukul', pukul(a)], ['Tempat', String(a.tempat || '').trim()]];
+    if (String(a.acara || '').trim()) b.push(['Acara', String(a.acara).trim()]);
+    if (String(a.catatan || '').trim()) b.push(['Catatan', String(a.catatan).trim()]);
+    return b;
+  }
+  function teksSalin(s) {
+    var P = penerima(s);
+    return { hal: String(s.hal || '').trim(), lampiran: teksLampiran(s),
+      kepada: P.length > 1 ? TERLAMPIR : (P[0] ? P[0].nama + (P[0].cq ? ' cq. ' + P[0].cq : '') : ''),
+      daftar: P.map(function (p, i) { return (i + 1) + '. Yth. ' + p.nama + (p.cq ? ' cq. ' + p.cq : ''); }).join('\n') };
+  }
+
+  /* ---------- XML ---------- */
+  function x(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function rpr(o) { o = o || {}; return '<w:rPr><w:rFonts w:ascii="' + FONT + '" w:hAnsi="' + FONT + '" w:cs="' + FONT + '"/>' + (o.b ? '<w:b/><w:bCs/>' : '') + (o.u ? '<w:u w:val="single"/>' : '') + '<w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>'; }
+  function run(t, o) {
+    return String(t).split('\t').map(function (bag, i) {
+      return (i ? '<w:r>' + rpr(o) + '<w:tab/></w:r>' : '') + (bag ? '<w:r>' + rpr(o) + '<w:t xml:space="preserve">' + x(bag) + '</w:t></w:r>' : '');
+    }).join('');
+  }
+  function para(isi, o) { o = o || {};
+    var ppr = '';
+    if (o.keep) ppr += '<w:keepNext/>';
+    if (o.brk) ppr += '<w:pageBreakBefore/>';
+    if (o.garis) ppr += '<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="4" w:color="000000"/></w:pBdr>';
+    if (o.tabs) ppr += '<w:tabs>' + o.tabs.map(function (t) { return '<w:tab w:val="left" w:pos="' + t + '"/>'; }).join('') + '</w:tabs>';
+    ppr += '<w:spacing w:before="' + (o.before || 0) + '" w:after="' + (o.after || 0) + '" w:line="' + (o.line || 240) + '" w:lineRule="auto"/>';
+    if (o.ind) ppr += '<w:ind w:left="' + o.ind[0] + '" w:hanging="' + o.ind[1] + '"/>';
+    if (o.first) ppr += '<w:ind w:firstLine="' + o.first + '"/>';
+    if (o.jc) ppr += '<w:jc w:val="' + o.jc + '"/>';
+    ppr += rpr(o.r);
+    var r = typeof isi === 'string' ? run(isi, o.r) : (isi || []).map(function (s) { return run(s[0], s[1]); }).join('');
+    return '<w:p><w:pPr>' + ppr + '</w:pPr>' + r + '</w:p>';
+  }
+  function sel(lebar, isi) { return '<w:tc><w:tcPr><w:tcW w:w="' + lebar + '" w:type="dxa"/></w:tcPr>' + (isi || '<w:p/>') + '</w:tc>'; }
+  var TANPA_GARIS = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(function (b) { return '<w:' + b + ' w:val="none" w:sz="0" w:space="0" w:color="auto"/>'; }).join('') + '</w:tblBorders>';
+
+  /* Badan surat: Dasar, pembuka, tabel acara, penutup (gaya contoh undangan rapat koordinasi). */
+  function xmlBadan(s) {
+    var L = 276, out = [para('')];
+    var d = (s.dasar || []).map(rapikanAkhir).filter(String);
+    if (d.length) {
+      out.push(para('Dasar:', { line: L, jc: 'both', keep: true }));
+      d.forEach(function (t, i) { out.push(para((i + 1) + '.\t' + t + (i === d.length - 1 ? '.' : ';'), { line: L, jc: 'both', ind: [720, 360], tabs: [720] })); });
+      out.push(para(''));
+    }
+    out.push(para(String(s.pembuka || '').trim(), { line: L, jc: 'both', first: 720 }));
+    out.push(para(''));
+    var K = [2122, 294, 6656];
+    out.push('<w:tbl><w:tblPr><w:tblW w:w="' + (K[0] + K[1] + K[2]) + '" w:type="dxa"/>' + TANPA_GARIS + '<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="108" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>' +
+      K.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid>' +
+      barisAcara(s).map(function (b) { return '<w:tr><w:trPr><w:cantSplit/></w:trPr>' + sel(K[0], para(b[0], { line: L })) + sel(K[1], para(':', { line: L })) + sel(K[2], para(b[1], { line: L, jc: 'both' })) + '</w:tr>'; }).join('') + '</w:tbl>');
+    out.push(para(''));
+    out.push(para(String(s.penutup || '').trim(), { line: L, jc: 'both', first: 720 }));
+    return out.join('');
+  }
+
+  /* Halaman lampiran Daftar Undangan (gaya contoh). */
+  function xmlLampiran(s, tanggal) {
+    var out = [];
+    out.push(para([['Lampiran', { b: true }]], { brk: true, keep: true }));
+    out.push(para(String(s.hal || '').trim(), { keep: true }));
+    out.push(para('', { keep: true }));
+    out.push(para('Nomor\t: ${nomer_surat}', { tabs: [1134], keep: true }));
+    out.push(para('Tanggal\t: ' + tanggal, { tabs: [1134], garis: true, keep: true }));
+    out.push(para(''));
+    out.push(para([['DAFTAR UNDANGAN', { b: true, u: true }]], { jc: 'center', keep: true }));
+    out.push(para(''));
+    penerima(s).forEach(function (p, i) {
+      out.push(para((i + 1) + '.\tYth. ' + p.nama, { line: 360, jc: 'both', ind: [720, 360], tabs: [720], keep: !!p.cq }));
+      if (p.cq) out.push(para('cq. ' + p.cq, { line: 360, ind: [720, 0] }));
+    });
+    return out.join('');
+  }
+
+  /* ---------- DOM ---------- */
+  function el(n, nama) { return n.getElementsByTagNameNS(W, nama); }
+  function teksNode(n) { var t = el(n, 't'), s = ''; for (var i = 0; i < t.length; i++) s += t[i].textContent; return s; }
+  function anak(n, nama) { var a = []; for (var c = n.firstChild; c; c = c.nextSibling) if (c.nodeType === 1 && c.localName === nama && c.namespaceURI === W) a.push(c); return a; }
+  function anakSemua(n) { var a = []; for (var c = n.firstChild; c; c = c.nextSibling) if (c.nodeType === 1) a.push(c); return a; }
+  function fragmen(doc, xml) {
+    var d = new LIB.DOMParser().parseFromString('<w:x xmlns:w="' + W + '">' + xml + '</w:x>', 'application/xml');
+    var a = []; for (var c = d.documentElement.firstChild; c; c = c.nextSibling) a.push(doc.importNode(c, true)); return a;
+  }
+  function isiSel(doc, tc, xml) {
+    anak(tc, 'p').concat(anak(tc, 'tbl')).forEach(function (p) { tc.removeChild(p); });
+    fragmen(doc, xml).forEach(function (n) { tc.appendChild(n); });
+  }
+  /* Paragraf benar-benar kosong: tanpa teks, gambar, tab, atau pemisah halaman. */
+  function kosong(n) {
+    if (n.localName !== 'p') return false;
+    if (teksNode(n).trim()) return false;
+    return !['drawing', 'pict', 'object', 'br', 'tab', 'fldSimple', 'instrText', 'AlternateContent'].some(function (t) { return el(n, t).length || n.getElementsByTagName('mc:' + t).length; });
+  }
+  function bersih(t) { return t.replace(/\s+/g, ' ').trim().toLowerCase(); }
+
+  function cariKepala(doc) {
+    var tr = el(doc, 'tr'), r = {};
+    for (var i = 0; i < tr.length; i++) {
+      var tc = anak(tr[i], 'tc'); if (!tc.length) continue;
+      var k = bersih(teksNode(tc[0]));
+      if ((k === 'lampiran' || k === 'hal') && tc.length >= 3 && !r[k]) r[k] = tr[i];
+      if (k === 'yth.' && tc.length >= 2 && !r.yth) r.yth = tr[i];
+      if (!k && tc.length >= 2 && bersih(teksNode(tc[1])) === 'di' && !r.di) r.di = tr[i];
+    }
+    return r;
+  }
+  function tabelInduk(n) { while (n && !(n.localName === 'tbl' && n.parentNode && n.parentNode.localName === 'body')) n = n.parentNode; return n; }
+  function tanggalDraf(doc) {
+    var p = el(doc, 'p');
+    for (var i = 0; i < p.length; i++) { var m = teksNode(p[i]).replace(/\s+/g, ' ').match(/Sumedang\s*,\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/); if (m) return m[1]; }
+    return '';
+  }
+
+  function validasi(s) {
+    var g = [], a = s.acara || {};
+    if (!String(s.hal || '').trim()) g.push('Hal belum diisi.');
+    if (!penerima(s).length) g.push('Penerima belum diisi.');
+    if (!String(s.pembuka || '').trim()) g.push('Paragraf pembuka belum diisi.');
+    else if (/…|\.\.\./.test(s.pembuka)) g.push('Paragraf pembuka masih ada titik-titik (…) yang belum diganti.');
+    if (!String(s.penutup || '').trim()) g.push('Paragraf penutup belum diisi.');
+    if (!tglObj(a.tanggal)) g.push('Tanggal acara belum diisi.');
+    if (!String(a.jamMulai || '').trim()) g.push('Pukul mulai belum diisi.');
+    if (!String(a.tempat || '').trim()) g.push('Tempat acara belum diisi.');
+    return g;
+  }
+
+  /* Isi draf Surat Biasa kosong dari e-office (ArrayBuffer/Uint8Array) → Promise<Uint8Array> */
+  function isiDraf(buf, s) {
+    var g = validasi(s); if (g.length) return Promise.reject(new Error(g.join(' ')));
+    return LIB.JSZip.loadAsync(buf).then(function (zip) {
+      var f = zip.file('word/document.xml');
+      if (!f) throw new Error('Berkas ini bukan dokumen Word (.docx).');
+      return f.async('string').then(function (xml) {
+        var doc = new LIB.DOMParser().parseFromString(xml, 'application/xml');
+        var k = cariKepala(doc);
+        if (!k.lampiran || !k.hal || !k.yth) throw new Error('Draf tidak dikenali. Pastikan yang diunggah draf Surat Biasa kosong dari e-office (ada baris Lampiran, Hal, dan Yth.).');
+        var body = el(doc, 'body')[0], kepala = tabelInduk(k.hal), sp = anak(body, 'sectPr')[0] || null;
+        var semua = anakSemua(body), iK = semua.indexOf(kepala), iT = -1;
+        for (var i = iK + 1; i < semua.length; i++) if (semua[i].localName === 'tbl' && /Ditandatangani|NIP/i.test(teksNode(semua[i]))) { iT = i; break; }
+        if (iK < 0 || iT < 0) throw new Error('Draf tidak dikenali (blok tanda tangan tidak ditemukan).');
+        var tengah = semua.slice(iK + 1, iT);
+        if (tengah.some(function (n) { return !kosong(n); })) throw new Error('Draf ini sepertinya sudah pernah diisi (badan surat tidak kosong). Unggah draf Surat Biasa kosong dari e-office.');
+        var tanggal = tanggalDraf(doc) || tglPanjang(s.tanggal);
+        if (!tanggal) throw new Error('Tanggal surat tidak ditemukan di draf.');
+        var P = penerima(s), lebih = P.length > 1;
+        // Kepala surat
+        isiSel(doc, anak(k.lampiran, 'tc')[2], para(teksLampiran(s)));
+        isiSel(doc, anak(k.hal, 'tc')[2], para(String(s.hal).trim()));
+        isiSel(doc, anak(k.yth, 'tc')[1], lebih ? para(TERLAMPIR) : para(P[0].nama) + (P[0].cq ? para('cq. ' + P[0].cq) : ''));
+        if (k.di) { var bawah = k.di.nextSibling; while (bawah && bawah.localName !== 'tr') bawah = bawah.nextSibling;
+          if (bawah) isiSel(doc, anak(bawah, 'tc')[1], para('\t' + teksDi(s))); }
+        // Badan: ganti paragraf kosong di antara kepala dan tanda tangan
+        tengah.forEach(function (n) { body.removeChild(n); });
+        fragmen(doc, xmlBadan(s)).forEach(function (n) { body.insertBefore(n, semua[iT]); });
+        // Buang paragraf kosong di ujung (agar tidak muncul halaman kosong), lalu halaman Daftar Undangan bila banyak penerima
+        var ekor = anakSemua(body).filter(function (n) { return n !== sp; });
+        for (var j = ekor.length - 1; j >= 0 && ekor[j] !== semua[iT] && kosong(ekor[j]); j--) body.removeChild(ekor[j]);
+        if (lebih) fragmen(doc, xmlLampiran(s, tanggal)).forEach(function (n) { body.insertBefore(n, sp); });
+        var hasil = new LIB.XMLSerializer().serializeToString(doc);
+        if (!/^<\?xml/.test(hasil)) hasil = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + hasil;
+        zip.file('word/document.xml', hasil);
+        return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+      });
+    });
+  }
+
+  /* .docx cadangan tanpa draf: kepala ringkas + badan + lampiran (untuk disalin manual) */
+  function docxCadangan(s) {
+    var g = validasi(s); if (g.length) return Promise.reject(new Error(g.join(' ')));
+    if (!tglObj(s.tanggal)) return Promise.reject(new Error('Tanggal surat belum diisi.'));
+    var P = penerima(s), lebih = P.length > 1, K = [1252, 283, 8236];
+    function baris(a, isi) { return '<w:tr>' + sel(K[0], para(a)) + sel(K[1], para(':')) + sel(K[2], isi) + '</w:tr>'; }
+    var kepala = '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>' + TANPA_GARIS + '<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>' + K.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid>' +
+      baris('Nomor', para('${nomer_surat}')) + baris('Sifat', para('Biasa')) + baris('Lampiran', para(teksLampiran(s))) + baris('Hal', para(String(s.hal).trim())) + '</w:tbl>';
+    var yth = para('') + para('Yth.\t' + (lebih ? TERLAMPIR : P[0].nama), { tabs: [643] }) + (!lebih && P[0].cq ? para('\tcq. ' + P[0].cq, { tabs: [643] }) : '') +
+      para('\tdi', { tabs: [643] }) + para('\t\t' + teksDi(s), { tabs: [643, 1286], after: 240 });
+    var isi = para('Sumedang, ' + tglPanjang(s.tanggal), { jc: 'right', after: 120 }) + kepala + yth + xmlBadan(s) + (lebih ? xmlLampiran(s, tglPanjang(s.tanggal)) : '') +
+      '<w:sectPr><w:pgSz w:w="12242" w:h="18722"/><w:pgMar w:top="851" w:right="1134" w:bottom="851" w:left="1134" w:header="567" w:footer="284" w:gutter="0"/></w:sectPr>';
+    var zip = new LIB.JSZip();
+    zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+    zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    zip.file('word/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="' + W + '"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="' + FONT + '" w:hAnsi="' + FONT + '" w:cs="' + FONT + '"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="id-ID"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>');
+    zip.file('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="' + W + '"><w:body>' + isi + '</w:body></w:document>');
+    return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+  }
+
+  function namaBerkas(s) {
+    var d = tglObj((s.acara || {}).tanggal || s.tanggal);
+    var hal = String(s.hal || 'Undangan').replace(/^undangan\s+/i, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'Undangan';
+    return 'UNDANGAN_' + (d ? ('0' + d.getUTCDate()).slice(-2) + '_' + BULAN[d.getUTCMonth()] + '_' + String(d.getUTCFullYear()).slice(2) + '_' : '') + hal + '.docx';
+  }
+
+  return { pasang: function (o) { Object.keys(o).forEach(function (k) { LIB[k] = o[k]; }); },
+    isiDraf: isiDraf, docxCadangan: docxCadangan, teksSalin: teksSalin, validasi: validasi, namaBerkas: namaBerkas,
+    penerima: penerima, teksLampiran: teksLampiran, barisAcara: barisAcara, pukul: pukul, tglPanjang: tglPanjang, hari: hari, MODEL: MODEL, TERLAMPIR: TERLAMPIR };
+})();
+
+/* ---------- SURAT (Surat Perintah & Undangan) ---------- */
 var SRD = null, SF = null, srMuat = null;
 var SR_DRAF0 = 'ppud_surat_draf_';
-function srKunci(){ return SR_DRAF0+(ME?ME.username:''); }
+function srKunci(j){ if(j===undefined) j=SF&&SF.jenis; return SR_DRAF0+(j==='Undangan'?'und_':'')+(ME?ME.username:''); }
 var SEKSI_SR = ['Binwasluh', 'Sidiklidik'];
 function srMuatData(paksa){
   if(SRD && !paksa) return Promise.resolve(SRD);
@@ -679,6 +923,7 @@ function rSurat(bag){
   if(!isAdmin()){ location.hash='beranda'; return; }
   var b=bag[1]||'';
   if(b==='pegawai' || b==='dasar'){ if(!isUtama()){ location.hash='surat'; return; } srPerlu(b==='pegawai'?vPegawai:vDasarHukum); return; }
+  if(b==='undangan'){ srPerlu(function(){ vUndanganForm('baru'); }); return; }
   if(b) srPerlu(function(){ vSuratForm(decodeURIComponent(b)); }); else srPerlu(vSurat);
 }
 function srHari(t){ return SuratDocx.hari(t); }
@@ -693,23 +938,69 @@ function srUnduh(bytes, nama){
   var url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=nama; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
 }
-function srPustaka(){ return muatSkrip('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js').then(function(){ SuratDocx.pasang({ JSZip: window.JSZip }); }); }
+function srPustaka(){ return muatSkrip('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js').then(function(){ SuratDocx.pasang({ JSZip: window.JSZip }); if(typeof UndanganDocx!=='undefined') UndanganDocx.pasang({ JSZip: window.JSZip }); }); }
+
+/* Tarik-lepas (pegangan ⠿) untuk mengurutkan baris. pindah(dari, ke) dipanggil setelah dilepas. Jalan dengan mouse & sentuh. */
+var SR_PEGANG='<span class="pegang" title="Tarik untuk mengurutkan" aria-label="Tarik untuk mengurutkan">⠿</span>';
+function srSeret(wadah, pilih, pindah){
+  if(!wadah) return;
+  [].forEach.call(wadah.querySelectorAll('.pegang'), function(h){
+    var baris=h.closest(pilih); if(!baris || baris.parentNode!==wadah) return;
+    h.onpointerdown=function(e){
+      if(e.button>0) return; e.preventDefault();
+      var semua=[].filter.call(wadah.children, function(r){ return r.matches(pilih); }), dari=semua.indexOf(baris), ke=dari;
+      if(semua.length<2) return;
+      var sy0=window.scrollY, y0=e.clientY, ky=y0, kotak=semua.map(function(r){ var b=r.getBoundingClientRect(); return { a:b.top+sy0, t:b.height }; });
+      var jarak=semua.length>1 ? (dari<semua.length-1 ? kotak[dari+1].a-kotak[dari].a : kotak[dari].a-kotak[dari-1].a+kotak[dari].t-kotak[dari-1].t) : kotak[dari].t;
+      baris.classList.add('diseret'); document.body.classList.add('lagiSeret');
+      semua.forEach(function(r,i){ if(i!==dari) r.classList.add('ikutGeser'); });
+      try{ h.setPointerCapture(e.pointerId); }catch(x){}
+      var gulir=0, raf=0;
+      function hitung(){
+        var dy=ky+window.scrollY-(y0+sy0), tengah=ky+window.scrollY; ke=dari;
+        for(var i=0;i<semua.length;i++){ if(i===dari) continue; var m=kotak[i].a+kotak[i].t/2;
+          if(i>dari && tengah>m) ke=i; if(i<dari && tengah<m && ke===dari) ke=i; }
+        baris.style.transform='translateY('+dy+'px)';
+        semua.forEach(function(r,i){ if(i===dari) return; var g=0;
+          if(dari<ke && i>dari && i<=ke) g=-jarak; if(dari>ke && i<dari && i>=ke) g=jarak; r.style.transform=g?'translateY('+g+'px)':''; });
+      }
+      function langkah(){ raf=0; if(!gulir) return; window.scrollBy(0,gulir); hitung(); raf=requestAnimationFrame(langkah); }
+      function gerak(ev){ ky=ev.clientY; var H=window.innerHeight;
+        gulir= ky<90 ? -Math.ceil((90-ky)/6) : ky>H-90 ? Math.ceil((ky-(H-90))/6) : 0;
+        if(gulir && !raf) raf=requestAnimationFrame(langkah); hitung(); }
+      function lepas(){
+        h.removeEventListener('pointermove',gerak); h.removeEventListener('pointerup',lepas); h.removeEventListener('pointercancel',lepas);
+        gulir=0; if(raf) cancelAnimationFrame(raf);
+        semua.forEach(function(r){ r.style.transform=''; r.classList.remove('diseret','ikutGeser'); }); document.body.classList.remove('lagiSeret');
+        if(ke!==dari) pindah(dari, ke);
+      }
+      h.addEventListener('pointermove',gerak); h.addEventListener('pointerup',lepas); h.addEventListener('pointercancel',lepas);
+    };
+  });
+}
+function srPindahkan(L, dari, ke){ var x=L.splice(dari,1)[0]; L.splice(ke,0,x); }
 
 /* ===== daftar surat ===== */
+var srSaringJenis='';
 function vSurat(){
-  var L=SRD.surat||[];
-  $('#isi').innerHTML='<div class="kepalaB"><h1>Surat Perintah</h1><div class="alatB">'+
+  var L=(SRD.surat||[]).filter(function(s){ return !srSaringJenis || (s.jenis||'Surat Perintah')===srSaringJenis; });
+  var banner=function(teks, buka, buang){ return '<div class="kartu" style="margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>📝 '+teks+'</span><button class="btn kecil utama" onclick="'+buka+'">Lanjutkan</button><button class="btn kecil" onclick="'+buang+'">Buang</button></div>'; };
+  $('#isi').innerHTML='<div class="kepalaB"><h1>Surat</h1><div class="alatB">'+
     (isUtama()?'<a class="btn" href="#surat/pegawai">Data pegawai</a><a class="btn" href="#surat/dasar">Dasar hukum</a>':'')+
-    '<button class="btn utama" onclick="srBaru()">+ Surat Perintah baru</button></div></div>'+
-    (srDrafAda()?'<div class="kartu" style="margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>📝 Ada isian surat yang belum disimpan.</span><button class="btn kecil utama" onclick="location.hash=\'surat/baru\'">Lanjutkan</button><button class="btn kecil" onclick="srBuangDraf()">Buang</button></div>':'')+
-    (L.length?'<div class="daftar">'+L.map(function(s){ var d=s.data||{}, j=d.jadwal||[];
-      return '<div class="item" onclick="location.hash=\'surat/'+esc(s.id)+'\'"><div class="a"><b>'+esc(s.untuk)+'</b>'+(s.nomor?'<span class="pill p-hijau">Bernomor</span>':'<span class="pill">Belum bernomor</span>')+'</div>'+
-        '<div class="sub">'+esc(j.map(function(x){ return x.tempat+' · '+srTgl(x.tanggal); }).join(' | '))+'</div>'+
-        '<div class="sub">'+s.jumlah+' personel · surat '+esc(srTgl(s.tanggal))+(s.nomor?' · '+esc(s.nomor):'')+' · oleh '+esc(nm(s.dibuatOleh))+'</div></div>'; }).join('')+'</div>'
-      :'<div class="kartu kosong">Belum ada surat. Tekan <b>+ Surat Perintah baru</b> untuk membuat.</div>');
+    '<button class="btn utama" onclick="srBaru()">+ Surat Perintah</button><button class="btn utama" onclick="unBaru()">+ Undangan</button></div></div>'+
+    (srDrafAda()?banner('Ada isian surat perintah yang belum disimpan.', "location.hash='surat/baru'", 'srBuangDraf()'):'')+
+    (unDrafAda()?banner('Ada isian undangan yang belum disimpan.', "location.hash='surat/undangan'", 'unBuangDraf()'):'')+
+    ((SRD.surat||[]).length?'<div class="alat"><div class="seg" id="srJenis"><button data-j="">Semua</button><button data-j="Surat Perintah">Surat Perintah</button><button data-j="Undangan">Undangan</button></div></div>':'')+
+    (L.length?'<div class="daftar">'+L.map(function(s){ var d=s.data||{}, und=s.jenis==='Undangan';
+      var tempat=und?((d.acara||{}).tempat||s.tempat)+' · '+srTgl((d.acara||{}).tanggal||s.tanggalKegiatan):(d.jadwal||[]).map(function(x){ return x.tempat+' · '+srTgl(x.tanggal); }).join(' | ');
+      return '<div class="item" onclick="location.hash=\'surat/'+esc(s.id)+'\'"><div class="a"><b>'+esc(s.untuk)+'</b></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px"><span class="pill '+(und?'p-biru':'')+'">'+(und?'Undangan':'Surat Perintah')+'</span>'+(s.nomor?'<span class="pill p-hijau">Bernomor</span>':'<span class="pill">Belum bernomor</span>')+'</div>'+
+        '<div class="sub">'+esc(tempat)+'</div>'+
+        '<div class="sub">'+s.jumlah+(und?' penerima':' personel')+' · surat '+esc(srTgl(s.tanggal))+(s.nomor?' · '+esc(s.nomor):'')+' · oleh '+esc(nm(s.dibuatOleh))+'</div></div>'; }).join('')+'</div>'
+      :'<div class="kartu kosong">'+((SRD.surat||[]).length?'Belum ada surat jenis ini.':'Belum ada surat. Tekan <b>+ Surat Perintah</b> atau <b>+ Undangan</b> untuk membuat.')+'</div>');
+  if($('#srJenis')) [].forEach.call($('#srJenis').children, function(b){ b.classList.toggle('on', b.getAttribute('data-j')===srSaringJenis); b.onclick=function(){ srSaringJenis=b.getAttribute('data-j'); vSurat(); }; });
 }
-function srDrafAda(){ var d=ambil(srKunci()); return !!(d && !d.id && ((d.untuk||'').trim() || (d.dasar||[]).length || (d.jadwal||[]).some(function(j){ return (j.personel||[]).length || j.tempat; }))); }
-function srBuangDraf(){ if(!confirm('Buang isian surat yang belum disimpan?')) return; simpan(srKunci(),null); if(SF && !SF.id) SF=null; vSurat(); }
+function srDrafAda(){ var d=ambil(srKunci('SP')); return !!(d && !d.id && ((d.untuk||'').trim() || (d.dasar||[]).length || (d.jadwal||[]).some(function(j){ return (j.personel||[]).length || j.tempat; }))); }
+function srBuangDraf(){ if(!confirm('Buang isian surat perintah yang belum disimpan?')) return; simpan(srKunci('SP'),null); if(SF && !SF.id && SF.jenis!=='Undangan') SF=null; vSurat(); }
 function srKosong(){ return { id:'', tanggal:D.hariIni, paket:'', dasar:[], untuk:'', tutupPada:true, gaya:'B', jadwal:[srJadwalKosong()] }; }
 function srJadwalKosong(){ return { tanggal:'', jamMulai:'09:00', jamSelesai:'', tempat:'', personel:[], tim:[srTimKosong()] }; }
 function srTimKosong(){ return { nama:'', tempat:'', personel:[] }; }
@@ -723,7 +1014,8 @@ function srSimpanLokal(){ if(SF && !SF.id) simpan(srKunci(), SF); }
 
 /* ===== form ===== */
 function vSuratForm(id){
-  if(id==='baru'){ if(!SF || SF.id) SF=ambil(srKunci())||srKosong(); }
+  if(id!=='baru'){ var s1=(SRD.surat||[]).filter(function(x){ return x.id===id; })[0]; if((s1 && s1.jenis==='Undangan') || (SF && SF.id===id && SF.jenis==='Undangan')){ vUndanganForm(id); return; } }
+  if(id==='baru'){ if(!SF || SF.id || SF.jenis==='Undangan') SF=ambil(srKunci('SP'))||srKosong(); }
   else if(!SF || SF.id!==id){
     var s=(SRD.surat||[]).filter(function(x){ return x.id===id; })[0];
     if(!s){ $('#isi').innerHTML='<div class="kartu galat">Surat tidak ditemukan.</div>'; return; }
@@ -750,7 +1042,7 @@ function vSuratForm(id){
   srGambarGaya(); srGambarDasar(); srGambarJadwal(); srGambarHasil();
   [].forEach.call(document.querySelectorAll('#isi textarea.auto'), srTinggi);
 }
-function srUbah(ringan){ srRata(); SF.berubah=true; srSimpanLokal(); if(ringan) srGambarSalin(); else srGambarHasil(); }
+function srUbah(ringan){ if(SF.jenis==='Undangan'){ unUbah(ringan); return; } srRata(); SF.berubah=true; srSimpanLokal(); if(ringan) srGambarSalin(); else srGambarHasil(); }
 function srTinggi(t){ t.style.height='auto'; t.style.height=(t.scrollHeight+2)+'px'; }
 function srGambarGaya(){
   [].forEach.call($('#srGaya').children, function(b){ b.classList.toggle('on', b.getAttribute('data-g')===(SF.gaya||'B')); });
@@ -764,7 +1056,7 @@ function srGambarDasar(){
   $('#srDasar').innerHTML='<div class="alat" style="margin-bottom:8px"><select id="srPaket"><option value="">— Pilih paket dasar —</option>'+pk.map(function(p){ return '<option'+(SF.paket===p.nama?' selected':'')+'>'+esc(p.nama)+'</option>'; }).join('')+'</select></div>'+
     '<div id="srDasarList">'+(SF.dasar.length? SF.dasar.map(function(t,i){
       var dikenal=srDasarDaftar().some(function(d){ return d.teks.toLowerCase()===String(t).trim().replace(/[;.\s]+$/,'').toLowerCase(); });
-      return '<div class="srD"><span class="no">'+(i+1)+'.</span><textarea class="auto" rows="2" data-i="'+i+'">'+esc(t)+'</textarea><div class="tb">'+
+      return '<div class="srD dg"><span class="no">'+SR_PEGANG+(i+1)+'.</span><textarea class="auto" rows="2" data-i="'+i+'">'+esc(t)+'</textarea><div class="tb">'+
         '<button class="btn kecil" title="Naik" onclick="srGeserDasar('+i+',-1)"'+(i?'':' disabled')+'>↑</button><button class="btn kecil" title="Turun" onclick="srGeserDasar('+i+',1)"'+(i<SF.dasar.length-1?'':' disabled')+'>↓</button><button class="btn kecil bahaya" title="Hapus" onclick="srHapusDasar('+i+')">✕</button></div>'+
         (!dikenal && isAdmin() && String(t).trim().length>=10?'<div class="pn"><button class="btn kecil" onclick="srSimpanDasarKeDaftar('+i+',this)">Simpan ke daftar dasar hukum</button></div>':'')+'</div>'; }).join('')
       :'<div class="sub" style="margin-bottom:8px">Belum ada dasar. Pilih paket, pilih dari daftar, atau ketik manual.</div>')+'</div>'+
@@ -777,6 +1069,7 @@ function srGambarDasar(){
   [].forEach.call(document.querySelectorAll('#srDasarList textarea'), function(t){ srTinggi(t);
     t.oninput=function(){ SF.dasar[+t.getAttribute('data-i')]=t.value; srTinggi(t); srUbah(true); };
     t.onchange=function(){ srGambarDasar(); }; });
+  srSeret($('#srDasarList'), '.srD', function(a,b){ srPindahkan(SF.dasar,a,b); srUbah(); srGambarDasar(); });
 }
 function srGeserDasar(i,a){ var x=SF.dasar.splice(i,1)[0]; SF.dasar.splice(i+a,0,x); srUbah(); srGambarDasar(); }
 function srHapusDasar(i){ SF.dasar.splice(i,1); srUbah(); srGambarDasar(); }
@@ -812,9 +1105,9 @@ function srGambarJadwal(){
           (banyak?'<div class="kepalaE" style="margin-top:4px"><b>'+esc(srNamaTim(t,ti))+'</b><button class="btn kecil bahaya" onclick="srHapusTim('+ji+','+ti+')">Hapus tim</button></div>'+
             '<div class="f srF"><label>Nama tim<input data-tk="nama" value="'+esc(t.nama)+'" placeholder="Tim '+(ti+1)+'"></label>'+
             '<label>Tempat tim<input data-tk="tempat" value="'+esc(t.tempat)+'" placeholder="boleh kosong"></label></div>':'')+
-          '<div class="sub" style="margin:12px 0 6px">Personel'+(banyak?' '+esc(srNamaTim(t,ti)):'')+' ('+L.length+') · ketuk <b>Koor</b> untuk menandai koordinator</div>'+
+          '<div class="sub" style="margin:12px 0 6px">Personel'+(banyak?' '+esc(srNamaTim(t,ti)):'')+' ('+L.length+') · ketuk <b>Koor</b> untuk menandai koordinator · tarik <b>⠿</b> untuk mengurutkan</div>'+
           '<div class="srP">'+L.map(function(p,pi){
-            return '<div class="pr'+(p.koor?' koor':'')+'"><span class="no">'+(pi+1)+'.</span><div class="nm"><b>'+esc(p.nama)+'</b><div class="sub">'+esc([p.jabatan,p.bidang&&p.bidang!=='PPUD'?p.bidang:''].filter(Boolean).join(' · '))+'</div></div>'+
+            return '<div class="pr'+(p.koor?' koor':'')+'">'+SR_PEGANG+'<span class="no">'+(pi+1)+'.</span><div class="nm"><b>'+esc(p.nama)+'</b><div class="sub">'+esc([p.jabatan,p.bidang&&p.bidang!=='PPUD'?p.bidang:''].filter(Boolean).join(' · '))+'</div></div>'+
               '<button class="btn kecil kb'+(p.koor?' on':'')+'" onclick="srKoor('+ji+','+ti+','+pi+')">'+(p.koor?'★ Koor':'Koor')+'</button>'+
               '<button class="btn kecil" title="Naik" onclick="srGeserP('+ji+','+ti+','+pi+',-1)"'+(pi?'':' disabled')+'>↑</button><button class="btn kecil" title="Turun" onclick="srGeserP('+ji+','+ti+','+pi+',1)"'+(pi<L.length-1?'':' disabled')+'>↓</button>'+
               '<button class="btn kecil bahaya" title="Hapus" onclick="srHapusP('+ji+','+ti+','+pi+')">✕</button></div>'; }).join('')+'</div>'+
@@ -826,6 +1119,10 @@ function srGambarJadwal(){
   [].forEach.call(document.querySelectorAll('#srJadwal input[data-k]'), function(inp){
     var ji=+inp.closest('.srJ').getAttribute('data-j'), k=inp.getAttribute('data-k');
     inp.oninput=inp.onchange=function(){ SF.jadwal[ji][k]=inp.value; if(k==='tanggal'){ var h=inp.closest('.f').querySelector('input[disabled]'); h.value=srHari(inp.value)||'–'; } srUbah(k==='tempat'); };
+  });
+  [].forEach.call(document.querySelectorAll('#srJadwal .srP'), function(w){
+    var ji=+w.closest('.srJ').getAttribute('data-j'), ti=+w.closest('[data-t]').getAttribute('data-t');
+    srSeret(w, '.pr', function(a,b){ srPindahkan(SF.jadwal[ji].tim[ti].personel,a,b); srUbah(); srGambarJadwal(); });
   });
   [].forEach.call(document.querySelectorAll('#srJadwal input[data-tk]'), function(inp){
     var ji=+inp.closest('.srJ').getAttribute('data-j'), ti=+inp.closest('[data-t]').getAttribute('data-t'), k=inp.getAttribute('data-tk');
@@ -1034,6 +1331,199 @@ function dhGambarPaket(){
 }
 function dhGeser(i,a){ var x=srDH.dasar.splice(i,1)[0]; srDH.dasar.splice(i+a,0,x); srDH.paket.forEach(function(p){ p.ids.sort(function(a2,b){ return srDH.dasar.findIndex(function(x2){ return x2.id===a2; })-srDH.dasar.findIndex(function(x2){ return x2.id===b; }); }); }); dhGambar(); }
 function dhHapus(i){ var d=srDH.dasar[i]; if(d.teks.trim() && !confirm('Hapus dasar ini dari daftar?')) return; srDH.dasar.splice(i,1); srDH.paket.forEach(function(p){ var k=p.ids.indexOf(d.id); if(k>=0) p.ids.splice(k,1); }); dhGambar(); }
+/* ---------- SURAT: Undangan (Surat Biasa) ---------- */
+/* Memakai SF yang sama dengan Surat Perintah (SF.jenis==='Undangan'), sehingga bagian Dasar dipakai bersama. */
+function unKosong(){ var M=UndanganDocx.MODEL.rakor;
+  return { jenis:'Undangan', id:'', tanggal:D.hariIni, hal:'', paket:'', dasar:[], penerima:[], di:'Tempat', lampiran:'', model:'rakor',
+    pembuka:M.pembuka, penutup:M.penutup, acara:{ tanggal:'', jamMulai:'09:00', jamSelesai:'', tempat:'', acara:M.acara, catatan:M.catatan } }; }
+function unDrafAda(){ var d=ambil(srKunci('Undangan')); return !!(d && !d.id && ((d.hal||'').trim() || (d.penerima||[]).length || ((d.acara||{}).tempat||'').trim() || (d.dasar||[]).length)); }
+function unBuangDraf(){ if(!confirm('Buang isian undangan yang belum disimpan?')) return; simpan(srKunci('Undangan'),null); if(SF && !SF.id && SF.jenis==='Undangan') SF=null; vSurat(); }
+function unBaru(){ if(unDrafAda() && !confirm('Ada isian undangan yang belum disimpan. Mulai undangan baru dan buang isian itu?')) return; SF=unKosong(); srSimpanLokal(); location.hash='surat/undangan'; }
+function unUbah(ringan){ SF.berubah=true; srSimpanLokal(); unGambarInfo(); if(ringan) unGambarSalin(); else unGambarHasil(); }
+
+function vUndanganForm(id){
+  if(id==='baru'){ if(!SF || SF.id || SF.jenis!=='Undangan') SF=ambil(srKunci('Undangan'))||unKosong(); }
+  else if(!SF || SF.id!==id){
+    var s=(SRD.surat||[]).filter(function(x){ return x.id===id; })[0];
+    if(!s){ $('#isi').innerHTML='<div class="kartu galat">Surat tidak ditemukan.</div>'; return; }
+    SF=JSON.parse(JSON.stringify(s.data)); SF.id=s.id; SF.nomor=s.nomor;
+  }
+  SF.jenis='Undangan'; SF.acara=SF.acara||{}; SF.penerima=SF.penerima||[]; SF.dasar=SF.dasar||[];
+  var s0=id==='baru'?null:(SRD.surat||[]).filter(function(x){ return x.id===id; })[0], a=SF.acara;
+  $('#isi').innerHTML='<a href="#surat" class="sub" style="text-decoration:none">‹ Semua surat</a>'+
+    '<h1 style="margin-top:8px">'+(SF.id?'Undangan':'Undangan baru')+'</h1>'+
+    (s0?'<div class="sub" style="margin:-8px 0 12px">Dibuat '+esc(nm(s0.dibuatOleh))+' · '+esc(s0.waktuDibuat)+(s0.diubahOleh?' · diubah '+esc(nm(s0.diubahOleh))+' · '+esc(s0.waktuDiubah):'')+'</div>':'')+
+    '<div class="srGrid">'+
+    '<section class="kartu"><h2>1. Jenis undangan</h2><div class="seg" id="unModel"><button data-m="rakor">Rapat koordinasi</button><button data-m="panggil">Pemanggilan</button></div>'+
+      '<div class="sub" style="margin-top:6px">Mengisi contoh paragraf pembuka, penutup, Acara, dan Catatan. Semua tetap bisa diubah.</div></section>'+
+    '<section class="kartu"><h2>2. Hal &amp; penerima</h2>'+
+      '<div class="f"><label class="pn">Hal<input id="unHal" placeholder="mis. Undangan Rapat Koordinasi terkait …"></label></div>'+
+      '<div class="sub" style="margin:12px 0 6px">Penerima (<span id="unJml"></span>) · tanpa “Yth.”</div><div id="unPen"></div>'+
+      '<div class="alat" style="margin:4px 0 0"><button class="btn" onclick="unPilihPenerima()">+ Pilih dari daftar</button><button class="btn" onclick="unTambahPenerima()">+ Ketik baru</button></div>'+
+      '<div id="unInfo" class="srW" style="margin:10px 0 0;background:var(--birubg);color:inherit"></div>'+
+      '<div class="f srF"><label>di<input id="unDi" placeholder="Tempat"></label><label>Lampiran<input id="unLamp"></label>'+
+      '<div class="sub pn" style="margin-top:-6px">Lampiran dikosongkan = otomatis (“-” atau “1 (satu)”).</div></div></section>'+
+    '<section class="kartu"><h2>3. Dasar</h2><div id="srDasar"></div></section>'+
+    '<section class="kartu"><h2>4. Isi undangan</h2>'+
+      '<label class="sub" for="unPembuka">Paragraf pembuka</label><textarea id="unPembuka" class="auto" rows="4" style="width:100%;margin:4px 0 10px"></textarea>'+
+      '<div class="srJ" style="margin-bottom:10px"><b>Acara</b><div class="f srF"><label>Tanggal<input type="date" id="unTgl"></label><label>Hari<input id="unHari" disabled></label>'+
+        '<label>Pukul mulai<input type="time" id="unMulai"></label><label>Pukul selesai<input type="time" id="unSelesai"></label>'+
+        '<div class="sub pn" style="margin-top:-6px">Pukul selesai dikosongkan = “WIB - Selesai”.</div>'+
+        '<label class="pn">Tempat<input id="unTempat" placeholder="mis. Ruang Rapat Bidang PPUD"></label>'+
+        '<label class="pn">Acara <span class="sub">(opsional)</span><input id="unAcara" placeholder="mis. Permintaan Keterangan"></label>'+
+        '<label class="pn">Catatan <span class="sub">(opsional)</span><textarea id="unCatatan" class="auto" rows="2"></textarea></label></div></div>'+
+      '<label class="sub" for="unPenutup">Paragraf penutup</label><textarea id="unPenutup" class="auto" rows="3" style="width:100%;margin-top:4px"></textarea></section>'+
+    '<section class="kartu" id="srHasil"></section></div>';
+  $('#unHal').value=SF.hal||''; $('#unDi').value=SF.di||''; $('#unLamp').value=SF.lampiran||'';
+  $('#unPembuka').value=SF.pembuka||''; $('#unPenutup').value=SF.penutup||'';
+  $('#unTgl').value=a.tanggal||''; $('#unHari').value=srHari(a.tanggal)||'–'; $('#unMulai').value=a.jamMulai||''; $('#unSelesai').value=a.jamSelesai||'';
+  $('#unTempat').value=a.tempat||''; $('#unAcara').value=a.acara||''; $('#unCatatan').value=a.catatan||'';
+  function ikat(sel, set, ringan){ var e=$(sel); e.oninput=function(){ set(e.value); if(e.tagName==='TEXTAREA') srTinggi(e); unUbah(ringan); }; }
+  ikat('#unHal', function(v){ SF.hal=v; }, true);
+  ikat('#unDi', function(v){ SF.di=v; }, true);
+  ikat('#unLamp', function(v){ SF.lampiran=v; }, true);
+  ikat('#unPembuka', function(v){ SF.pembuka=v; });
+  ikat('#unPenutup', function(v){ SF.penutup=v; });
+  ikat('#unTgl', function(v){ SF.acara.tanggal=v; $('#unHari').value=srHari(v)||'–'; });
+  ikat('#unMulai', function(v){ SF.acara.jamMulai=v; });
+  ikat('#unSelesai', function(v){ SF.acara.jamSelesai=v; });
+  ikat('#unTempat', function(v){ SF.acara.tempat=v; });
+  ikat('#unAcara', function(v){ SF.acara.acara=v; }, true);
+  ikat('#unCatatan', function(v){ SF.acara.catatan=v; }, true);
+  $('#unLamp').placeholder='otomatis';
+  [].forEach.call($('#unModel').children, function(b){ b.onclick=function(){ unPilihModel(b.getAttribute('data-m')); }; });
+  unGambarModel(); unGambarPenerima(); srGambarDasar(); unGambarHasil();
+  [].forEach.call(document.querySelectorAll('#isi textarea.auto'), srTinggi);
+}
+function unGambarModel(){ [].forEach.call($('#unModel').children, function(b){ b.classList.toggle('on', b.getAttribute('data-m')===(SF.model||'rakor')); }); }
+function unPilihModel(m){
+  if(m===SF.model) return;
+  var M=UndanganDocx.MODEL, lama=M[SF.model||'rakor']||{}, baru=M[m];
+  var bidang=[['pembuka', SF], ['penutup', SF], ['acara', SF.acara], ['catatan', SF.acara]];
+  var ubahan=bidang.filter(function(b){ var v=String(b[1][b[0]]||'').trim(); return v && v!==lama[b[0]]; });
+  var ganti=!ubahan.length || confirm('Teks pembuka/penutup/Acara/Catatan sudah Anda ubah. Ganti semuanya dengan contoh “'+baru.nama+'”?\n\nPilih Batal untuk hanya mengganti bagian yang belum diubah.');
+  bidang.forEach(function(b){ var v=String(b[1][b[0]]||'').trim(); if(ganti || !v || v===lama[b[0]]) b[1][b[0]]=baru[b[0]]; });
+  SF.model=m; unUbah(); vUndanganForm(SF.id||'baru');
+}
+
+/* Penerima */
+function unGambarPenerima(){
+  var L=SF.penerima;
+  $('#unPen').innerHTML=L.length? L.map(function(p,i){
+    return '<div class="srD dg" data-i="'+i+'"><span class="no">'+SR_PEGANG+(i+1)+'.</span><div><textarea class="auto" rows="1" data-k="nama" placeholder="mis. Kepala Dinas …">'+esc(p.nama||'')+'</textarea>'+
+      '<input data-k="cq" value="'+esc(p.cq||'')+'" placeholder="cq. … (opsional)" style="width:100%;margin-top:4px"></div><div class="tb">'+
+      '<button class="btn kecil" title="Naik" onclick="unGeserPen('+i+',-1)"'+(i?'':' disabled')+'>↑</button><button class="btn kecil" title="Turun" onclick="unGeserPen('+i+',1)"'+(i<L.length-1?'':' disabled')+'>↓</button>'+
+      '<button class="btn kecil bahaya" title="Hapus" onclick="unHapusPen('+i+')">✕</button></div></div>'; }).join('')
+    :'<div class="sub" style="margin-bottom:8px">Belum ada penerima.</div>';
+  [].forEach.call(document.querySelectorAll('#unPen [data-k]'), function(e){
+    var i=+e.closest('.srD').getAttribute('data-i'), k=e.getAttribute('data-k'); if(e.tagName==='TEXTAREA') srTinggi(e);
+    e.oninput=function(){ SF.penerima[i][k]=e.value; if(e.tagName==='TEXTAREA') srTinggi(e); unUbah(true); };
+    e.onchange=function(){ var v=k==='nama'?e.value.replace(/^\s*yth\.?\s*/i,''):e.value.replace(/^\s*cq\.?\s*/i,''); if(v!==e.value){ e.value=v; SF.penerima[i][k]=v; } unUbah(); }; });
+  srSeret($('#unPen'), '.srD', function(a,b){ srPindahkan(SF.penerima,a,b); unUbah(); unGambarPenerima(); });
+  unGambarInfo();
+}
+function unGambarInfo(){
+  var el=$('#unInfo'); if(!el) return; var P=UndanganDocx.penerima(SF), n=P.length;
+  $('#unJml').textContent=n;
+  el.innerHTML=!n?'Isi minimal satu penerima.':
+    n===1?'<b>1 penerima</b> → Yth. '+esc(P[0].nama)+(P[0].cq?' cq. '+esc(P[0].cq):'')+' · Lampiran: '+esc(UndanganDocx.teksLampiran(SF))+'. Tanpa halaman daftar undangan.'
+    :'<b>'+n+' penerima</b> → Yth. '+esc(UndanganDocx.TERLAMPIR)+' · Lampiran: '+esc(UndanganDocx.teksLampiran(SF))+' · halaman Daftar Undangan ditambahkan.';
+  $('#unLamp').placeholder='otomatis: '+UndanganDocx.teksLampiran({ penerima:SF.penerima });
+}
+function unTambahPenerima(){ SF.penerima.push({ nama:'', cq:'' }); unGambarPenerima(); var t=document.querySelectorAll('#unPen textarea'); t=t[t.length-1]; if(t) t.focus(); }
+function unGeserPen(i,a){ var x=SF.penerima.splice(i,1)[0]; SF.penerima.splice(i+a,0,x); unUbah(); unGambarPenerima(); }
+function unHapusPen(i){ SF.penerima.splice(i,1); unUbah(); unGambarPenerima(); }
+function unKunciP(p){ return (String(p.nama||'').trim()+'|'+String(p.cq||'').trim()).toLowerCase(); }
+function unPilihPenerima(){
+  var q='';
+  modal('Pilih penerima', '<div class="alat"><input type="search" id="unQ" placeholder="Cari penerima…"></div><div class="pilihL" id="unPL"></div>'+
+    '<div class="aksi"><span class="sub" id="unN" style="margin-right:auto"></span><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="unPOk">Tambahkan</button></div>', true);
+  var dipilih={};
+  function gambar(){
+    var L=SRD.penerima||[], ada={}; SF.penerima.forEach(function(p){ ada[unKunciP(p)]=1; });
+    var T=L.filter(function(p){ return !q || (p.nama+' '+p.cq).toLowerCase().indexOf(q)>=0; });
+    $('#unPL').innerHTML=T.length? T.map(function(p){ var k=unKunciP(p), on=ada[k];
+      return '<div style="display:flex;gap:6px;align-items:flex-start"><label class="cekB" style="flex:1"><input type="checkbox" data-k="'+esc(k)+'"'+(on||dipilih[k]?' checked':'')+(on?' disabled':'')+'><span>'+esc(p.nama)+(p.cq?'<br><span class="sub">cq. '+esc(p.cq)+'</span>':'')+'</span></label>'+
+        '<button class="btn kecil bahaya" title="Hapus dari daftar" data-h="'+esc(k)+'">✕</button></div>'; }).join('')
+      :'<div class="kosong">'+(L.length?'Tidak ada yang cocok.':'Daftar masih kosong. Penerima yang pernah dipakai otomatis masuk ke sini setelah undangan disimpan.')+'</div>';
+    [].forEach.call(document.querySelectorAll('#unPL input[data-k]'), function(c){ c.onchange=function(){ var k=c.getAttribute('data-k'); if(c.checked) dipilih[k]=1; else delete dipilih[k]; hitung(); }; });
+    [].forEach.call(document.querySelectorAll('#unPL button[data-h]'), function(b){ b.onclick=function(){
+      var p=L.filter(function(x){ return unKunciP(x)===b.getAttribute('data-h'); })[0]; if(!p || !confirm('Hapus “'+p.nama+(p.cq?' cq. '+p.cq:'')+'” dari daftar penerima? (Undangan lama tidak berubah)')) return;
+      b.disabled=true; api('penerimaHapus',{ nama:p.nama, cq:p.cq }).then(function(j){ SRD.penerima=j.penerima; delete dipilih[unKunciP(p)]; gambar(); }).catch(function(e){ toast(e.message); b.disabled=false; }); }; });
+    hitung();
+  }
+  function hitung(){ $('#unN').textContent=Object.keys(dipilih).length+' dipilih'; }
+  $('#unQ').oninput=function(){ q=this.value.toLowerCase(); gambar(); };
+  $('#unPOk').onclick=function(){
+    SF.penerima=SF.penerima.filter(function(p){ return String(p.nama||'').trim(); });
+    (SRD.penerima||[]).forEach(function(p){ if(dipilih[unKunciP(p)]) SF.penerima.push({ nama:p.nama, cq:p.cq||'' }); });
+    tutupModal(); unUbah(); unGambarPenerima(); };
+  gambar(); setTimeout(function(){ var e=$('#unQ'); if(e && window.innerWidth>760) e.focus(); }, 50);
+}
+
+/* Hasil */
+function unPeringatan(){
+  var g=UndanganDocx.validasi(SF), w=[], lihat={};
+  if(!(SF.dasar||[]).map(function(t){ return String(t).trim(); }).filter(String).length) w.push('Dasar kosong: bagian “Dasar:” tidak dicetak.');
+  (SF.penerima||[]).forEach(function(p){ var k=unKunciP(p); if(String(p.nama||'').trim()){ if(lihat[k]) w.push(p.nama+' tercantum dua kali.'); lihat[k]=1; } });
+  var a=SF.acara||{}; if(a.tanggal && a.tanggal<D.hariIni) w.push('Tanggal acara sudah lewat.');
+  if(a.tanggal && SF.tanggal && a.tanggal<SF.tanggal) w.push('Tanggal acara lebih awal dari tanggal surat.');
+  return { galat:g, peringatan:w };
+}
+function unGambarHasil(){
+  var h=$('#srHasil'); if(!h) return; var P=unPeringatan();
+  h.innerHTML='<h2>5. Hasil</h2>'+
+    (P.galat.length?'<div class="srW merah"><b>Belum lengkap:</b><ul>'+P.galat.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul></div>':'')+
+    (P.peringatan.length?'<div class="srW"><b>Perlu dicek:</b><ul>'+P.peringatan.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul></div>':'')+
+    '<div class="srLangkah"><b>A. Isi draf dari e-office</b><div class="sub">Unduh draf <b>Surat Biasa</b> kosong dari e-office (sudah ada kop dan tanda tangan), lalu pilih di sini. Hasilnya draf yang sudah terisi Lampiran, Hal, Yth., isi undangan'+(UndanganDocx.penerima(SF).length>1?', dan halaman Daftar Undangan':'')+'.</div>'+
+      '<input type="file" id="unDraf" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hide">'+
+      '<button class="btn utama" id="unBtnDraf"'+(P.galat.length?' disabled':'')+'>📄 Pilih draf kosong &amp; unduh hasil</button></div>'+
+    '<div class="srLangkah"><b>B. Tanpa draf</b><div class="sub">Isi undangan saja, untuk disalin manual ke draf.</div>'+
+      '<div class="alat" style="margin:6px 0 0"><label class="sub">Tanggal surat <input type="date" id="unTglSurat" value="'+esc(SF.tanggal||'')+'"></label>'+
+      '<button class="btn" id="unBtnCadang"'+(P.galat.length?' disabled':'')+'>⬇ Unduh .docx</button></div></div>'+
+    '<div class="srLangkah"><b>C. Salin untuk kolom e-office</b><div id="srSalin"></div></div>'+
+    '<div class="srLangkah"><b>Riwayat</b>'+(SF.id?'<div class="sub">Tersimpan di riwayat surat.'+(SF.berubah?' <b>Ada perubahan yang belum disimpan.</b>':'')+'</div>'+
+      '<div class="alat" style="margin:6px 0 0"><input id="srNomor" placeholder="Nomor dari e-office (isi setelah terbit)" value="'+esc(SF.nomor||'')+'" style="flex:1 1 220px"><button class="btn" id="srBtnNomor">Simpan nomor</button></div>'
+      :'<div class="sub">Undangan otomatis tersimpan di riwayat saat diunduh. Bisa juga disimpan sekarang.</div>')+
+      '<div class="alat" style="margin:6px 0 0"><button class="btn" id="srBtnSimpan"'+(P.galat.length?' disabled':'')+'>💾 Simpan'+(SF.id?' perubahan':' ke riwayat')+'</button>'+
+      (SF.id?'<button class="btn" onclick="unSalinJadiBaru()">Salin jadi undangan baru</button>':'')+
+      (!SF.id?'<button class="btn bahaya" onclick="unKosongkan()">Kosongkan isian</button>':'')+'</div></div>';
+  unGambarSalin();
+  $('#unBtnDraf').onclick=function(){ $('#unDraf').value=''; $('#unDraf').click(); };
+  $('#unDraf').onchange=function(){ var f=this.files[0]; if(f) unBuatDraf(f, $('#unBtnDraf')); };
+  $('#unTglSurat').onchange=function(){ SF.tanggal=this.value; srSimpanLokal(); };
+  $('#unBtnCadang').onclick=function(){ unBuatCadangan(this); };
+  $('#srBtnSimpan').onclick=function(){ srSimpanRiwayat(this).then(function(){ toast('Undangan tersimpan'); }).catch(function(e){ toast(e.message); }); };
+  if($('#srBtnNomor')) $('#srBtnNomor').onclick=function(){ var b=this; b.disabled=true; var no=$('#srNomor').value.trim();
+    api('suratNomor',{ id:SF.id, nomor:no }).then(function(){ SF.nomor=no; toast('Nomor tersimpan'); return srMuatData(true); }).catch(function(e){ toast(e.message); }).finally(function(){ b.disabled=false; }); };
+}
+function unGambarSalin(){
+  var el=$('#srSalin'); if(!el) return; var t=UndanganDocx.teksSalin(SF), n=UndanganDocx.penerima(SF).length;
+  var B=[['Hal', t.hal],['Lampiran', t.lampiran],['Kepada (Yth.)', t.kepada]]; if(n>1) B.push(['Daftar undangan', t.daftar]);
+  el.innerHTML=B.map(function(b,i){ return '<div class="srS"><div><div class="sub">'+esc(b[0])+'</div><div class="tx">'+(b[1]?esc(b[1]).replace(/\n/g,'<br>'):'<span class="sub">–</span>')+'</div></div>'+
+    '<button class="btn kecil" data-i="'+i+'"'+(b[1]?'':' disabled')+'>Salin</button></div>'; }).join('');
+  [].forEach.call(el.querySelectorAll('button[data-i]'), function(b){ b.onclick=function(){ var x=B[+b.getAttribute('data-i')]; srSalin(x[1], x[0]); }; });
+}
+function unBuatDraf(file, btn){
+  if(!/\.docx$/i.test(file.name)){ toast('Pilih berkas .docx dari e-office.'); return; }
+  if(file.size>10*1024*1024){ toast('Berkas terlalu besar.'); return; }
+  btn.disabled=true; var t0=btn.innerHTML; btn.textContent='Menyiapkan…';
+  srPustaka().then(function(){ return file.arrayBuffer(); }).then(function(buf){ return UndanganDocx.isiDraf(buf, SF); })
+    .then(function(b){ srUnduh(b, UndanganDocx.namaBerkas(SF));
+      if(b.length>2*1024*1024) alert('Perhatian: ukuran berkas '+(b.length/1048576).toFixed(1)+' MB, lebih dari batas e-office 2 MB.');
+      toast('Draf terisi diunduh'); return srSimpanRiwayat(); })
+    .catch(function(e){ toast(e.message); alert(e.message); })
+    .finally(function(){ var b2=$('#unBtnDraf'); if(b2){ b2.disabled=false; b2.innerHTML=t0; } });
+}
+function unBuatCadangan(btn){
+  btn.disabled=true;
+  srPustaka().then(function(){ return UndanganDocx.docxCadangan(SF); })
+    .then(function(b){ srUnduh(b, UndanganDocx.namaBerkas(SF).replace(/\.docx$/,'_isi.docx')); toast('Berkas diunduh'); return srSimpanRiwayat(); })
+    .catch(function(e){ toast(e.message); })
+    .finally(function(){ var b2=$('#unBtnCadang'); if(b2) b2.disabled=false; });
+}
+function unSalinJadiBaru(){ var d=srData(); d.id=''; d.idKirim=buatIdKirim(); d.jenis='Undangan'; d.tanggal=D.hariIni; d.acara=d.acara||{}; d.acara.tanggal=''; SF=d; srSimpanLokal(); location.hash='surat/undangan'; toast('Disalin. Isi tanggal acara yang baru.'); }
+function unKosongkan(){ if(!confirm('Kosongkan semua isian undangan ini?')) return; SF=unKosong(); simpan(srKunci('Undangan'),null); vUndanganForm('baru'); }
 
 /* ---------- routing ---------- */
 window.addEventListener('hashchange', function(){ if(D) render(); });
