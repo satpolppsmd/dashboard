@@ -183,6 +183,7 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 .srD{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:6px;align-items:start;margin-bottom:8px}.srD .no{padding-top:9px;color:var(--abu);text-align:right}.srD textarea{min-height:40px;resize:none;overflow:hidden;line-height:1.4}.srD .tb{display:flex;gap:4px}.srD .pn{grid-column:2/-1;margin-top:-2px}
 .cek{display:flex!important;flex-direction:row!important;gap:8px;align-items:center;font-size:14px;color:var(--teks);margin-top:8px;cursor:pointer}.cek input{width:18px;height:18px;min-height:0;accent-color:var(--biru)}
 .srJ{border:1px solid var(--garis);border-radius:10px;padding:12px;margin-bottom:12px;background:#fbfcfe}
+.srTim{border:1px solid var(--garis);border-radius:10px;padding:10px 12px;margin-top:12px;background:#fff}
 .srF{grid-template-columns:1fr 1fr;margin-top:8px}.srF .pn{grid-column:1/-1}
 .srP .pr{display:flex;gap:6px;align-items:center;padding:6px 0;border-top:1px solid var(--garis)}.srP .pr:first-child{border-top:0}.srP .pr .no{width:24px;color:var(--abu);text-align:right;flex:none}.srP .pr .nm{flex:1;min-width:0;line-height:1.3}.srP .pr .nm b{font-size:14px}.srP .pr .nm .sub{font-size:12px}
 .srP .pr.koor{background:var(--birubg);border-radius:8px;padding-left:4px;padding-right:4px}.btn.kb.on{background:var(--biru);border-color:var(--biru);color:#fff}
@@ -436,6 +437,11 @@ var SuratDocx = (function () {
   function teksUntuk(s) { var u = String(s.untuk || '').trim(); if (!u) return '';
     return s.tutupPada === false ? u : rapikanAkhir(u) + TUTUP_UNTUK; }
   function semuaPersonel(s) { var n = 0; (s.jadwal || []).forEach(function (j) { n += (j.personel || []).length; }); return n; }
+  /* Tim dalam satu jadwal (data lama tanpa tim = satu tim berisi semua personel). */
+  function daftarTim(j) { var t = (Array.isArray(j.tim) ? j.tim : []).map(function (x, i) { return { nama: x && x.nama, tempat: x && x.tempat, personel: (x && x.personel) || [], i: i }; })
+      .filter(function (x) { return x.personel.length; });
+    return t.length ? t : [{ nama: '', tempat: '', personel: j.personel || [], i: 0 }]; }
+  function namaTim(t) { return String(t.nama || '').trim() || 'Tim ' + (t.i + 1); }
   function urutPersonel(list) { var k = [], a = []; (list || []).forEach(function (p) { (p.koor ? k : a).push(p); }); return k.concat(a); }
   function jabatanTampil(p, gaya) { if (gaya === 'A') return null; return p.koor ? 'Koordinator Tim (' + (p.jabatan || '').trim() + ')' : (p.jabatan || ''); }
 
@@ -505,20 +511,27 @@ var SuratDocx = (function () {
         sel(L[0], para([['NO', { b: true }]], { jc: 'center', before: 60, after: 60 }), { v: 'center' }) +
         sel(L[1], para([['NAMA / PANGKAT / NIP', { b: true }]], { jc: 'center', before: 60, after: 60 }), { v: 'center' }) +
         sel(L[2], para([['JABATAN', { b: true }]], { jc: 'center', before: 60, after: 60 }), { v: 'center' }) + '</w:tr>';
-      var isi = urutPersonel(j.personel).map(function (p, i) {
-        var bn = [[[[p.nama || '', { b: true }]], { before: 60 }]];
-        if (p.pangkat) bn.push([p.pangkat, {}]); if (p.nip) bn.push([p.nip, {}]);
-        bn[bn.length - 1][1].after = 60;
-        var nama = bn.map(function (b) { return para(b[0], b[1]); }).join('');
-        var jb = gaya === 'A'
-          ? para([[p.koor ? 'Koordinator' : 'Anggota', { b: true }]], { before: 60 }) + para(p.jabatan || '', { after: 60 })
-          : para(jabatanTampil(p, 'B'), { before: 60, after: 60 });
-        return '<w:tr><w:trPr><w:cantSplit/></w:trPr>' + sel(L[0], para((i + 1) + '.', { jc: 'center', before: 60 })) + sel(L[1], nama) + sel(L[2], jb) + '</w:tr>';
-      }).join('');
       var bdr = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(function (b) { return '<w:' + b + ' w:val="single" w:sz="4" w:space="0" w:color="000000"/>'; }).join('') + '</w:tblBorders>';
-      out.push('<w:tbl><w:tblPr><w:tblW w:w="' + (L[0] + L[1] + L[2]) + '" w:type="dxa"/><w:jc w:val="center"/>' + bdr +
-        '<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>' +
-        L.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid>' + kepala + isi + '</w:tbl>');
+      var tim = daftarTim(j), banyakTim = tim.length > 1;
+      tim.forEach(function (t, ti) {
+        if (banyakTim) {
+          out.push(para([[namaTim(t), { b: true }]], { keep: true, before: ti ? 200 : 60, after: t.tempat ? 0 : 80 }));
+          if (String(t.tempat || '').trim()) out.push(para('Tempat : ' + String(t.tempat).trim(), { keep: true, after: 80 }));
+        }
+        var isi = urutPersonel(t.personel).map(function (p, i) {
+          var bn = [[[[p.nama || '', { b: true }]], { before: 60 }]];
+          if (p.pangkat) bn.push([p.pangkat, {}]); if (p.nip) bn.push([p.nip, {}]);
+          bn[bn.length - 1][1].after = 60;
+          var nama = bn.map(function (b) { return para(b[0], b[1]); }).join('');
+          var jb = gaya === 'A'
+            ? para([[p.koor ? 'Koordinator' : 'Anggota', { b: true }]], { before: 60 }) + para(p.jabatan || '', { after: 60 })
+            : para(jabatanTampil(p, 'B'), { before: 60, after: 60 });
+          return '<w:tr><w:trPr><w:cantSplit/></w:trPr>' + sel(L[0], para((i + 1) + '.', { jc: 'center', before: 60 })) + sel(L[1], nama) + sel(L[2], jb) + '</w:tr>';
+        }).join('');
+        out.push('<w:tbl><w:tblPr><w:tblW w:w="' + (L[0] + L[1] + L[2]) + '" w:type="dxa"/><w:jc w:val="center"/>' + bdr +
+          '<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>' +
+          L.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid>' + kepala + isi + '</w:tbl>');
+      });
       out.push(para(''));
     });
     return out.join('');
@@ -698,7 +711,13 @@ function vSurat(){
 function srDrafAda(){ var d=ambil(srKunci()); return !!(d && !d.id && ((d.untuk||'').trim() || (d.dasar||[]).length || (d.jadwal||[]).some(function(j){ return (j.personel||[]).length || j.tempat; }))); }
 function srBuangDraf(){ if(!confirm('Buang isian surat yang belum disimpan?')) return; simpan(srKunci(),null); if(SF && !SF.id) SF=null; vSurat(); }
 function srKosong(){ return { id:'', tanggal:D.hariIni, paket:'', dasar:[], untuk:'', tutupPada:true, gaya:'B', jadwal:[srJadwalKosong()] }; }
-function srJadwalKosong(){ return { tanggal:'', jamMulai:'09:00', jamSelesai:'', tempat:'', personel:[] }; }
+function srJadwalKosong(){ return { tanggal:'', jamMulai:'09:00', jamSelesai:'', tempat:'', personel:[], tim:[srTimKosong()] }; }
+function srTimKosong(){ return { nama:'', tempat:'', personel:[] }; }
+/* Satu jadwal bisa berisi beberapa tim. j.personel = gabungan personel semua tim (dipakai hitungan, koordinator di badan surat, dan data lama). */
+function srTim(j){ if(!Array.isArray(j.tim) || !j.tim.length) j.tim=[{ nama:'', tempat:'', personel:j.personel||[] }];
+  j.personel=[].concat.apply([], j.tim.map(function(t){ return t.personel||(t.personel=[]); })); return j.tim; }
+function srRata(){ if(SF && SF.jadwal) SF.jadwal.forEach(srTim); }
+function srNamaTim(t,ti){ return (t.nama||'').trim() || 'Tim '+(ti+1); }
 function srBaru(){ if(srDrafAda() && !confirm('Ada isian surat yang belum disimpan. Mulai surat baru dan buang isian itu?')) return; SF=srKosong(); srSimpanLokal(); location.hash='surat/baru'; }
 function srSimpanLokal(){ if(SF && !SF.id) simpan(srKunci(), SF); }
 
@@ -731,7 +750,7 @@ function vSuratForm(id){
   srGambarGaya(); srGambarDasar(); srGambarJadwal(); srGambarHasil();
   [].forEach.call(document.querySelectorAll('#isi textarea.auto'), srTinggi);
 }
-function srUbah(ringan){ SF.berubah=true; srSimpanLokal(); if(ringan) srGambarSalin(); else srGambarHasil(); }
+function srUbah(ringan){ srRata(); SF.berubah=true; srSimpanLokal(); if(ringan) srGambarSalin(); else srGambarHasil(); }
 function srTinggi(t){ t.style.height='auto'; t.style.height=(t.scrollHeight+2)+'px'; }
 function srGambarGaya(){
   [].forEach.call($('#srGaya').children, function(b){ b.classList.toggle('on', b.getAttribute('data-g')===(SF.gaya||'B')); });
@@ -777,8 +796,9 @@ function srSimpanDasarKeDaftar(i, btn){ btn.disabled=true;
 
 /* Jadwal & personel */
 function srGambarJadwal(){
-  var n=SF.jadwal.length;
+  srRata(); var n=SF.jadwal.length;
   $('#srJadwal').innerHTML=SF.jadwal.map(function(j,ji){
+    var T=j.tim, banyak=T.length>1;
     return '<div class="srJ" data-j="'+ji+'"><div class="kepalaE"><b>'+(n>1?'Jadwal '+(ji+1):'Jadwal')+'</b>'+(n>1?'<button class="btn kecil bahaya" onclick="srHapusJadwal('+ji+')">Hapus jadwal</button>':'')+'</div>'+
       '<div class="f srF"><label>Tanggal<input type="date" data-k="tanggal" value="'+esc(j.tanggal)+'"></label>'+
       '<label>Hari<input value="'+esc(srHari(j.tanggal)||'–')+'" disabled></label>'+
@@ -786,34 +806,50 @@ function srGambarJadwal(){
       '<label>Pukul selesai<input type="time" data-k="jamSelesai" value="'+esc(j.jamSelesai)+'"></label>'+
       '<div class="sub pn" style="margin-top:-6px">Pukul selesai dikosongkan = “s.d. Selesai”.</div>'+
       '<label class="pn">Tempat<input data-k="tempat" value="'+esc(j.tempat)+'" placeholder="mis. Kecamatan Jatinangor / SMK Bhakti Nusantara"></label></div>'+
-      '<div class="sub" style="margin:12px 0 6px">Personel ('+j.personel.length+') · ketuk <b>Koor</b> untuk menandai koordinator</div>'+
-      '<div class="srP">'+j.personel.map(function(p,pi){
-        return '<div class="pr'+(p.koor?' koor':'')+'"><span class="no">'+(pi+1)+'.</span><div class="nm"><b>'+esc(p.nama)+'</b><div class="sub">'+esc([p.jabatan,p.bidang&&p.bidang!=='PPUD'?p.bidang:''].filter(Boolean).join(' · '))+'</div></div>'+
-          '<button class="btn kecil kb'+(p.koor?' on':'')+'" onclick="srKoor('+ji+','+pi+')">'+(p.koor?'★ Koor':'Koor')+'</button>'+
-          '<button class="btn kecil" title="Naik" onclick="srGeserP('+ji+','+pi+',-1)"'+(pi?'':' disabled')+'>↑</button><button class="btn kecil" title="Turun" onclick="srGeserP('+ji+','+pi+',1)"'+(pi<j.personel.length-1?'':' disabled')+'>↓</button>'+
-          '<button class="btn kecil bahaya" title="Hapus" onclick="srHapusP('+ji+','+pi+')">✕</button></div>'; }).join('')+'</div>'+
-      '<div class="alat" style="margin:8px 0 0"><button class="btn" onclick="srPilihPegawai('+ji+')">+ Pilih pegawai</button><button class="btn" onclick="srManual('+ji+')">+ Personel manual</button>'+
+      T.map(function(t,ti){
+        var L=t.personel;
+        return '<div class="'+(banyak?'srTim':'')+'" data-t="'+ti+'">'+
+          (banyak?'<div class="kepalaE" style="margin-top:4px"><b>'+esc(srNamaTim(t,ti))+'</b><button class="btn kecil bahaya" onclick="srHapusTim('+ji+','+ti+')">Hapus tim</button></div>'+
+            '<div class="f srF"><label>Nama tim<input data-tk="nama" value="'+esc(t.nama)+'" placeholder="Tim '+(ti+1)+'"></label>'+
+            '<label>Tempat tim<input data-tk="tempat" value="'+esc(t.tempat)+'" placeholder="boleh kosong"></label></div>':'')+
+          '<div class="sub" style="margin:12px 0 6px">Personel'+(banyak?' '+esc(srNamaTim(t,ti)):'')+' ('+L.length+') · ketuk <b>Koor</b> untuk menandai koordinator</div>'+
+          '<div class="srP">'+L.map(function(p,pi){
+            return '<div class="pr'+(p.koor?' koor':'')+'"><span class="no">'+(pi+1)+'.</span><div class="nm"><b>'+esc(p.nama)+'</b><div class="sub">'+esc([p.jabatan,p.bidang&&p.bidang!=='PPUD'?p.bidang:''].filter(Boolean).join(' · '))+'</div></div>'+
+              '<button class="btn kecil kb'+(p.koor?' on':'')+'" onclick="srKoor('+ji+','+ti+','+pi+')">'+(p.koor?'★ Koor':'Koor')+'</button>'+
+              '<button class="btn kecil" title="Naik" onclick="srGeserP('+ji+','+ti+','+pi+',-1)"'+(pi?'':' disabled')+'>↑</button><button class="btn kecil" title="Turun" onclick="srGeserP('+ji+','+ti+','+pi+',1)"'+(pi<L.length-1?'':' disabled')+'>↓</button>'+
+              '<button class="btn kecil bahaya" title="Hapus" onclick="srHapusP('+ji+','+ti+','+pi+')">✕</button></div>'; }).join('')+'</div>'+
+          '<div class="alat" style="margin:8px 0 0"><button class="btn" onclick="srPilihPegawai('+ji+','+ti+')">+ Pilih pegawai</button><button class="btn" onclick="srManual('+ji+','+ti+')">+ Personel manual</button></div></div>';
+      }).join('')+
+      '<div class="alat" style="margin:10px 0 0"><button class="btn" onclick="srTambahTim('+ji+')">+ Tambah tim</button>'+
       (ji>0&&SF.jadwal[0].personel.length?'<button class="btn" onclick="srSalinPersonel('+ji+')">Salin personel jadwal 1</button>':'')+'</div></div>';
   }).join('');
   [].forEach.call(document.querySelectorAll('#srJadwal input[data-k]'), function(inp){
     var ji=+inp.closest('.srJ').getAttribute('data-j'), k=inp.getAttribute('data-k');
     inp.oninput=inp.onchange=function(){ SF.jadwal[ji][k]=inp.value; if(k==='tanggal'){ var h=inp.closest('.f').querySelector('input[disabled]'); h.value=srHari(inp.value)||'–'; } srUbah(k==='tempat'); };
   });
+  [].forEach.call(document.querySelectorAll('#srJadwal input[data-tk]'), function(inp){
+    var ji=+inp.closest('.srJ').getAttribute('data-j'), ti=+inp.closest('[data-t]').getAttribute('data-t'), k=inp.getAttribute('data-tk');
+    inp.oninput=function(){ SF.jadwal[ji].tim[ti][k]=inp.value; srUbah(true); };
+    inp.onchange=function(){ SF.jadwal[ji].tim[ti][k]=inp.value; srUbah(); srGambarJadwal(); };
+  });
 }
 function srTambahJadwal(){ var a=SF.jadwal[SF.jadwal.length-1]||{}; var j=srJadwalKosong(); j.jamMulai=a.jamMulai||'09:00'; SF.jadwal.push(j); srUbah(); srGambarJadwal(); }
+function srTambahTim(ji){ var T=srTim(SF.jadwal[ji]); T.push(srTimKosong()); srUbah(); srGambarJadwal(); }
+function srHapusTim(ji,ti){ var t=SF.jadwal[ji].tim[ti]; if((t.personel.length||t.nama||t.tempat) && !confirm('Hapus '+srNamaTim(t,ti)+' beserta '+t.personel.length+' personelnya?')) return; SF.jadwal[ji].tim.splice(ti,1); srUbah(); srGambarJadwal(); }
 function srHapusJadwal(i){ var j=SF.jadwal[i]; if((j.personel.length||j.tempat) && !confirm('Hapus jadwal '+(i+1)+(j.tempat?' ('+j.tempat+')':'')+'?')) return; SF.jadwal.splice(i,1); srUbah(); srGambarJadwal(); }
-function srKoor(ji,pi){ var p=SF.jadwal[ji].personel[pi]; p.koor=!p.koor; srUbah(); srGambarJadwal(); }
-function srGeserP(ji,pi,a){ var L=SF.jadwal[ji].personel, x=L.splice(pi,1)[0]; L.splice(pi+a,0,x); srUbah(); srGambarJadwal(); }
-function srHapusP(ji,pi){ SF.jadwal[ji].personel.splice(pi,1); srUbah(); srGambarJadwal(); }
+function srKoor(ji,ti,pi){ var p=SF.jadwal[ji].tim[ti].personel[pi]; p.koor=!p.koor; srUbah(); srGambarJadwal(); }
+function srGeserP(ji,ti,pi,a){ var L=SF.jadwal[ji].tim[ti].personel, x=L.splice(pi,1)[0]; L.splice(pi+a,0,x); srUbah(); srGambarJadwal(); }
+function srHapusP(ji,ti,pi){ SF.jadwal[ji].tim[ti].personel.splice(pi,1); srUbah(); srGambarJadwal(); }
 function srSalinPersonel(ji){ var L=SF.jadwal[ji].personel; if(L.length && !confirm('Ganti personel jadwal '+(ji+1)+' dengan personel jadwal 1?')) return;
-  SF.jadwal[ji].personel=JSON.parse(JSON.stringify(SF.jadwal[0].personel)); srUbah(); srGambarJadwal(); }
+  SF.jadwal[ji].tim=JSON.parse(JSON.stringify(srTim(SF.jadwal[0]))); srUbah(); srGambarJadwal(); }
 function srDariPegawai(p){ return { id:p.id, nama:p.nama, pangkat:p.pangkat, nip:p.nip, jabatan:p.jabatan, bidang:p.bidang||'PPUD', koor:false }; }
 var srSaring = { q:'', seksi:'' };
-function srPilihPegawai(ji){
-  var L=(SRD.pegawai||[]).filter(function(p){ return p.aktif; }), J=SF.jadwal[ji];
+function srPilihPegawai(ji,ti){
+  ti=ti||0; var L=(SRD.pegawai||[]).filter(function(p){ return p.aktif; }), JD=SF.jadwal[ji], TT=srTim(JD), J=TT[ti];
   var dipilih={}; J.personel.forEach(function(p){ if(p.id) dipilih[p.id]=1; });
+  var timLain={}; TT.forEach(function(t,k){ if(k!==ti) t.personel.forEach(function(p){ if(p.id) timLain[p.id]=srNamaTim(t,k); }); });
   var seksi=SEKSI_SR.slice(); L.forEach(function(p){ if(p.bidang && p.bidang!=='PPUD' && seksi.indexOf(p.bidang)<0) seksi.push(p.bidang); });
-  modal('Pilih personel'+(SF.jadwal.length>1?' · Jadwal '+(ji+1):''),
+  modal('Pilih personel'+(SF.jadwal.length>1?' · Jadwal '+(ji+1):'')+(TT.length>1?' · '+srNamaTim(J,ti):''),
     '<div class="alat"><input type="search" id="srQ" placeholder="Cari nama, jabatan, NIP…" value="'+esc(srSaring.q)+'"></div>'+
     '<div class="seg" id="srSeksi" style="margin-bottom:10px"><button data-s="">Semua</button>'+seksi.map(function(s){ return '<button data-s="'+esc(s)+'">'+esc(s)+'</button>'; }).join('')+'</div>'+
     '<div class="sub" style="margin-bottom:6px"><a href="#" id="srSemua">Centang semua yang tampil</a></div>'+
@@ -822,7 +858,7 @@ function srPilihPegawai(ji){
     var q=srSaring.q.toLowerCase();
     [].forEach.call($('#srSeksi').children, function(b){ b.classList.toggle('on', b.getAttribute('data-s')===srSaring.seksi); });
     var T=L.filter(function(p){ return (!srSaring.seksi || p.seksi===srSaring.seksi || p.bidang===srSaring.seksi) && (!q || (p.nama+' '+p.jabatan+' '+p.nip).toLowerCase().indexOf(q)>=0); });
-    $('#srPL').innerHTML=T.length? T.map(function(p){ return '<label class="cekB"><input type="checkbox" value="'+esc(p.id)+'"'+(dipilih[p.id]?' checked':'')+'><span><b>'+esc(p.nama)+'</b><br><span class="sub">'+esc(p.jabatan)+(p.seksi?' · '+esc(p.seksi):'')+(p.bidang&&p.bidang!=='PPUD'?' · '+esc(p.bidang):'')+'</span></span></label>'; }).join('')
+    $('#srPL').innerHTML=T.length? T.map(function(p){ return '<label class="cekB"><input type="checkbox" value="'+esc(p.id)+'"'+(dipilih[p.id]?' checked':'')+'><span><b>'+esc(p.nama)+'</b><br><span class="sub">'+esc(p.jabatan)+(p.seksi?' · '+esc(p.seksi):'')+(p.bidang&&p.bidang!=='PPUD'?' · '+esc(p.bidang):'')+(timLain[p.id]?' · <b>sudah di '+esc(timLain[p.id])+'</b>':'')+'</span></span></label>'; }).join('')
       :'<div class="kosong">Tidak ada pegawai yang cocok.</div>';
     [].forEach.call(document.querySelectorAll('#srPL input'), function(c){ c.onchange=function(){ if(c.checked) dipilih[c.value]=1; else delete dipilih[c.value]; hitung(); }; });
     hitung();
@@ -839,7 +875,8 @@ function srPilihPegawai(ji){
     J.personel=pg.concat(lain); tutupModal(); srUbah(); srGambarJadwal(); };
   gambar(); setTimeout(function(){ var q=$('#srQ'); if(q && window.innerWidth>760) q.focus(); }, 50);
 }
-function srManual(ji){
+function srManual(ji,ti){
+  ti=ti||0;
   modal('Personel manual', '<div class="sub" style="margin-bottom:10px">Untuk personel dari bidang lain atau yang belum ada di daftar.</div>'+
     '<div class="f"><label class="pn">Nama (dengan gelar) <i class="bt">*</i><input id="mNama" autocapitalize="characters"></label>'+
     '<label>Pangkat / golongan<input id="mPangkat" placeholder="mis. Penata Muda, III/a"></label><label>NIP<input id="mNip" inputmode="numeric" placeholder="18 angka"></label>'+
@@ -851,7 +888,7 @@ function srManual(ji){
     if(p.nama.length<2){ $('#mg').textContent='Nama wajib diisi.'; return; }
     var nipA=p.nip.replace(/\s/g,''); if(nipA && !/^\d{18}$/.test(nipA)){ $('#mg').textContent='NIP harus 18 angka.'; return; }
     if(nipA) p.nip=nipA.replace(/^(\d{8})(\d{6})(\d)(\d{3})$/,'$1 $2 $3 $4');
-    var tambah=function(id){ if(id) p.id=id; SF.jadwal[ji].personel.push(p); tutupModal(); srUbah(); srGambarJadwal(); };
+    var tambah=function(id){ if(id) p.id=id; srTim(SF.jadwal[ji])[ti].personel.push(p); tutupModal(); srUbah(); srGambarJadwal(); };
     if($('#mSimpan') && $('#mSimpan').checked){ var b=this; b.disabled=true;
       api('pegawaiSimpan',{ pegawai:{ nama:p.nama, pangkat:p.pangkat, nip:p.nip, jabatan:p.jabatan, bidang:p.bidang||'Lainnya', seksi:'' } })
         .then(function(j){ SRD.pegawai=j.pegawai; toast('Disimpan ke daftar pegawai'); tambah(j.id); })
@@ -862,11 +899,12 @@ function srManual(ji){
 
 /* Hasil */
 function srPeringatan(){
-  var w=[], g=SuratDocx.validasi(SF);
+  srRata(); var w=[], g=SuratDocx.validasi(SF);
   SF.jadwal.forEach(function(j,ji){
     var nm2=SF.jadwal.length>1?'Jadwal '+(ji+1)+': ':'';
     var lihat={}; j.personel.forEach(function(p){ var k=(p.nip||p.nama).toLowerCase(); if(lihat[k]) w.push(nm2+p.nama+' tercantum dua kali.'); lihat[k]=1; });
-    if(j.personel.length>1 && !j.personel.some(function(p){ return p.koor; })) w.push(nm2+'belum ada koordinator.');
+    srTim(j).forEach(function(t,ti){ if(t.personel.length>1 && !t.personel.some(function(p){ return p.koor; })) w.push(nm2+(j.tim.length>1?srNamaTim(t,ti)+' ':'')+'belum ada koordinator.'); });
+    if(j.tim.length>1) j.tim.forEach(function(t,ti){ if(!t.personel.length) w.push(nm2+srNamaTim(t,ti)+' belum ada personel.'); });
     for(var k=ji+1;k<SF.jadwal.length;k++){ var b=SF.jadwal[k];
       if(!j.tanggal || j.tanggal!==b.tanggal) continue;
       var a1=j.jamMulai||'00:00', a2=j.jamSelesai||'23:59', b1=b.jamMulai||'00:00', b2=b.jamSelesai||'23:59';
@@ -908,7 +946,7 @@ function srGambarSalin(){
     (i===1?'':'<button class="btn kecil" data-i="'+i+'"'+(b[1]?'':' disabled')+'>Salin</button>')+'</div>'; }).join('');
   [].forEach.call(el.querySelectorAll('button[data-i]'), function(b){ b.onclick=function(){ var x=B[+b.getAttribute('data-i')]; srSalin(x[1], x[0]); }; });
 }
-function srData(){ var o=JSON.parse(JSON.stringify(SF)); delete o.id; delete o.nomor; delete o.berubah; delete o.idKirim; return o; }
+function srData(){ srRata(); var o=JSON.parse(JSON.stringify(SF)); delete o.id; delete o.nomor; delete o.berubah; delete o.idKirim; return o; }
 function srSimpanRiwayat(btn){
   if(btn) btn.disabled=true;
   if(!SF.id && !SF.idKirim) SF.idKirim=buatIdKirim();
