@@ -385,7 +385,7 @@ function api(action, data){
 function tampil(id){ ['layarLogin','layarGanti','aplikasi'].forEach(function(x){ $('#'+x).classList.toggle('hide', x!==id); }); }
 function keluar(pesan){
   if(TOKEN && !pesan) api('logout').catch(function(){});
-  TOKEN=null; ME=null; D=null; SRD=null; SF=null; tiketDikenal=null; simpan('ppud_sesi', null); simpan('ppud_data', null); tandaSegar(false); var nb=$('#notif'); if(nb) nb.remove();
+  TOKEN=null; ME=null; D=null; SRD=null; SF=null; tiketDikenal=null; simpan('ppud_sesi', null); simpan('ppud_data', null); simpan('ppud_bs', null); simpan('ppud_rb', null); tandaSegar(false); var nb=$('#notif'); if(nb) nb.remove();
   tampil('layarLogin'); $('#lgGalat').textContent = pesan||''; $('#lgPass').value='';
 }
 $('#formLogin').addEventListener('submit', function(e){
@@ -2634,10 +2634,24 @@ function vBestie(){
     '<a class="btn" href="'+BESTIE_URL+'presentasi/" target="_blank" rel="noopener">▶ Presentasi</a>'+
     (isUtama()?'<button class="btn" onclick="bankSoalB()">Bank soal</button><button class="btn" onclick="bankKueB()">Kuesioner</button>':'')+'<button class="btn utama" onclick="formSesiB()">+ Sesi baru</button></div></div>'+
     '<p class="sub" style="margin-top:-6px">Halaman siswa hanya bisa dibuka lewat QR atau tautan sesi. Tidak ditautkan dari landing page.</p><div id="listB" class="sub">Memuat…</div>';
-  api('bestieData').then(function(j){ BS=j; isiListB();
-    sinkronB().then(function(s){ if(adaBaruB(s) && location.hash==='#bestie') api('bestieData').then(function(j2){ BS=j2; isiListB(); }); });
-  }).catch(function(e){ $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
+  /* tampil langsung dari data terakhir di perangkat; data server & sinkron Cloudflare berjalan bersamaan */
+  var c=simpananB('ppud_bs'), dariSimpan=false;
+  if(c){ BS=c; try{ isiListB(); dariSimpan=true; tandaSegar(true); }catch(e){} }
+  var pSinkron=sinkronB();
+  var pData=api('bestieData').then(function(j){ BS=j; simpanB('ppud_bs', j); if(location.hash==='#bestie') isiListB(); })
+    .catch(function(e){ if(dariSimpan) toast('Gagal memperbarui: '+e.message+' · menampilkan data terakhir'); else $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; throw e; });
+  Promise.all([pSinkron, pData]).then(function(h){ if(adaBaruB(h[0]) && location.hash==='#bestie')
+      return api('bestieData').then(function(j2){ BS=j2; simpanB('ppud_bs', j2); if(location.hash==='#bestie') isiListB(); }); })
+    .catch(function(){}).then(function(){ tandaSegar(false); });
 }
+/* simpanan per akun di perangkat (dihapus saat keluar); ppud_rb menyimpan rekap 10 sesi terakhir */
+function simpananB(k, kode){ try{ var x=JSON.parse(localStorage.getItem(k)||'null'); if(!x || !ME || x.u!==ME.username) return null;
+  if(kode){ x=(x.s||{})[kode]; } if(!x || Date.now()-(x.w||0)>7*864e5) return null; return x.d; }catch(e){ return null; } }
+function simpanB(k, d, kode){ try{ if(!ME) return; var w=Date.now();
+  if(kode){ var x=JSON.parse(localStorage.getItem(k)||'null'); if(!x || x.u!==ME.username) x={ u:ME.username, s:{} };
+    x.s[kode]={ w:w, d:d }; var ks=Object.keys(x.s).sort(function(a,b){ return x.s[b].w-x.s[a].w; }); ks.slice(10).forEach(function(z){ delete x.s[z]; });
+    localStorage.setItem(k, JSON.stringify(x)); }
+  else localStorage.setItem(k, JSON.stringify({ u:ME.username, w:w, d:d })); }catch(e){} }
 /* label jenjang: data tetap 'SMA', tampilan 'SMA/SMK' */
 function jjB(j){ return j==='SMA'?'SMA/SMK':(j||''); }
 /* buklet: jumlah HP unik yang membuka / mengunduh */
@@ -2675,10 +2689,14 @@ function vBestieSesi(kode){
     if(RB && /dibuka/.test(RB.sesi.status) && document.visibilityState==='visible' && !sibuk()) muatRekapB(kode, true); }, 30000);
 }
 function muatRekapB(kode, diam, tanpaSinkron){
-  return api('bestieRekap',{kode:kode}).then(function(j){ var y=window.scrollY; RB=j; isiRekapB(); if(diam) window.scrollTo(0,y);
-      if(!tanpaSinkron) sinkronB().then(function(s){ if(adaBaruB(s) && location.hash==='#bestie/'+kode) muatRekapB(kode, true, true); });   // tarik jawaban terbaru dari Cloudflare
-    })
-    .catch(function(e){ if(!diam) $('#rinB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; });
+  var dariSimpan=false, di=function(){ return location.hash==='#bestie/'+kode; };
+  if(!diam){ var c=(RB && RB.sesi && RB.sesi.kode===kode) ? RB : simpananB('ppud_rb', kode); if(c){ RB=c; try{ isiRekapB(); dariSimpan=true; tandaSegar(true); }catch(e){} } }
+  var pSinkron=tanpaSinkron ? Promise.resolve(null) : sinkronB();   // tarik jawaban terbaru dari Cloudflare, bersamaan dengan ambil rekap
+  var pRekap=api('bestieRekap',{kode:kode}).then(function(j){ simpanB('ppud_rb', j, kode); if(!di()) return; var y=window.scrollY; RB=j;
+      if(!(dariSimpan && sibuk())){ isiRekapB(); if(diam||dariSimpan) window.scrollTo(0,y); } })
+    .catch(function(e){ if(dariSimpan) toast('Gagal memperbarui: '+e.message+' · menampilkan data terakhir'); else if(!diam) $('#rinB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; throw e; });
+  return Promise.all([pSinkron, pRekap]).then(function(h){ if(adaBaruB(h[0]) && di()) return muatRekapB(kode, true, true); })
+    .catch(function(){}).then(function(){ if(dariSimpan) tandaSegar(false); });
 }
 function kunciSiswaB(j){ return String(j.kelas).toUpperCase().replace(/\s+/g,'')+'|'+String(+j.absen||j.absen); }
 function hitungB(R){
