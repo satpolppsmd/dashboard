@@ -2684,7 +2684,7 @@ function hitungB(R){
 }
 function f1(x){ return x==null||isNaN(x)?'–':(Math.round(x*10)/10).toString().replace('.',','); }
 function tombolStatusB(st){
-  var b={ 'Belum dibuka':[['Pre-test dibuka','Buka pre-test','utama']],
+  var b={ 'Belum dibuka':[['Pre-test dibuka','Buka pre-test','utama'],['Post-test dibuka','Langsung post-test',''],['LANGSUNG','🎮 Post-test mode permainan','']],
     'Pre-test dibuka':[['Ditutup','Tutup pre-test','utama']],
     'Ditutup':[['Post-test dibuka','Buka post-test','utama'],['LANGSUNG','🎮 Post-test mode permainan',''],['Pre-test dibuka','Buka lagi pre-test','']],
     'Post-test dibuka':[['LANGSUNG','🎮 Mode permainan',''],['Selesai','Tutup post-test','utama']],
@@ -2779,6 +2779,7 @@ function ubahStatusB(status, label){
   var S=RB.sesi;
   var ket={ 'Pre-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan pre-test.', 'Ditutup':'Siswa tidak bisa lagi mengirim pre-test (kecuali yang sedang mengirim, diberi tenggang 10 menit).',
     'Post-test dibuka':'Siswa yang memindai QR akan langsung bisa mengerjakan post-test.', 'Selesai':'Siswa tidak bisa lagi mengirim post-test (tenggang 10 menit untuk yang sedang mengirim).' }[status];
+  if(status==='Post-test dibuka' && S.status==='Belum dibuka') ket+='\n\nPre-test dilewati: rekap hanya berisi post-test, jadi peningkatan pre→post tidak dihitung.';
   if(!confirm(label+' untuk '+S.kode+' ('+S.sekolah+')?\n\n'+ket)) return;
   api('bestieStatus',{kode:S.kode, status:status}).then(function(){ toast('Status: '+status+' · mengirim ke HP siswa…'); return dorongB(); })
     .then(function(j){ toast(j && j.ok && !j.belum ? 'Status: '+status+' · terkirim ke HP siswa' : 'Status: '+status); muatRekapB(S.kode, false, true); }).catch(function(e){ toast(e.message); });
@@ -3003,7 +3004,7 @@ function lvPost(data, ke){
 function mulaiLangsungB(){
   var S=RB.sesi, simpan=null; try{ simpan=JSON.parse(sessionStorage.getItem('bestie_host_'+S.kode)||'null'); }catch(e){}
   if(simpan && simpan.hostKey){ LVH={ kode:S.kode, hostKey:simpan.hostKey, st:null }; bukaHostB(); return; }   // lanjutkan permainan yang sedang berjalan
-  if(!confirm('Mulai post-test mode permainan untuk '+S.kode+' ('+S.sekolah+')?\n\nSoal tampil di layar ini dan di HP siswa, '+S.soal.length+' soal × 20 detik. Hasilnya tercatat sebagai post-test (masuk rekap), lalu siswa mengisi kuesioner seperti biasa.'+(S.status==='Ditutup'?'\n\nPost-test akan dibuka sekarang.':''))) return;
+  if(!confirm('Mulai post-test mode permainan untuk '+S.kode+' ('+S.sekolah+')?\n\nSoal tampil di layar ini dan di HP siswa, '+S.soal.length+' soal × 20 detik. Hasilnya tercatat sebagai post-test (masuk rekap), lalu siswa mengisi kuesioner seperti biasa.'+(S.status==='Ditutup'?'\n\nPost-test akan dibuka sekarang.':S.status==='Belum dibuka'?'\n\nPost-test akan dibuka sekarang tanpa pre-test: rekap hanya berisi post-test, jadi peningkatan pre→post tidak dihitung.':''))) return;
   var siap = S.status==='Post-test dibuka' ? Promise.resolve() : api('bestieStatus',{kode:S.kode, status:'Post-test dibuka'}).then(function(){ toast('Post-test dibuka · mengirim ke server siswa…'); return dorongB(); });
   siap.then(function(){ return hostMulaiB(S.kode, 0); })
     .then(function(j){ LVH={ kode:S.kode, hostKey:j.hostKey, st:j.state }; try{ sessionStorage.setItem('bestie_host_'+S.kode, JSON.stringify({hostKey:j.hostKey})); }catch(e){} bukaHostB(); muatRekapB(S.kode, true, true); })
