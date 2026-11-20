@@ -415,7 +415,8 @@ function vKinerja(){
 function tampil(id){ ['layarLogin','layarGanti','aplikasi'].forEach(function(x){ $('#'+x).classList.toggle('hide', x!==id); }); }
 function keluar(pesan){
   if(TOKEN && !pesan) api('logout').catch(function(){});
-  TOKEN=null; ME=null; D=null; SRD=null; SF=null; tiketDikenal=null; simpan('ppud_sesi', null); simpan('ppud_data', null); simpan('ppud_bs', null); simpan('ppud_rb', null); tandaSegar(false); var nb=$('#notif'); if(nb) nb.remove();
+  TOKEN=null; ME=null; D=null; SRD=null; SF=null; tiketDikenal=null; simpan('ppud_sesi', null); simpan('ppud_data', null); simpan('ppud_bs', null); simpan('ppud_rb', null); tandaSegar(false);
+  try{ var bk=JSON.parse(localStorage.getItem('bestie_bd')||'null'); if(bk && bk.k) bdPost({ action:'adminKeluar', kunciAdmin:bk.k }).catch(function(){}); }catch(e){} simpan('bestie_bd', null); var nb=$('#notif'); if(nb) nb.remove();
   tampil('layarLogin'); $('#lgGalat').textContent = pesan||''; $('#lgPass').value='';
 }
 $('#formLogin').addEventListener('submit', function(e){
@@ -2667,12 +2668,42 @@ function vBestie(){
   /* tampil langsung dari data terakhir di perangkat; data server & sinkron Cloudflare berjalan bersamaan */
   var c=simpananB('ppud_bs'), dariSimpan=false;
   if(c){ BS=c; try{ isiListB(); dariSimpan=true; tandaSegar(true); }catch(e){} }
-  var pSinkron=sinkronB();
-  var pData=api('bestieData').then(function(j){ BS=j; simpanB('ppud_bs', j); if(location.hash==='#bestie') isiListB(); })
-    .catch(function(e){ if(dariSimpan) toast('Gagal memperbarui: '+e.message+' · menampilkan data terakhir'); else $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; throw e; });
-  Promise.all([pSinkron, pData]).then(function(h){ if(adaBaruB(h[0]) && location.hash==='#bestie')
-      return api('bestieData').then(function(j2){ BS=j2; simpanB('ppud_bs', j2); if(location.hash==='#bestie') isiListB(); }); })
+  var pasang=function(j){ if(BS && !j.bank){ j.bank=BS.bank; j.kuesioner=BS.kuesioner; } BS=j; simpanB('ppud_bs', j); if(location.hash==='#bestie') isiListB(); };
+  bdPanggil({ action:'bdDaftar' }).then(function(j){ if(!j || !j.ok) throw new Error(j && j.error || 'cf'); pasang(j); })   // jalur utama: Cloudflare
+    .catch(function(){   // cadangan: Google (sinkron Cloudflare→sheet berjalan bersamaan)
+      var pSinkron=sinkronB();
+      var pData=api('bestieData').then(pasang)
+        .catch(function(e){ if(dariSimpan) toast('Gagal memperbarui: '+e.message+' · menampilkan data terakhir'); else $('#listB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; throw e; });
+      return Promise.all([pSinkron, pData]).then(function(h){ if(adaBaruB(h[0]) && location.hash==='#bestie') return api('bestieData').then(pasang); });
+    })
     .catch(function(){}).then(function(){ tandaSegar(false); });
+}
+/* ---- baca BESTIE dari Cloudflare: izin baca sementara dari login dashboard (disimpan per akun, dihapus saat keluar) ---- */
+function bdPost(data, ke){
+  ke=ke||0; var ctl=window.AbortController?new AbortController():null, t=ctl?setTimeout(function(){ ctl.abort(); },10000):null;
+  return fetch(LV_API[ke], { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(data), signal:ctl?ctl.signal:undefined })
+    .then(function(r){ return r.json(); }).then(function(j){ if(t) clearTimeout(t); return j; })
+    .catch(function(e){ if(t) clearTimeout(t); if(ke>=1) throw e; return bdPost(data, ke+1); });
+}
+function bdKunci(baru){
+  if(!baru){ try{ var x=JSON.parse(localStorage.getItem('bestie_bd')||'null'); if(x && ME && x.u===ME.username && x.k) return Promise.resolve(x.k); }catch(e){} }
+  return bdPost({ action:'adminMasuk', token:TOKEN }).then(function(j){ if(!j || !j.ok) throw new Error(j && j.error || 'Izin baca ditolak');
+    try{ localStorage.setItem('bestie_bd', JSON.stringify({ u:ME.username, k:j.kunciAdmin })); }catch(e){} return j.kunciAdmin; });
+}
+function bdPanggil(o){
+  var t0=Date.now();
+  var pakai=function(k){ return bdPost(Object.assign({ kunciAdmin:k }, o)); };
+  return bdKunci().then(pakai).then(function(j){
+    if(j && !j.ok && /Izin baca/.test(j.error||'')){ try{ localStorage.removeItem('bestie_bd'); }catch(e){} return bdKunci(true).then(pakai); }
+    return j; })
+    .then(function(j){ catatKinerja({ w:t0, a:'cf:'+o.action, ms:Date.now()-t0, e:j&&j.ok?0:1 }); return j; },
+      function(e){ catatKinerja({ w:t0, a:'cf:'+o.action, ms:Date.now()-t0, g:1 }); throw e; });
+}
+/* bank soal & kuesioner tetap dari Google: dimuat saat editor dibuka bila daftar sesi berasal dari Cloudflare */
+function pastikanBankB(lanjut){
+  if(BS && BS.bank && BS.kuesioner){ lanjut(); return; }
+  toast('Memuat bank soal…');
+  api('bestieData').then(function(j){ BS=BS||j; BS.bank=j.bank; BS.kuesioner=j.kuesioner; lanjut(); }).catch(function(e){ toast(e.message); });
 }
 /* simpanan per akun di perangkat (dihapus saat keluar); ppud_rb menyimpan rekap 10 sesi terakhir */
 function simpananB(k, kode){ try{ var x=JSON.parse(localStorage.getItem(k)||'null'); if(!x || !ME || x.u!==ME.username) return null;
@@ -2704,7 +2735,7 @@ function formSesiB(x){
     '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="ok">'+(x.kode?'Simpan':'Buat sesi')+'</button></div>');
   $('#ok').onclick=function(){ var b=this, g=$('#mg'); b.disabled=true; g.textContent='';
     api('bestieSimpanSesi',{ kode:x.kode, sekolah:$('#bsS').value, jenjang:$('#bsJ').value, tanggal:$('#bsT').value })
-      .then(function(j){ tutupModal(); toast(x.kode?'Sesi tersimpan':'Sesi '+j.kode+' dibuat'); dorongB(); if(location.hash==='#bestie/'+j.kode) vBestieSesi(j.kode); else location.hash='bestie/'+j.kode; })
+      .then(function(j){ tutupModal(); toast(x.kode?'Sesi tersimpan':'Sesi '+j.kode+' dibuat'); return dorongB().catch(function(){}).then(function(){ if(location.hash==='#bestie/'+j.kode) vBestieSesi(j.kode); else location.hash='bestie/'+j.kode; }); })
       .catch(function(e){ g.textContent=e.message; }).finally(function(){ b.disabled=false; }); };
 }
 
@@ -2721,11 +2752,16 @@ function vBestieSesi(kode){
 function muatRekapB(kode, diam, tanpaSinkron){
   var dariSimpan=false, di=function(){ return location.hash==='#bestie/'+kode; };
   if(!diam){ var c=(RB && RB.sesi && RB.sesi.kode===kode) ? RB : simpananB('ppud_rb', kode); if(c){ RB=c; try{ isiRekapB(); dariSimpan=true; tandaSegar(true); }catch(e){} } }
-  var pSinkron=tanpaSinkron ? Promise.resolve(null) : sinkronB();   // tarik jawaban terbaru dari Cloudflare, bersamaan dengan ambil rekap
-  var pRekap=api('bestieRekap',{kode:kode}).then(function(j){ simpanB('ppud_rb', j, kode); if(!di()) return; var y=window.scrollY; RB=j;
-      if(!(dariSimpan && sibuk())){ isiRekapB(); if(diam||dariSimpan) window.scrollTo(0,y); } })
-    .catch(function(e){ if(dariSimpan) toast('Gagal memperbarui: '+e.message+' · menampilkan data terakhir'); else if(!diam) $('#rinB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; throw e; });
-  return Promise.all([pSinkron, pRekap]).then(function(h){ if(adaBaruB(h[0]) && di()) return muatRekapB(kode, true, true); })
+  var pasang=function(j){ simpanB('ppud_rb', j, kode); if(!di()) return; var y=window.scrollY; RB=j;
+      if(!(dariSimpan && sibuk())){ isiRekapB(); if(diam||dariSimpan) window.scrollTo(0,y); } };
+  return bdPanggil({ action:'bdRekap', kode:kode })   // jalur utama: Cloudflare (data jawaban paling baru ada di sini)
+    .then(function(j){ if(!j || !j.ok || j.pakaiGoogle) throw new Error('google'); pasang(j); })
+    .catch(function(){   // cadangan / sesi dengan kiriman jalur Google: baca dari Google, sinkron berjalan bersamaan
+      var pSinkron=tanpaSinkron ? Promise.resolve(null) : sinkronB();
+      var pRekap=api('bestieRekap',{kode:kode}).then(pasang)
+        .catch(function(e){ if(dariSimpan) toast('Gagal memperbarui: '+e.message+' · menampilkan data terakhir'); else if(!diam) $('#rinB').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; throw e; });
+      return Promise.all([pSinkron, pRekap]).then(function(h){ if(adaBaruB(h[0]) && di()) return muatRekapB(kode, true, true); });
+    })
     .catch(function(){}).then(function(){ if(dariSimpan) tandaSegar(false); });
 }
 function kunciSiswaB(j){ return String(j.kelas).toUpperCase().replace(/\s+/g,'')+'|'+String(+j.absen||j.absen); }
@@ -2819,6 +2855,7 @@ function kueKartuB(K){
 var bkDraf = null;
 function bankKueB(){
   if(!isUtama()) return;
+  if(!(BS && BS.kuesioner)){ pastikanBankB(bankKueB); return; }
   bkDraf = JSON.parse(JSON.stringify(BS.kuesioner||[]));
   modal('Kuesioner pelaksanaan BESTIE', '<div id="bankK"></div>', true); isiBankKueB();
 }
@@ -2862,7 +2899,7 @@ function hapusSesiB(){
   $('#ok').onclick=function(){ var b=this, g=$('#mg'), k=n?$('#bsK').value.trim().toUpperCase():'';
     if(n && k!==S.kode){ g.textContent='Kode yang diketik tidak sama dengan '+S.kode+'.'; return; }
     b.disabled=true; g.textContent='';
-    api('bestieHapusSesi',{ kode:S.kode, konfirmasi:k }).then(function(j){ tutupModal(); hentiB(); dorongB(); toast('Sesi '+j.kode+' dihapus'+(j.jawaban?' · '+j.jawaban+' jawaban dipindah ke arsip':'')); location.hash='bestie'; })
+    api('bestieHapusSesi',{ kode:S.kode, konfirmasi:k }).then(function(j){ tutupModal(); hentiB(); toast('Sesi '+j.kode+' dihapus'+(j.jawaban?' · '+j.jawaban+' jawaban dipindah ke arsip':'')); return dorongB().catch(function(){}).then(function(){ location.hash='bestie'; }); })
       .catch(function(e){ b.disabled=false; g.textContent=e.message; });
   };
 }
@@ -2987,6 +3024,7 @@ function qrB(){
 /* ---------- bank soal (Admin Utama) ---------- */
 function bankSoalB(){
   if(!isUtama()) return;
+  if(!(BS && BS.bank)){ pastikanBankB(bankSoalB); return; }
   bsDraf = { j:'SMP', SMP:JSON.parse(JSON.stringify(BS.bank.SMP)), SMA:JSON.parse(JSON.stringify(BS.bank.SMA)) };
   modal('Bank soal BESTIE', '<div id="bankB"></div>', true); isiBankB();
 }
