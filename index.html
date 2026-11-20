@@ -369,16 +369,46 @@ function judulKasus(k){ return k.objek || k.ringkasan || k.pelanggar || k.no; }
 function toast(t){ var e=document.createElement('div'); e.className='toast'; e.textContent=t; document.body.appendChild(e); setTimeout(function(){ e.remove(); }, 3500); }
 var nMuat=0; function muat(on){ nMuat+=on?1:-1; var b=$('.muat'); if(nMuat>0&&!b){ b=document.createElement('div'); b.className='muat'; document.body.appendChild(b); } if(nMuat<=0&&b){ nMuat=0; b.remove(); } }
 
+/* Permintaan baca diulang sekali (jeda 1 dtk) bila gagal tersambung; permintaan simpan tidak diulang supaya tidak dobel.
+   Setiap permintaan dicatat (aksi, lama, lama di server, dari simpanan/tidak) untuk halaman #kinerja. */
+var API_BACA = { data:1, berkas:1, suratData:1, bestieData:1, bestieRekap:1, daftarPengguna:1, cariTempat:1 };
+function catatKinerja(x){ try{ var l=JSON.parse(localStorage.getItem('ppud_kinerja')||'[]'); l.push(x); if(l.length>200) l=l.slice(-200); localStorage.setItem('ppud_kinerja', JSON.stringify(l)); }catch(e){} }
 function api(action, data){
   muat(true);
-  var body = Object.assign({ action: action, token: TOKEN, aktif: diamSelama() < BATAS_DIAM }, data||{});
-  return fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(body) })
-    .then(function(r){ return r.json(); })
-    .catch(function(){ throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet.'); })
+  var body = JSON.stringify(Object.assign({ action: action, token: TOKEN, aktif: diamSelama() < BATAS_DIAM }, data||{}));
+  var t0 = Date.now(), ulang = 0;
+  function kirim(){
+    return fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: body })
+      .then(function(r){ return r.json(); })
+      .catch(function(){
+        if(API_BACA[action] && !ulang){ ulang=1; return new Promise(function(ok){ setTimeout(ok, 1000); }).then(kirim); }
+        catatKinerja({ w:t0, a:action, ms:Date.now()-t0, u:ulang, g:1 });
+        throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet.'); });
+  }
+  return kirim()
     .then(function(j){
+      var s=j._srv||{}; catatKinerja({ w:t0, a:action, ms:Date.now()-t0, s:s.ms, c:s.c?1:0, u:ulang, e:j.ok?0:1 });
       if(!j.ok){ if(j.sesiHabis){ keluar(j.error); } throw new Error(j.error||'Terjadi kesalahan.'); }
       return j; })
     .finally(function(){ muat(false); });
+}
+/* Halaman tersembunyi #kinerja: ringkasan 200 permintaan terakhir di perangkat ini. */
+function vKinerja(){
+  var l=[]; try{ l=JSON.parse(localStorage.getItem('ppud_kinerja')||'[]'); }catch(e){}
+  var md=function(a){ a=a.slice().sort(function(x,y){ return x-y; }); return a.length?a[Math.floor(a.length/2)]:0; };
+  var p90=function(a){ a=a.slice().sort(function(x,y){ return x-y; }); return a.length?a[Math.min(a.length-1,Math.floor(a.length*0.9))]:0; };
+  var dt=function(ms){ return ms==null?'–':(ms/1000).toFixed(1).replace('.',',')+' dtk'; };
+  var per={}; l.forEach(function(x){ var p=per[x.a]=per[x.a]||{ n:0, ms:[], c:0, g:0, u:0 }; p.n++; if(!x.g) p.ms.push(x.ms); if(x.c) p.c++; if(x.g) p.g++; if(x.u) p.u++; });
+  var h='<div class="kepalaB"><h1>Kinerja server</h1><div class="alatB"><button class="btn" onclick="if(confirm(\'Hapus catatan kinerja di perangkat ini?\')){ localStorage.removeItem(\'ppud_kinerja\'); vKinerja(); }">Hapus catatan</button></div></div>'+
+    '<p class="sub">'+l.length+' permintaan terakhir di perangkat ini. "Total" = waktu tunggu di layar; "server" = lama proses di Apps Script; "simpanan" = dilayani dari simpanan server; "diulang" = gagal sekali lalu dicoba ulang otomatis.</p>'+
+    '<div class="kartu"><table class="t"><thead><tr><th>Aksi</th><th style="text-align:right">Jumlah</th><th style="text-align:right">Total (median)</th><th style="text-align:right">Total (9 dari 10 di bawah)</th><th style="text-align:right">Dari simpanan</th><th style="text-align:right">Diulang</th><th style="text-align:right">Gagal</th></tr></thead><tbody>'+
+    Object.keys(per).sort(function(a,b){ return per[b].n-per[a].n; }).map(function(k){ var p=per[k];
+      return '<tr><td>'+esc(k)+'</td><td style="text-align:right">'+p.n+'</td><td style="text-align:right">'+dt(md(p.ms))+'</td><td style="text-align:right">'+dt(p90(p.ms))+'</td><td style="text-align:right">'+p.c+'</td><td style="text-align:right">'+p.u+'</td><td style="text-align:right">'+p.g+'</td></tr>'; }).join('')+
+    '</tbody></table></div><div class="kartu" style="margin-top:12px"><h2>30 permintaan terakhir</h2><table class="t"><thead><tr><th>Waktu</th><th>Aksi</th><th style="text-align:right">Total</th><th style="text-align:right">Server</th><th>Keterangan</th></tr></thead><tbody>'+
+    l.slice(-30).reverse().map(function(x){ var d=new Date(x.w);
+      return '<tr><td>'+d.toLocaleString('id-ID',{ day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', second:'2-digit' })+'</td><td>'+esc(x.a)+'</td><td style="text-align:right">'+dt(x.ms)+'</td><td style="text-align:right">'+dt(x.s)+'</td><td>'+
+        [x.c?'simpanan':'', x.u?'diulang':'', x.g?'gagal tersambung':'', x.e?'ditolak server':''].filter(String).join(', ')+'</td></tr>'; }).join('')+'</tbody></table></div>';
+  $('#isi').innerHTML=h;
 }
 
 /* ---------- login ---------- */
@@ -1999,7 +2029,7 @@ function render(){
   $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob"><svg viewBox="0 0 24 24" aria-hidden="true">'+(IKON_NAV[m[0]]||'')+'</svg></span><span class="lb">'+m[1]+'</span>'+(m[2]?'<span class="n">'+m[2]+'</span>':'')+'</a>'; }).join('');
   var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, kalender: vKalender, libur: vLibur, pengguna: vPengguna,
     bestie: bag[1] ? function(){ vBestieSesi(decodeURIComponent(bag[1])); } : vBestie,
-    surat: function(){ rSurat(bag); } }[bag[0]] || vBeranda;
+    surat: function(){ rSurat(bag); }, kinerja: vKinerja }[bag[0]] || vBeranda;
   f(); window.scrollTo(0,0);
   var aktif=$('#nav a.on'); if(aktif && aktif.scrollIntoView && window.innerWidth<=760){ var n=$('#nav'); n.scrollLeft=Math.max(0, aktif.offsetLeft-(n.clientWidth-aktif.offsetWidth)/2); }
 }
