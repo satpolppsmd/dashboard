@@ -190,6 +190,8 @@ body.lvBuka{overflow:hidden}
 .lvBtn{border:0;border-radius:12px;background:#f7c600;color:#1d2433;font-weight:800;font-size:22px;padding:14px 28px;cursor:pointer;font-family:inherit;box-shadow:0 3px 0 #b08d00}
 .lvBtn.kecil{font-size:15px;padding:9px 16px;background:rgba(255,255,255,.18);color:#fff;box-shadow:none}
 .lvBtn:disabled{opacity:.5}
+.lvHitung{display:inline-block;min-width:1.6em;margin-left:6px;padding:0 6px;border-radius:8px;background:#1d2433;color:#f7c600;font-variant-numeric:tabular-nums}
+.lvAuto{margin-top:14px;text-align:center;font-size:15px;color:#e7ebf3}.lvAuto label{cursor:pointer}.lvAuto input{width:18px;height:18px;vertical-align:-3px}.lvAuto select{font:inherit;padding:3px 6px;border-radius:6px;margin-left:6px;color:#1d2433;background:#fff}.lvAuto select:disabled{opacity:.5}.lvLobi .lvAksi{margin-top:16px}.lvAutoKet{font-size:13px;opacity:.75;margin-top:6px}
 .lvJuara{font-size:clamp(28px,4vw,48px);font-weight:800;color:#f7c600}
 .lvCatat{max-width:760px;text-align:center;color:#c8d3f0}
 @media (max-width:700px){.lvOpsi{grid-template-columns:1fr}.lvO{min-height:56px}}
@@ -3016,6 +3018,21 @@ function hostMulaiB(kode, ke){
   });
 }
 var lvhTimer=null, lvhSibuk=false, lvhOtomatis=false;
+/* Lanjut otomatis di layar jeda (hasil per soal): bawaan nyala 8 detik, diatur di lobi, disimpan di perangkat penyaji. */
+var LVH_JEDA=[5,8,10,15], lvhJeda=null;   // lvhJeda: { versi, sampai, tahan, jalan }
+function lvhAturan(){ var a={ on:true, detik:8 }; try{ var x=JSON.parse(localStorage.getItem('bestie_lv_auto')||'null'); if(x){ a.on=x.on!==false; if(LVH_JEDA.indexOf(+x.detik)>=0) a.detik=+x.detik; } }catch(e){} return a; }
+function lvhSimpanAturan(){ var on=$('#lvhAutoOn'), dt=$('#lvhAutoDetik'); var a={ on:!!(on&&on.checked), detik:+(dt&&dt.value)||8 };
+  try{ localStorage.setItem('bestie_lv_auto', JSON.stringify(a)); }catch(e){} if(dt) dt.disabled=!a.on; }
+function lvhTahan(){ if(lvhJeda){ lvhJeda.tahan=true; } lvhJedaDetak(); }
+function lvhJedaDetak(){
+  var j=LVH&&LVH.st, b=$('#lvhLanjutBtn'), t=$('#lvhTahanBtn'); if(!j||j.tahap!=='hasil'||!b||!lvhJeda||lvhJeda.versi!==j.versi) return;
+  var label=j.i+1<j.n?'Soal berikutnya ▶':'Lihat juara 🏆', ke=j.i+1<j.n?'soal':'akhir';
+  if(lvhJeda.tahan || !lvhJeda.sampai){ b.textContent=label; if(t) t.style.display='none'; return; }
+  var sisa=Math.ceil((lvhJeda.sampai-Date.now())/1000);
+  if(sisa>0){ b.innerHTML=esc(label)+' <span class="lvHitung">'+sisa+'</span>'; return; }
+  if(!lvhJeda.jalan){ lvhJeda.jalan=true; b.textContent=label; if(t) t.style.display='none'; lvhLanjut(ke); }
+}
+setInterval(lvhJedaDetak, 250);
 function bukaHostB(){
   layarPenuhB('lvHost'); lvhRender(); lvhPoll();
   if(lvhTimer) clearInterval(lvhTimer); lvhTimer=setInterval(lvhPoll, 1000);
@@ -3060,7 +3077,11 @@ function lvhRender(baru){
     h+='<div class="lvTengah lvLobi"><div class="lvQR"><div id="lvhQR">Menyiapkan QR…</div><div class="lvUrl">'+esc(tautanB(S.kode).replace(/^https:\/\//,''))+'</div></div>'+
       '<div class="lvGabung"><h2>Pindai QR, isi identitas, lalu ketuk <b>Gabung permainan</b></h2><div class="lvJumlah"><b id="lvhJumlah">'+j.peserta+'</b> siswa sudah masuk</div>'+
       '<div class="lvNama" id="lvhNama">'+j.nama.map(function(n){ return '<span>'+esc(n)+'</span>'; }).join('')+'</div>'+
-      '<div class="lvAksi"><button class="lvBtn" onclick="lvhLanjut(\'soal\')">Mulai ▶</button></div></div></div>';
+      '<div class="lvAksi"><button class="lvBtn" onclick="lvhLanjut(\'soal\')">Mulai ▶</button></div>'+
+      (function(){ var a=lvhAturan(); return '<div class="lvAuto"><label><input type="checkbox" id="lvhAutoOn"'+(a.on?' checked':'')+' onchange="lvhSimpanAturan()"> Lanjut otomatis setelah jeda</label> '+
+        '<select id="lvhAutoDetik" onchange="lvhSimpanAturan()"'+(a.on?'':' disabled')+'>'+LVH_JEDA.map(function(d){ return '<option value="'+d+'"'+(d===a.detik?' selected':'')+'>'+d+' detik</option>'; }).join('')+'</select>'+
+        '<div class="lvAutoKet">Di layar jawaban, soal berikutnya muncul sendiri setelah hitungan habis. Klik ⏸ Tahan bila ingin membahas soal.</div></div>'; })()+
+      '</div></div>';
     o.innerHTML=h; lvhGambarQR(S.kode); return;
   }
   if(j.tahap==='soal' || j.tahap==='hasil'){
@@ -3070,10 +3091,12 @@ function lvhRender(baru){
       '<div class="lvOpsi">'+j.soal.p.map(function(p,k){ var benar=hasil&&k===j.kunci, redup=hasil&&!benar;
         return '<div class="lvO'+(redup?' redup':'')+'" style="background:'+LV_WARNA[k]+'"><span class="lvB">'+LV_BENTUK[k]+'</span><span class="lvP">'+esc(p)+'</span>'+
           (hasil?'<span class="lvSeb">'+(benar?'✓ ':'')+j.sebaran[k]+'</span>':'')+'</div>'; }).join('')+'</div>';
+    if(hasil && (!lvhJeda || lvhJeda.versi!==j.versi)){ var at=lvhAturan(); lvhJeda={ versi:j.versi, sampai:at.on?Date.now()+at.detik*1000:0, tahan:false, jalan:false }; }
     if(hasil) h+='<div class="lvBawah"><div class="lvTop"><h3>Peringkat sementara</h3>'+papanHTML(j.top||[], function(x){ return x.poin+' poin'; })+'</div>'+
-      '<div class="lvAksi">'+(j.i+1<j.n?'<button class="lvBtn" onclick="lvhLanjut(\'soal\')">Soal berikutnya ▶</button>':'<button class="lvBtn" onclick="lvhLanjut(\'akhir\')">Lihat juara 🏆</button>')+'</div></div>';
+      '<div class="lvAksi">'+(lvhJeda.sampai&&!lvhJeda.tahan?'<button class="lvBtn kecil" id="lvhTahanBtn" onclick="lvhTahan()">⏸ Tahan</button>':'')+
+        '<button class="lvBtn" id="lvhLanjutBtn" onclick="lvhLanjut(\''+(j.i+1<j.n?'soal':'akhir')+'\')">'+(j.i+1<j.n?'Soal berikutnya ▶':'Lihat juara 🏆')+'</button></div></div>';
     else h+='<div class="lvAksi"><button class="lvBtn kecil" onclick="lvhLanjut(\'hasil\')">Tampilkan jawaban</button></div>';
-    h+='</div>'; o.innerHTML=h; if(!hasil) lvhDetak(); return;
+    h+='</div>'; o.innerHTML=h; if(!hasil) lvhDetak(); else lvhJedaDetak(); return;
   }
   if(j.tahap==='akhir'){
     h+='<div class="lvTengah"><div class="lvJuara">🏆 Juara permainan</div>'+papanHTML(j.top||[], function(x){ return x.poin+' poin'; })+
