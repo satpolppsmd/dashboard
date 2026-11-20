@@ -385,7 +385,7 @@ function api(action, data){
 function tampil(id){ ['layarLogin','layarGanti','aplikasi'].forEach(function(x){ $('#'+x).classList.toggle('hide', x!==id); }); }
 function keluar(pesan){
   if(TOKEN && !pesan) api('logout').catch(function(){});
-  TOKEN=null; ME=null; D=null; SRD=null; SF=null; tiketDikenal=null; simpan('ppud_sesi', null); var nb=$('#notif'); if(nb) nb.remove();
+  TOKEN=null; ME=null; D=null; SRD=null; SF=null; tiketDikenal=null; simpan('ppud_sesi', null); simpan('ppud_data', null); tandaSegar(false); var nb=$('#notif'); if(nb) nb.remove();
   tampil('layarLogin'); $('#lgGalat').textContent = pesan||''; $('#lgPass').value='';
 }
 $('#formLogin').addEventListener('submit', function(e){
@@ -421,9 +421,28 @@ $('#menuAkun').addEventListener('click', function(e){ var a=e.target.getAttribut
   if(a==='keluar') keluar(); if(a==='ganti') bukaGanti(false); if(a==='muatUlang') muatData(); });
 
 var terakhirMuat=0, sedangSegar=false, tiketDikenal=null;
+/* Data terakhir disimpan di perangkat (per akun) supaya dashboard langsung tampil saat dibuka,
+   lalu diperbarui diam-diam dari server. Dihapus saat keluar. */
+function tandaSegar(on){
+  var e=$('#tandaSegar');
+  if(!on){ if(e) e.remove(); return; }
+  if(!e){ e=document.createElement('div'); e.id='tandaSegar'; e.textContent='Memperbarui data…';
+    e.style.cssText='position:fixed;right:12px;bottom:76px;z-index:240;background:#1f2a44;color:#fff;font-size:12.5px;padding:6px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.2);opacity:.92;pointer-events:none';
+    document.body.appendChild(e); }
+}
 function muatData(diam){
-  return api('data').then(function(j){ var y=window.scrollY; D=j; ME=j.me; simpan('ppud_sesi',{token:TOKEN, me:ME}); terakhirMuat=Date.now(); render(); if(diam) window.scrollTo(0,y); cekAduanBaru(); })
-    .catch(function(err){ if(diam) return; if(TOKEN) $('#isi').innerHTML='<div class="kartu galat">'+esc(err.message)+' <button class="btn kecil" onclick="muatData()">Coba lagi</button></div>'; });
+  var dariSimpan=false;
+  if(!diam && !D && ME){
+    var c=ambil('ppud_data');
+    if(c && c.u===ME.username && c.d && Date.now()-(c.w||0) < 7*864e5){ D=c.d; D.me=ME; try{ render(); dariSimpan=true; tandaSegar(true); }catch(e){ D=null; } }
+  }
+  return api('data').then(function(j){
+      var y=window.scrollY; D=j; ME=j.me; simpan('ppud_sesi',{token:TOKEN, me:ME}); simpan('ppud_data',{u:ME.username, w:Date.now(), d:j}); terakhirMuat=Date.now();
+      if(!(dariSimpan && sibuk())){ render(); if(diam||dariSimpan) window.scrollTo(0,y); }
+      cekAduanBaru(); })
+    .catch(function(err){ if(diam) return; if(dariSimpan){ toast('Gagal memperbarui: '+err.message+' · menampilkan data terakhir'); return; }
+      if(TOKEN) $('#isi').innerHTML='<div class="kartu galat">'+esc(err.message)+' <button class="btn kecil" onclick="muatData()">Coba lagi</button></div>'; })
+    .finally(function(){ if(dariSimpan) tandaSegar(false); });
 }
 
 function cekAduanBaru(){
