@@ -2701,7 +2701,8 @@ function dorongB(){ return sinkronB(true).then(function(j){ if(j && (j.jalan||j.
 var BS = null, bsTimer = null, bsDraf = null;
 var BS_WARNA = { 'Belum dibuka':'', 'Pre-test dibuka':'p-kuning', 'Ditutup':'p-biru', 'Post-test dibuka':'p-kuning', 'Selesai':'p-hijau' };
 function pillB(st){ return '<span class="pill '+(BS_WARNA[st]||'')+'">'+esc(st)+'</span>'; }
-function tautanB(kode){ return BESTIE_URL+'?k='+encodeURIComponent(kode); }
+var BESTIE_PENDEK = 'https://bestie.ppud.my.id/';   // penerus ke ppud.my.id/bestie/ (aturan pengalihan di Cloudflare akun ke-2)
+function tautanB(kode){ return BESTIE_PENDEK+'?k='+encodeURIComponent(kode); }
 function hentiB(){ if(bsTimer){ clearInterval(bsTimer); bsTimer=null; } }
 
 function vBestie(){
