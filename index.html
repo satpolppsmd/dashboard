@@ -194,6 +194,14 @@ body.lvBuka{overflow:hidden}
 .lvHitung{display:inline-block;min-width:1.6em;margin-left:6px;padding:0 6px;border-radius:8px;background:#1d2433;color:#f7c600;font-variant-numeric:tabular-nums}
 .lvAuto{margin-top:14px;text-align:center;font-size:15px;color:#e7ebf3}.lvAuto label{cursor:pointer}.lvAuto input{width:18px;height:18px;vertical-align:-3px}.lvAuto select{font:inherit;padding:3px 6px;border-radius:6px;margin-left:6px;color:#1d2433;background:#fff}.lvAuto select:disabled{opacity:.5}.lvLobi .lvAksi{margin-top:16px}.lvAutoKet{font-size:13px;opacity:.75;margin-top:6px}
 .lvJuara{font-size:clamp(28px,4vw,48px);font-weight:800;color:#f7c600}
+.lvTop3 .lvBaris{padding:7px 14px;font-size:clamp(15px,1.8vw,22px)}
+.lvHasil{gap:10px;padding-top:12px}.lvHasil .lvT{font-size:clamp(18px,2.3vw,30px);padding:10px 20px}.lvHasil .lvO{min-height:52px;padding:10px 14px;font-size:clamp(15px,1.8vw,22px)}.lvHasil .lvOpsi{gap:8px}.lvNil small.lvGerak{font-weight:700;opacity:.95}
+.lvPodium{display:flex;align-items:flex-end;justify-content:center;gap:clamp(8px,2vw,20px);width:100%;max-width:860px;margin:14px auto 4px}
+.lvPod{flex:1;max-width:260px;min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.lvPodNm{font-weight:800;font-size:clamp(16px,2.3vw,28px);line-height:1.15;word-break:break-word}.lvPodNm small{display:block;font-size:.6em;font-weight:500;opacity:.85}
+.lvPodPoin{font-weight:800;color:#f7c600;font-size:clamp(14px,1.9vw,24px)}
+.lvPodTiang{width:100%;border-radius:14px 14px 0 0;display:flex;justify-content:center;padding-top:12px;font-size:clamp(28px,4.2vw,56px);font-weight:900}
+.lvPod.k1 .lvPodTiang{height:clamp(120px,26vh,240px);background:#c79100}.lvPod.k2 .lvPodTiang{height:clamp(90px,19vh,175px);background:#7d8aa6}.lvPod.k3 .lvPodTiang{height:clamp(65px,13vh,125px);background:#9a5b2e}
 .lvCatat{max-width:760px;text-align:center;color:#c8d3f0}
 @media (max-width:700px){.lvOpsi{grid-template-columns:1fr}.lvO{min-height:56px}}
 .kepalaB{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}.kepalaB h1{margin-bottom:10px}
@@ -3132,6 +3140,28 @@ function layarPenuhB(id){
 }
 function tutupLayarB(id){ var o=$('#'+id); if(o) o.classList.add('hide'); document.body.classList.remove('lvBuka'); if(document.fullscreenElement) document.exitFullscreen().catch(function(){}); }
 function fsB(){ var d=document.documentElement; if(document.fullscreenElement) document.exitFullscreen().catch(function(){}); else if(d.requestFullscreen) d.requestFullscreen().catch(function(){}); }
+/* Mode permainan: 3 besar sementara setelah tiap soal (poin total + perubahan dari soal sebelumnya) dan podium juara. */
+function papan3HTML(j){
+  LVH.papan=LVH.papan||{};
+  var k=function(x){ return x.kelas+'|'+x.nama; }, top=(j.top||[]), m={};
+  top.forEach(function(x){ m[k(x)]=[x.poin, x.peringkat]; }); LVH.papan[j.i]=m;
+  var lalu = j.i===0 ? {} : LVH.papan[j.i-1];   // tidak ada bila halaman dimuat ulang di tengah permainan
+  return '<div class="lvPapan lvTop3">'+top.slice(0,3).map(function(x){
+    var g='';
+    if(lalu){ var p=lalu[k(x)];
+      if(p){ var tb=x.poin-p[0], d=p[1]-x.peringkat;
+        g=(tb>0?'+'+tb+' poin':'+0')+(j.i>0?' · '+(d>0?'▲ naik '+d:d<0?'▼ turun '+(-d):'= tetap'):''); }
+      else g = j.i===0 ? '+'+x.poin+' poin' : '▲ masuk 3 besar'; }
+    return '<div class="lvBaris p'+x.peringkat+'"><span class="lvNo">'+x.peringkat+'</span><span class="lvNm">'+esc(x.nama)+'<small>'+esc(x.kelas)+'</small></span>'+
+      '<span class="lvNil">'+x.poin+' poin'+(g?'<small class="lvGerak">'+g+'</small>':'')+'</span></div>'; }).join('')+'</div>';
+}
+function podiumHTML(l){
+  var a=(l||[]).slice(0,3);
+  if(!a.length) return '<div class="lvKosong">Belum ada peserta.</div>';
+  return '<div class="lvPodium">'+[1,0,2].map(function(idx){ var x=a[idx]; if(!x) return '';
+    return '<div class="lvPod k'+(idx+1)+'"><div class="lvPodNm">'+esc(x.nama)+'<small>'+esc(x.kelas)+'</small></div><div class="lvPodPoin">'+x.poin+' poin</div>'+
+      '<div class="lvPodTiang"><span>'+(idx===0?'🏆 ':'')+x.peringkat+'</span></div></div>'; }).join('')+'</div>';
+}
 function papanHTML(l, kolom){
   return '<div class="lvPapan">'+l.map(function(x){ return '<div class="lvBaris'+(x.peringkat<=3?' p'+x.peringkat:'')+'"><span class="lvNo">'+x.peringkat+'</span><span class="lvNm">'+esc(x.nama)+'<small>'+esc(x.kelas)+'</small></span><span class="lvNil">'+kolom(x)+'</span></div>'; }).join('')+'</div>';
 }
@@ -3238,20 +3268,20 @@ function lvhRender(baru){
   }
   if(j.tahap==='soal' || j.tahap==='hasil'){
     var hasil=j.tahap==='hasil', maks=Math.max(1, Math.max.apply(null, j.sebaran||[0]));
-    h+='<div class="lvTengah lvSoal"><div class="lvNomor">Soal '+(j.i+1)+' dari '+j.n+'</div><div class="lvT">'+esc(j.soal.t)+'</div>'+
+    h+='<div class="lvTengah lvSoal'+(hasil?' lvHasil':'')+'"><div class="lvNomor">Soal '+(j.i+1)+' dari '+j.n+'</div><div class="lvT">'+esc(j.soal.t)+'</div>'+
       (hasil?'':'<div class="lvInfo"><span class="lvSisa" id="lvhSisa"></span><span id="lvhMenjawab">'+j.menjawab+' / '+j.peserta+' menjawab</span></div>')+
       '<div class="lvOpsi">'+j.soal.p.map(function(p,k){ var benar=hasil&&k===j.kunci, redup=hasil&&!benar;
         return '<div class="lvO'+(redup?' redup':'')+'" style="background:'+LV_WARNA[k]+'"><span class="lvB">'+LV_BENTUK[k]+'</span><span class="lvP">'+esc(p)+'</span>'+
           (hasil?'<span class="lvSeb">'+(benar?'✓ ':'')+j.sebaran[k]+'</span>':'')+'</div>'; }).join('')+'</div>';
     if(hasil && (!lvhJeda || lvhJeda.versi!==j.versi)){ var at=lvhAturan(); lvhJeda={ versi:j.versi, sampai:at.on?Date.now()+at.detik*1000:0, tahan:false, jalan:false }; }
-    if(hasil) h+='<div class="lvBawah"><div class="lvTop"><h3>Peringkat sementara</h3>'+papanHTML(j.top||[], function(x){ return x.poin+' poin'; })+'</div>'+
+    if(hasil) h+='<div class="lvBawah"><div class="lvTop"><h3>3 besar sementara</h3>'+papan3HTML(j)+'</div>'+
       '<div class="lvAksi">'+(lvhJeda.sampai&&!lvhJeda.tahan?'<button class="lvBtn kecil" id="lvhTahanBtn" onclick="lvhTahan()">⏸ Tahan</button>':'')+
         '<button class="lvBtn" id="lvhLanjutBtn" onclick="lvhLanjut(\''+(j.i+1<j.n?'soal':'akhir')+'\')">'+(j.i+1<j.n?'Soal berikutnya ▶':'Lihat juara 🏆')+'</button></div></div>';
     else h+='<div class="lvAksi"><button class="lvBtn kecil" onclick="lvhLanjut(\'hasil\')">Tampilkan jawaban</button></div>';
     h+='</div>'; o.innerHTML=h; if(!hasil) lvhDetak(); else lvhJedaDetak(); return;
   }
   if(j.tahap==='akhir'){
-    h+='<div class="lvTengah"><div class="lvJuara">🏆 Juara permainan</div>'+papanHTML(j.top||[], function(x){ return x.poin+' poin'; })+
+    h+='<div class="lvTengah"><div class="lvJuara">🏆 Juara permainan</div>'+podiumHTML(j.top)+
       '<p class="lvCatat">'+j.tercatat+' hasil tercatat sebagai post-test. Siswa sekarang mengisi kuesioner lalu melihat nilainya. Tutup post-test seperti biasa bila semua sudah selesai.</p>'+
       '<div class="lvAksi"><button class="lvBtn" onclick="lvhTutup(true)">Selesai</button></div></div>';
     o.innerHTML=h;
