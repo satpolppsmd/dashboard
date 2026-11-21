@@ -389,9 +389,41 @@ function api(action, data){
     .then(function(j){
       var s=j._srv||{}; catatKinerja({ w:t0, a:action, ms:Date.now()-t0, s:s.ms, c:s.c?1:0, u:ulang, e:j.ok?0:1 });
       if(!j.ok){ if(j.sesiHabis){ keluar(j.error); } throw new Error(j.error||'Terjadi kesalahan.'); }
+      if(j._cfUbah) cfTandaiUbah(j._cfUbah, j._cfWaktu);
       return j; })
     .finally(function(){ muat(false); });
 }
+/* ---- Baca dari salinan Cloudflare (akun ke-2, data.ppud.my.id); data asli & semua simpan tetap di Google ----
+   Izin baca diminta dengan token login (disimpan per akun, dihapus saat keluar). Salinan dipakai hanya bila tidak lebih tua
+   dari perubahan terakhir yang dibuat dari perangkat ini; selain itu (atau bila gagal) dibaca dari Google seperti biasa. */
+var CF_PPUD = 'https://data.ppud.my.id/';
+function cfPost(o){
+  var ctl=window.AbortController?new AbortController():null, t=ctl?setTimeout(function(){ ctl.abort(); },8000):null;
+  return fetch(CF_PPUD, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(o), signal:ctl?ctl.signal:undefined })
+    .then(function(r){ return r.json(); }).finally(function(){ if(t) clearTimeout(t); });
+}
+function cfKunci(baru){
+  if(!baru){ var x=ambil('ppud_cf'); if(x && ME && x.u===ME.username && x.k) return Promise.resolve(x.k); }
+  return cfPost({ action:'masuk', token:TOKEN }).then(function(j){ if(!j || !j.ok) throw new Error(j && j.error || 'Izin baca ditolak');
+    simpan('ppud_cf', { u:ME.username, k:j.kunci }); return j.kunci; });
+}
+function cfTandaiUbah(jenis, w){ var m=ambil('ppud_cfmin')||{}; if(!ME || m.u!==ME.username) m={ u:ME?ME.username:'' }; jenis.forEach(function(x){ m[x]=Math.max(m[x]||0, w||Date.now()); }); simpan('ppud_cfmin', m); }
+function cfBaca(jenis){
+  var t0=Date.now();
+  var pakai=function(k){ return cfPost({ action:'baca', kunci:k, jenis:jenis, token:TOKEN, aktif: diamSelama() < BATAS_DIAM }); };
+  return cfKunci().then(pakai).then(function(j){
+      if(j && !j.ok && /Izin baca/.test(j.error||'')){ simpan('ppud_cf', null); return cfKunci(true).then(pakai); }
+      return j; })
+    .then(function(j){
+      if(!j || !j.ok || !j._cf) throw new Error(j && j.error || 'Salinan tidak tersedia');
+      var m=ambil('ppud_cfmin')||{}; if(ME && m.u===ME.username && (m[jenis]||0) > j._cf.versi) throw new Error('Salinan belum memuat perubahan terakhir');
+      catatKinerja({ w:t0, a:'cf:'+jenis, ms:Date.now()-t0 }); return j; })
+    .catch(function(e){ catatKinerja({ w:t0, a:'cf:'+jenis, ms:Date.now()-t0, g:1 }); throw e; });
+}
+function ambilData(){ return cfBaca('data').then(function(j){
+  if(ME && diamSelama() < BATAS_DIAM) ME.kedaluwarsa=Math.max(ME.kedaluwarsa||0, Date.now()+50*60e3);   // sesi Google ikut diperpanjang oleh Worker (paling jarang tiap 10 menit)
+  j.me=ME; return j; }, function(){ return api('data'); }); }
+function ambilSurat(){ return cfBaca('surat').catch(function(){ return api('suratData'); }); }
 /* Halaman tersembunyi #kinerja: ringkasan 200 permintaan terakhir di perangkat ini. */
 function vKinerja(){
   var l=[]; try{ l=JSON.parse(localStorage.getItem('ppud_kinerja')||'[]'); }catch(e){}
@@ -415,6 +447,7 @@ function vKinerja(){
 function tampil(id){ ['layarLogin','layarGanti','aplikasi'].forEach(function(x){ $('#'+x).classList.toggle('hide', x!==id); }); }
 function keluar(pesan){
   if(TOKEN && !pesan) api('logout').catch(function(){});
+  var cfk=ambil('ppud_cf'); if(cfk && cfk.k) cfPost({ action:'keluar', kunci:cfk.k }).catch(function(){}); simpan('ppud_cf', null); simpan('ppud_cfmin', null);
   TOKEN=null; ME=null; D=null; SRD=null; SF=null; tiketDikenal=null; simpan('ppud_sesi', null); simpan('ppud_data', null); simpan('ppud_bs', null); simpan('ppud_rb', null); tandaSegar(false);
   try{ var bk=JSON.parse(localStorage.getItem('bestie_bd')||'null'); if(bk && bk.k) bdPost({ action:'adminKeluar', kunciAdmin:bk.k }).catch(function(){}); }catch(e){} simpan('bestie_bd', null); var nb=$('#notif'); if(nb) nb.remove();
   tampil('layarLogin'); $('#lgGalat').textContent = pesan||''; $('#lgPass').value='';
@@ -467,7 +500,7 @@ function muatData(diam){
     var c=ambil('ppud_data');
     if(c && c.u===ME.username && c.d && Date.now()-(c.w||0) < 7*864e5){ D=c.d; D.me=ME; try{ render(); dariSimpan=true; tandaSegar(true); }catch(e){ D=null; } }
   }
-  return api('data').then(function(j){
+  return ambilData().then(function(j){
       var y=window.scrollY; D=j; ME=j.me; simpan('ppud_sesi',{token:TOKEN, me:ME}); simpan('ppud_data',{u:ME.username, w:Date.now(), d:j}); terakhirMuat=Date.now();
       if(!(dariSimpan && sibuk())){ render(); if(diam||dariSimpan) window.scrollTo(0,y); }
       cekAduanBaru(); })
@@ -1127,7 +1160,7 @@ var SEKSI_SR = ['Binwasluh', 'Sidiklidik'];
 function srMuatData(paksa){
   if(SRD && !paksa) return Promise.resolve(SRD);
   if(srMuat && !paksa) return srMuat;
-  srMuat = api('suratData').then(function(j){ SRD=j; return j; }).finally(function(){ srMuat=null; });
+  srMuat = ambilSurat().then(function(j){ SRD=j; return j; }).finally(function(){ srMuat=null; });
   return srMuat;
 }
 function srPerlu(lanjut){
