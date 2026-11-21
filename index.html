@@ -3126,11 +3126,12 @@ function peringkatKartuB(){
     '<div class="alatB"><div class="seg" id="segPk"><button data-t="pre" class="'+(PK_TES==='pre'?'on':'')+'">Pre-test</button><button data-t="post" class="'+(PK_TES==='post'?'on':'')+'">Post-test</button></div>'+
     '<button class="btn" onclick="tayangPeringkatB(PK_TES)"'+(l.length?'':' disabled')+'>📺 Tayangkan 10 besar</button></div></div>'+
     '<p class="sub" style="margin:6px 0 10px">Diurutkan menurut jawaban benar terbanyak; bila sama, waktu pengerjaan tercepat. Post-test memakai kiriman terbaik tiap siswa.</p>';
+  // tombol Pre-test/Post-test dipasang sebelum cek daftar kosong, supaya tetap bisa diklik saat salah satu tes belum ada kiriman
+  setTimeout(function(){ var sg=$('#segPk'); if(sg) [].forEach.call(sg.querySelectorAll('button'), function(b){ b.onclick=function(){ PK_TES=b.getAttribute('data-t'); var y=window.scrollY; isiRekapB(); window.scrollTo(0,y); }; }); },0);
   if(!l.length) return h+'<div class="kosong">Belum ada siswa yang mengirim '+(PK_TES==='pre'?'pre-test':'post-test')+'.</div></div>';
   h+='<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table class="t"><thead><tr><th style="width:44px">#</th><th>Nama</th><th>Kelas</th><th style="text-align:right">Benar</th><th style="text-align:right">Waktu</th><th style="text-align:right" class="only-desk">Skor</th></tr></thead><tbody>'+
     l.map(function(x){ return '<tr><td><b>'+x.peringkat+'</b></td><td>'+esc(x.nama)+'</td><td>'+esc(x.kelas)+'</td><td style="text-align:right">'+x.benar+'/'+x.jumlah+'</td><td style="text-align:right">'+mmssB(x.durasi)+'</td><td style="text-align:right" class="only-desk">'+x.skor+'</td></tr>'; }).join('')+
     '</tbody></table></div></div>';
-  setTimeout(function(){ var sg=$('#segPk'); if(sg) [].forEach.call(sg.querySelectorAll('button'), function(b){ b.onclick=function(){ PK_TES=b.getAttribute('data-t'); var y=window.scrollY; isiRekapB(); window.scrollTo(0,y); }; }); },0);
   return h;
 }
 /* layar penuh untuk proyektor (gaya sama dengan mode permainan) */
