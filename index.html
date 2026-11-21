@@ -391,6 +391,7 @@ function api(action, data){
       var s=j._srv||{}; catatKinerja({ w:t0, a:action, ms:Date.now()-t0, s:s.ms, c:s.c?1:0, u:ulang, e:j.ok?0:1 });
       if(!j.ok){ if(j.sesiHabis){ keluar(j.error); } throw new Error(j.error||'Terjadi kesalahan.'); }
       if(j._cfUbah) cfTandaiUbah(j._cfUbah, j._cfWaktu);
+      terakhirGoogle=Date.now();
       return j; })
     .finally(function(){ muat(false); });
 }
@@ -421,9 +422,18 @@ function cfBaca(jenis){
       catatKinerja({ w:t0, a:'cf:'+jenis, ms:Date.now()-t0 }); return j; })
     .catch(function(e){ catatKinerja({ w:t0, a:'cf:'+jenis, ms:Date.now()-t0, g:1 }); throw e; });
 }
-function ambilData(){ return cfBaca('data').then(function(j){
-  if(ME && diamSelama() < BATAS_DIAM) ME.kedaluwarsa=Math.max(ME.kedaluwarsa||0, Date.now()+50*60e3);   // sesi Google ikut diperpanjang oleh Worker (paling jarang tiap 10 menit)
-  j.me=ME; return j; }, function(){ return api('data'); }); }
+function ambilData(){ return cfBaca('data').then(function(j){ j.me=ME; return j; }, function(){ return api('data'); }); }
+/* Karena data kini dibaca dari Cloudflare, sesi login di Google tidak lagi ikut diperpanjang oleh setiap baca.
+   jagaSesi(): selama pengguna aktif, menyapa Google (aksi ringan cekToken) paling jarang tiap 10 menit dan sekali saat halaman dibuka;
+   sesi diperpanjang, dan bila ternyata sudah berakhir pengguna langsung diminta login ulang (bukan baru ketahuan saat menyimpan). */
+var terakhirGoogle=0, sedangJaga=false;
+function jagaSesi(paksa){
+  if(!TOKEN || sedangJaga || diamSelama() >= BATAS_DIAM) return;
+  if(!paksa && Date.now()-terakhirGoogle < 10*60*1000) return;
+  sedangJaga=true;
+  api('cekToken').then(function(j){ if(j.me){ ME=Object.assign({}, ME, j.me); simpan('ppud_sesi',{token:TOKEN, me:ME}); if(D) D.me=ME; } })
+    .catch(function(){}).finally(function(){ sedangJaga=false; });
+}
 function ambilSurat(){ return cfBaca('surat').catch(function(){ return api('suratData'); }); }
 /* Halaman tersembunyi #kinerja: ringkasan 200 permintaan terakhir di perangkat ini. */
 function vKinerja(){
@@ -479,6 +489,7 @@ function masuk(){
   $('#btnAkun').textContent = ME.nama.split(' ')[0] + ' ▾';
   $('#infoAkun').innerHTML = '<b style="color:var(--teks)">'+esc(ME.nama)+'</b><br>'+esc(ME.username)+' · '+esc(ME.peran)+'<br><small style="font-size:12px;opacity:.85">Keluar otomatis setelah 1 jam tanpa aktivitas</small>';
   muatData();
+  if(Date.now()-terakhirGoogle > 60*1000) jagaSesi(true);
 }
 $('#btnAkun').addEventListener('click', function(e){ e.stopPropagation(); $('#menuAkun').classList.toggle('hide'); });
 document.addEventListener('click', function(){ $('#menuAkun').classList.add('hide'); });
@@ -539,7 +550,7 @@ function segarkan(){
   sedangSegar=true; muatData(true).finally(function(){ sedangSegar=false; });
 }
 function cekDiam(){ if(TOKEN && diamSelama()>=BATAS_DIAM){ tutupModal(); keluar('Anda keluar otomatis karena tidak ada aktivitas selama 1 jam.'); return true; } return false; }
-setInterval(function(){ if(cekDiam()) return; if(document.visibilityState==='visible' && Date.now()-terakhirMuat>=5*60*1000) segarkan(); }, 30*1000);
+setInterval(function(){ if(cekDiam()) return; jagaSesi(); if(document.visibilityState==='visible' && Date.now()-terakhirMuat>=5*60*1000) segarkan(); }, 30*1000);
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState!=='visible' || cekDiam()) return; if(Date.now()-terakhirMuat>=30*1000) segarkan(); });
 
 /* Surat Perintah — pengisi draf e-office & pembuat .docx cadangan (tanpa server).
