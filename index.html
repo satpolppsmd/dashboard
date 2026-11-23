@@ -279,6 +279,14 @@ nav.tab a.on .ic svg{stroke-width:2.2}
 .lbM{display:none}@media (max-width:760px){.lbD{display:none}.lbM{display:inline}}
 .agSaring{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}.agSaring input[type=search]{flex:1 1 240px}
 @media (max-width:760px){.agSaring{display:grid;grid-template-columns:1fr 1fr}.agSaring input[type=search]{grid-column:1/-1;width:100%}.agSaring select{width:100%;min-width:0}}
+.pgTab{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--garis);margin:4px 0 14px;scrollbar-width:none}
+.pgTab::-webkit-scrollbar{display:none}
+.pgTab a{flex:0 0 auto;padding:8px 12px;text-decoration:none;color:var(--abu,#5b6577);border-bottom:2px solid transparent;white-space:nowrap;font-size:14px}
+.pgTab a.on{color:var(--biru);border-bottom-color:var(--biru);font-weight:600}
+.srTtd{margin-top:10px;padding:10px 12px;border:1px dashed #c9d2e3;border-radius:8px;background:#fafbfd}
+.srTtd .alat{margin:6px 0 0}
+.pgSt dt{font-weight:600;margin-top:8px}.pgSt dd{margin:2px 0 0}
+input:-webkit-autofill{animation-name:lgOto;animation-duration:1ms}@keyframes lgOto{from{opacity:1}to{opacity:1}}
 @media print{header.top,nav.tab,.alat,.aksi,.btn{display:none!important}main{padding:0}}
 </style>
 </head>
@@ -319,6 +327,7 @@ nav.tab a.on .ic svg{stroke-width:2.2}
     <div class="akun"><button id="btnAkun" aria-haspopup="true"></button>
       <div class="menu hide" id="menuAkun"><div id="infoAkun"></div>
         <button data-aksi="muatUlang">Muat ulang data</button>
+        <button data-aksi="pengaturan" id="mnPengaturan" class="hide">Pengaturan</button>
         <button data-aksi="ganti">Ganti password</button>
         <button data-aksi="keluar">Keluar</button></div></div>
   </div></header>
@@ -384,7 +393,7 @@ var nMuat=0; function muat(on){ nMuat+=on?1:-1; var b=$('.muat'); if(nMuat>0&&!b
 
 /* Permintaan baca diulang sekali (jeda 1 dtk) bila gagal tersambung; permintaan simpan tidak diulang supaya tidak dobel.
    Setiap permintaan dicatat (aksi, lama, lama di server, dari simpanan/tidak) untuk halaman #kinerja. */
-var API_BACA = { data:1, berkas:1, suratData:1, bestieData:1, bestieRekap:1, daftarPengguna:1, cariTempat:1, agendaBerkas:1, agendaArsipData:1 };
+var API_BACA = { data:1, berkas:1, suratData:1, bestieData:1, bestieRekap:1, daftarPengguna:1, cariTempat:1, agendaBerkas:1, agendaArsipData:1, logAktivitas:1, statusSistem:1, kategoriDaftar:1 };
 function catatKinerja(x){ try{ var l=JSON.parse(localStorage.getItem('ppud_kinerja')||'[]'); l.push(x); if(l.length>200) l=l.slice(-200); localStorage.setItem('ppud_kinerja', JSON.stringify(l)); }catch(e){} }
 function api(action, data){
   muat(true);
@@ -454,7 +463,7 @@ function vKinerja(){
   var p90=function(a){ a=a.slice().sort(function(x,y){ return x-y; }); return a.length?a[Math.min(a.length-1,Math.floor(a.length*0.9))]:0; };
   var dt=function(ms){ return ms==null?'–':(ms/1000).toFixed(1).replace('.',',')+' dtk'; };
   var per={}; l.forEach(function(x){ var p=per[x.a]=per[x.a]||{ n:0, ms:[], c:0, g:0, u:0 }; p.n++; if(!x.g) p.ms.push(x.ms); if(x.c) p.c++; if(x.g) p.g++; if(x.u) p.u++; });
-  var h='<div class="kepalaB"><h1>Kinerja server</h1><div class="alatB"><button class="btn" onclick="if(confirm(\'Hapus catatan kinerja di perangkat ini?\')){ localStorage.removeItem(\'ppud_kinerja\'); vKinerja(); }">Hapus catatan</button></div></div>'+
+  var h=pgBar()+'<div class="kepalaB"><h'+(pgBar()?'2 style="margin:0"':'1')+'>Kinerja server</h'+(pgBar()?'2':'1')+'><div class="alatB"><button class="btn" onclick="if(confirm(\'Hapus catatan kinerja di perangkat ini?\')){ localStorage.removeItem(\'ppud_kinerja\'); vKinerja(); }">Hapus catatan</button></div></div>'+
     '<p class="sub">'+l.length+' permintaan terakhir di perangkat ini. "Total" = waktu tunggu di layar; "server" = lama proses di Apps Script; "simpanan" = dilayani dari simpanan server; "diulang" = gagal sekali lalu dicoba ulang otomatis.</p>'+
     '<div class="kartu"><table class="t"><thead><tr><th>Aksi</th><th style="text-align:right">Jumlah</th><th style="text-align:right">Total (median)</th><th style="text-align:right">Total (9 dari 10 di bawah)</th><th style="text-align:right">Dari simpanan</th><th style="text-align:right">Diulang</th><th style="text-align:right">Gagal</th></tr></thead><tbody>'+
     Object.keys(per).sort(function(a,b){ return per[b].n-per[a].n; }).map(function(k){ var p=per[k];
@@ -478,10 +487,31 @@ function keluar(pesan){
 $('#formLogin').addEventListener('submit', function(e){
   e.preventDefault(); var b=$('#lgBtn'); b.disabled=true; $('#lgGalat').textContent='';
   api('login',{ username: $('#lgUser').value.trim(), password: $('#lgPass').value })
-    .then(function(j){ TOKEN=j.token; ME=j.me; aktSimpan=0; filterPeta=Object.assign({}, FP_AWAL); catatAktivitas(); simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#lgPass').value=''; masuk(); })
-    .catch(function(err){ $('#lgGalat').textContent=err.message; })
+    .then(function(j){ TOKEN=j.token; ME=j.me; aktSimpan=0; filterPeta=Object.assign({}, FP_AWAL); catatAktivitas(); simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#lgPass').value=''; lgOtoHasil(true); masuk(); })
+    .catch(function(err){ lgOtoHasil(false); $('#lgGalat').textContent=err.message; })
     .finally(function(){ b.disabled=false; });
 });
+/* Isi otomatis (Keychain + Face ID/Touch ID, pengelola sandi): begitu username & password terisi otomatis, langsung masuk.
+   Mengetik manual tetap menekan Masuk. Bila login otomatis gagal, tidak diulang sampai kolom diubah manual. */
+var LG_OTO=false;   // true = kiriman terakhir berasal dari isi otomatis
+function lgOtoHasil(ok){ if(LG_OTO && !ok) lgOtoGagal=true; if(ok) lgOtoGagal=false; LG_OTO=false; }
+var lgOtoGagal=false;
+(function(){
+  var u=$('#lgUser'), p=$('#lgPass'), lalu={ lgUser:'', lgPass:'' }, oto=false, t=null;
+  function coba(){ clearTimeout(t); t=setTimeout(function(){
+    if(!oto || lgOtoGagal || $('#lgBtn').disabled || $('#layarLogin').classList.contains('hide')) return;
+    if(!u.value.trim() || !p.value) return;
+    oto=false; LG_OTO=true;
+    var f=$('#formLogin'); if(f.requestSubmit) f.requestSubmit($('#lgBtn')); else $('#lgBtn').click();
+  }, 350); }
+  function cek(e){ var el=e.target, v=el.value, lompat=v.length-(lalu[el.id]||'').length; lalu[el.id]=v;
+    var it=e.inputType;
+    if(it==='insertText' || it==='deleteContentBackward' || it==='insertCompositionText'){ lgOtoGagal=false; oto=false; return; }   // diketik manual
+    if(el===p && v && (it===undefined || it==='' || it==='insertReplacementText') && lompat>1){ oto=true; coba(); }
+  }
+  [u,p].forEach(function(el){ el.addEventListener('input', cek); el.addEventListener('change', function(){ if(oto) coba(); }); });
+  p.addEventListener('animationstart', function(e){ if(e.animationName==='lgOto' && p.value){ oto=true; coba(); } });
+})();
 $('#formGanti').addEventListener('submit', function(e){
   e.preventDefault(); var g=$('#gpGalat'); g.textContent='';
   if($('#gpBaru').value!==$('#gpUlang').value){ g.textContent='Ulangi password baru tidak sama.'; return; }
@@ -506,7 +536,7 @@ function masuk(){
 $('#btnAkun').addEventListener('click', function(e){ e.stopPropagation(); $('#menuAkun').classList.toggle('hide'); });
 document.addEventListener('click', function(){ $('#menuAkun').classList.add('hide'); });
 $('#menuAkun').addEventListener('click', function(e){ var a=e.target.getAttribute('data-aksi'); if(!a) return;
-  if(a==='keluar') keluar(); if(a==='ganti') bukaGanti(false); if(a==='muatUlang') muatData(); });
+  if(a==='keluar') keluar(); if(a==='ganti') bukaGanti(false); if(a==='muatUlang') muatData(); if(a==='pengaturan') location.hash='pengaturan'; });
 
 var terakhirMuat=0, sedangSegar=false, tiketDikenal=null;
 /* Data terakhir disimpan di perangkat (per akun) supaya dashboard langsung tampil saat dibuka,
@@ -1197,7 +1227,7 @@ function srPerlu(lanjut){
 function rSurat(bag){
   if(!isAdmin()){ location.hash='beranda'; return; }
   var b=bag[1]||'';
-  if(b==='pegawai' || b==='dasar'){ if(!isUtama()){ location.hash='surat'; return; } srPerlu(b==='pegawai'?vPegawai:vDasarHukum); return; }
+  if(b==='pegawai' || b==='dasar'){ location.replace(isUtama()?'#pengaturan/'+b:'#surat'); return; }
   if(b==='undangan'){ srPerlu(function(){ vUndanganForm('baru'); }); return; }
   if(b==='peringatan'){ srPerlu(function(){ vPeringatanForm('baru', decodeURIComponent(bag[2]||'')); }); return; }
   if(b) srPerlu(function(){ vSuratForm(decodeURIComponent(b)); }); else srPerlu(vSurat);
@@ -1232,10 +1262,52 @@ function srKotakNomor(){
   var e=agData().keluar.filter(function(x){ return x.idSurat===SF.id; })[0];
   return '<div class="alat" style="margin:6px 0 0"><input id="srNomor" placeholder="Nomor dari e-office (isi setelah terbit)" value="'+esc(SF.nomor||'')+'" style="flex:1 1 220px">'+
     '<select id="srTtd" title="Penandatangan (untuk Agenda Surat)" style="flex:1 1 220px">'+agOpsiTtd(e?e.ttd:'').replace('>Belum dipilih<','>Penandatangan…<')+'</select><button class="btn" id="srBtnNomor">Simpan nomor</button></div>'+
-    (e?'<div class="sub" style="margin-top:4px">Tercatat di Agenda Surat sebagai <a href="javascript:void 0" onclick="agDetail(\'keluar\',\''+esc(e.id)+'\')">'+esc(e.noAgenda)+'</a>.</div>':'<div class="sub" style="margin-top:4px">Setelah nomor diisi, surat otomatis tercatat sebagai surat keluar di Agenda Surat.</div>');
+    (e?'<div class="sub" style="margin-top:4px">Tercatat di Agenda Surat sebagai <a href="javascript:void 0" onclick="agDetail(\'keluar\',\''+esc(e.id)+'\')">'+esc(e.noAgenda)+'</a>.</div>':'<div class="sub" style="margin-top:4px">Setelah nomor diisi, surat otomatis tercatat sebagai surat keluar di Agenda Surat.</div>')+
+    '<div class="srTtd" id="srTtdKotak">'+srTtdIsi()+'</div>';
+}
+/* Arsip surat ber-TTD: satu berkas (PDF/foto) per surat, disimpan sebagai lampiran entri Agenda keluar-nya. */
+var AWALAN_TTD='Surat ber-TTD';
+function srEntriAg(id){ return agData().keluar.filter(function(x){ return x.idSurat===id; })[0]; }
+function srBerkasTtd(e){ return e ? (e.berkas||[]).filter(function(b){ return String(b.nama).indexOf(AWALAN_TTD)===0; })[0] : null; }
+function srTtdIsi(){
+  var e=srEntriAg(SF.id), b=srBerkasTtd(e);
+  var kepala='<b>✍️ Arsip surat ber-TTD</b>';
+  if(!e) return kepala+'<div class="sub">Isi dan simpan nomor e-office dulu, lalu unggah pindaian/PDF surat yang sudah ditandatangani di sini.</div>'+
+    '<div class="alat"><button class="btn" disabled>⬆ Unggah surat ber-TTD</button></div>';
+  if(!b) return kepala+' <span class="pill p-kuning">Belum TTD</span><div class="sub">Unggah PDF atau foto surat yang sudah ditandatangani (maks 5 MB). Tersimpan juga di lampiran Agenda '+esc(e.noAgenda)+'.</div>'+
+    '<div class="alat"><input type="file" id="srTtdF" accept="application/pdf,image/*" class="hide"><button class="btn utama" id="srTtdUnggah" onclick="$(\'#srTtdF\').value=\'\';$(\'#srTtdF\').click()">⬆ Unggah surat ber-TTD</button></div>';
+  return kepala+' <span class="pill p-hijau">TTD ✓</span><div class="sub" style="word-break:break-word">'+esc(String(b.nama).replace(/^Surat ber-TTD\s*-\s*/,''))+' · lampiran Agenda '+esc(e.noAgenda)+'</div>'+
+    '<div class="alat"><input type="file" id="srTtdF" accept="application/pdf,image/*" class="hide">'+
+    '<button class="btn" onclick="agLihatBerkas(\'keluar\',\''+esc(e.id)+'\',\''+esc(b.id)+'\')">👁 Lihat</button>'+
+    '<button class="btn" onclick="srTtdUnduh(this)">⬇ Unduh</button>'+
+    '<button class="btn" id="srTtdUnggah" onclick="$(\'#srTtdF\').value=\'\';$(\'#srTtdF\').click()">⟳ Ganti</button>'+
+    '<button class="btn bahaya" onclick="srTtdHapus(this)">Hapus</button></div>';
+}
+function srTtdGambar(){ var k=$('#srTtdKotak'); if(!k || !SF) return; k.innerHTML=srTtdIsi();
+  var f=$('#srTtdF'); if(f) f.onchange=function(){ var x=this.files[0]; if(x) srTtdKirim(x); }; }
+function srTtdSegarkan(){ return muatData(true).then(function(){ srTtdGambar(); }); }
+function srTtdKirim(file){
+  var b=$('#srTtdUnggah'); if(b){ b.disabled=true; b.textContent='Mengunggah…'; }
+  siapkanBerkas(file).then(function(x){ return api('suratTtd',{ id:SF.id, berkas:x }); })
+    .then(function(){ toast('Surat ber-TTD tersimpan'); return srTtdSegarkan(); })
+    .catch(function(e){ toast(e.message); srTtdGambar(); });
+}
+function srTtdHapus(btn){
+  if(!confirm('Hapus berkas surat ber-TTD ini? Berkas dipindah ke sampah Google Drive.')) return;
+  btn.disabled=true;
+  api('suratTtd',{ id:SF.id, hapus:true }).then(function(){ toast('Berkas ber-TTD dihapus'); return srTtdSegarkan(); }).catch(function(e){ toast(e.message); btn.disabled=false; });
+}
+function srTtdUnduh(btn){
+  var e=srEntriAg(SF.id), b=srBerkasTtd(e); if(!b) return; btn.disabled=true;
+  var k='ag:'+b.id, p=cacheBerkas[k] ? Promise.resolve(cacheBerkas[k]) : api('agendaBerkas',{ jenis:'keluar', idSurat:e.id, id:b.id }).then(function(j){ cacheBerkas[k]=j; return j; });
+  p.then(function(j){ var bin=atob(j.data), arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+    var ios=/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+    var url=URL.createObjectURL(new Blob([arr],{ type: ios?'application/octet-stream':j.mime })), a=document.createElement('a');
+    a.href=url; a.download=String(j.nama).replace(/^SK-\d+-\d{4} - /,''); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(url); }, 60000); })
+  .catch(function(er){ toast(er.message); }).finally(function(){ btn.disabled=false; });
 }
 function srSimpanNomor(){ var b=this; b.disabled=true; var no=$('#srNomor').value.trim(), ttd=$('#srTtd')?$('#srTtd').value:'';
-  api('suratNomor',{ id:SF.id, nomor:no, ttd:ttd }).then(function(){ SF.nomor=no; toast(no?'Nomor tersimpan · tercatat di Agenda Surat':'Nomor dikosongkan'); return srMuatData(true).then(function(){ return muatData(true); }); })
+  api('suratNomor',{ id:SF.id, nomor:no, ttd:ttd }).then(function(){ SF.nomor=no; toast(no?'Nomor tersimpan · tercatat di Agenda Surat':'Nomor dikosongkan'); return srMuatData(true).then(function(){ return muatData(true); }).then(function(){ srTtdGambar(); }); })
     .catch(function(e){ toast(e.message); }).finally(function(){ b.disabled=false; }); }
 
 /* Arsip surat (Admin Utama): surat pindah ke sheet "Arsip Surat" dan bisa dipulihkan. */
@@ -1303,7 +1375,6 @@ function vSurat(){
   var L=arsip?A:(SRD.surat||[]).filter(function(s){ return !srSaringJenis || (s.jenis||'Surat Perintah')===srSaringJenis; });
   var banner=function(teks, buka, buang){ return '<div class="kartu" style="margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>📝 '+teks+'</span><button class="btn kecil utama" onclick="'+buka+'">Lanjutkan</button><button class="btn kecil" onclick="'+buang+'">Buang</button></div>'; };
   $('#isi').innerHTML='<div class="kepalaB"><h1>Surat</h1><div class="alatB">'+
-    (isUtama()?'<a class="btn" href="#surat/pegawai">Data pegawai</a><a class="btn" href="#surat/dasar">Dasar hukum</a>':'')+
     '<button class="btn utama" onclick="srBaru()">+ Surat Perintah</button><button class="btn utama" onclick="unBaru()">+ Undangan</button></div></div>'+
     (srDrafAda()?banner('Ada isian surat perintah yang belum disimpan.', "location.hash='surat/baru'", 'srBuangDraf()'):'')+
     (unDrafAda()?banner('Ada isian undangan yang belum disimpan.', "location.hash='surat/undangan'", 'unBuangDraf()'):'')+
@@ -1320,7 +1391,7 @@ function srRingkas(s){ var d=s.data||{}, j=s.jenis||'Surat Perintah';
   if(j==='Undangan') return { pill:'<span class="pill p-biru">Undangan</span>', tempat:((d.acara||{}).tempat||s.tempat)+' · '+srTgl((d.acara||{}).tanggal||s.tanggalKegiatan), jumlah:s.jumlah+' penerima' };
   return { pill:'<span class="pill">Surat Perintah</span>', tempat:(d.jadwal||[]).map(function(x){ return x.tempat+' · '+srTgl(x.tanggal); }).join(' | ')||s.tempat, jumlah:s.jumlah+' personel' }; }
 function srItem(s){ var r=srRingkas(s);
-  return '<div class="item" onclick="location.hash=\'surat/'+esc(s.id)+'\'"><div class="a"><b>'+esc(s.untuk)+'</b></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px">'+r.pill+(s.nomor?'<span class="pill p-hijau">Bernomor</span>':'<span class="pill">Belum bernomor</span>')+'</div>'+
+  return '<div class="item" onclick="location.hash=\'surat/'+esc(s.id)+'\'"><div class="a"><b>'+esc(s.untuk)+'</b></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px">'+r.pill+(s.nomor?'<span class="pill p-hijau">Bernomor</span>'+(srBerkasTtd(srEntriAg(s.id))?'<span class="pill p-hijau">TTD ✓</span>':'<span class="pill p-kuning">Belum TTD</span>'):'<span class="pill">Belum bernomor</span>')+'</div>'+
     '<div class="sub">'+esc(r.tempat)+'</div>'+
     '<div class="sub">'+esc(r.jumlah)+' · surat '+esc(srTgl(s.tanggal))+(s.nomor?' · '+esc(s.nomor):'')+' · oleh '+esc(nm(s.dibuatOleh))+'</div></div>'; }
 function srItemArsip(s){ var r=srRingkas(s);
@@ -1563,7 +1634,7 @@ function srGambarHasil(){
   $('#srTglSurat').onchange=function(){ SF.tanggal=this.value; srSimpanLokal(); };
   $('#srBtnCadang').onclick=function(){ srBuatCadangan(this); };
   $('#srBtnSimpan').onclick=function(){ var b=this; srSimpanRiwayat(b).then(function(){ toast('Surat tersimpan'); }).catch(function(e){ toast(e.message); }); };
-  if($('#srBtnNomor')) $('#srBtnNomor').onclick=srSimpanNomor;
+  if($('#srBtnNomor')) $('#srBtnNomor').onclick=srSimpanNomor; srTtdGambar();
 }
 function srGambarSalin(){
   var el=$('#srSalin'); if(!el) return; var t=SuratDocx.teksSalin(SF);
@@ -1596,7 +1667,7 @@ function srKosongkan(){ if(!confirm('Kosongkan semua isian surat ini?')) return;
 /* ===== Data pegawai (Admin Utama) ===== */
 function vPegawai(){
   var L=SRD.pegawai||[];
-  $('#isi').innerHTML='<a href="#surat" class="sub" style="text-decoration:none">‹ Surat</a><div class="kepalaB" style="margin-top:8px"><h1>Data pegawai</h1><div class="alatB"><button class="btn utama" onclick="srFormPegawai()">+ Tambah pegawai</button></div></div>'+
+  $('#isi').innerHTML=pgBar()+'<div class="kepalaB"><h2 style="margin:0">Data pegawai</h2><div class="alatB"><button class="btn utama" onclick="srFormPegawai()">+ Tambah pegawai</button></div></div>'+
     '<div class="sub" style="margin:-6px 0 10px">Urutan di sini menjadi urutan bawaan di lampiran. Pegawai yang pindah atau pensiun cukup dinonaktifkan.</div>'+
     '<div class="daftar">'+L.map(function(p){ return '<div class="item" onclick="srFormPegawai(\''+esc(p.id)+'\')"'+(p.aktif?'':' style="opacity:.55"')+'><div class="a"><b>'+p.urutan+'. '+esc(p.nama)+'</b>'+(p.aktif?(p.seksi?'<span class="pill p-biru">'+esc(p.seksi)+'</span>':''):'<span class="pill">Nonaktif</span>')+'</div>'+
       '<div class="sub">'+esc([p.pangkat,p.nip].filter(Boolean).join(' · '))+'</div><div class="sub">'+esc(p.jabatan)+(p.bidang&&p.bidang!=='PPUD'?' · '+esc(p.bidang):'')+'</div></div>'; }).join('')+'</div>';
@@ -1622,13 +1693,13 @@ var srDH = null;
 function vDasarHukum(){
   srDH={ dasar:(SRD.dasar||[]).filter(function(d){ return d.aktif; }).map(function(d){ return { id:d.id, teks:d.teks }; }),
          paket:(SRD.paket||[]).map(function(p){ return { nama:p.nama, ids:p.ids.slice() }; }) };
-  $('#isi').innerHTML='<a href="#surat" class="sub" style="text-decoration:none">‹ Surat</a><h1 style="margin-top:8px">Dasar hukum</h1>'+
+  $('#isi').innerHTML=pgBar()+
     '<section class="kartu"><h2>Daftar dasar hukum</h2><div class="sub" style="margin-bottom:8px">Tulis tanpa tanda “;” atau “.” di akhir. Dasar yang dihapus hanya dinonaktifkan; surat lama tidak berubah.</div><div id="dhL"></div><button class="btn" onclick="srDH.dasar.push({id:\'\',teks:\'\'});dhGambar()">+ Tambah dasar</button></section>'+
     '<section class="kartu" style="margin-top:12px"><h2>Paket</h2><div class="sub" style="margin-bottom:8px">Centang dasar yang masuk paket. Urutan mengikuti daftar di atas.</div><div id="dhP"></div><button class="btn" onclick="srDH.paket.push({nama:\'\',ids:[]});dhGambar()">+ Tambah paket</button></section>'+
-    '<div class="galat" id="mg"></div><div class="aksi"><a class="btn" href="#surat">Batal</a><button class="btn utama" id="dhOk">Simpan semua</button></div>';
+    '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="if(confirm(\'Buang perubahan yang belum disimpan?\')) vDasarHukum()">Batal</button><button class="btn utama" id="dhOk">Simpan semua</button></div>';
   dhGambar();
   $('#dhOk').onclick=function(){ var b=this; b.disabled=true;
-    api('dasarSimpan',{ dasar:srDH.dasar, paket:srDH.paket }).then(function(j){ SRD.dasar=j.dasar; SRD.paket=j.paket; toast('Dasar hukum tersimpan'); location.hash='surat'; })
+    api('dasarSimpan',{ dasar:srDH.dasar, paket:srDH.paket }).then(function(j){ SRD.dasar=j.dasar; SRD.paket=j.paket; toast('Dasar hukum tersimpan'); vDasarHukum(); })
       .catch(function(e){ $('#mg').textContent=e.message; b.disabled=false; }); };
 }
 function dhGambar(){
@@ -1859,7 +1930,7 @@ function unGambarHasil(){
   $('#unTglSurat').onchange=function(){ SF.tanggal=this.value; srSimpanLokal(); };
   $('#unBtnCadang').onclick=function(){ unBuatCadangan(this); };
   $('#srBtnSimpan').onclick=function(){ srSimpanRiwayat(this).then(function(){ toast('Undangan tersimpan'); }).catch(function(e){ toast(e.message); }); };
-  if($('#srBtnNomor')) $('#srBtnNomor').onclick=srSimpanNomor;
+  if($('#srBtnNomor')) $('#srBtnNomor').onclick=srSimpanNomor; srTtdGambar();
 }
 function unGambarSalin(){
   var el=$('#srSalin'); if(!el) return; var t=UndanganDocx.teksSalin(SF), n=UndanganDocx.penerima(SF).length;
@@ -2005,7 +2076,7 @@ function prGambarHasil(){
       .then(function(x){ srUnduh(x, PeringatanDocx.namaBerkas(SF).replace(/\.docx$/,'_isi.docx')); toast('Berkas diunduh'); return srSimpanRiwayat(); })
       .catch(function(e){ toast(e.message); }).finally(function(){ var b2=$('#prBtnCadang'); if(b2) b2.disabled=false; }); };
   $('#srBtnSimpan').onclick=function(){ srSimpanRiwayat(this).then(function(){ toast('Surat peringatan tersimpan'); }).catch(function(e){ toast(e.message); }); };
-  if($('#srBtnNomor')) $('#srBtnNomor').onclick=srSimpanNomor;
+  if($('#srBtnNomor')) $('#srBtnNomor').onclick=srSimpanNomor; srTtdGambar();
 }
 function prGambarSalin(){
   var el=$('#srSalin'); if(!el) return; var t=PeringatanDocx.teksSalin(SF);
@@ -2090,12 +2161,13 @@ function render(){
   var menu = [['beranda','Beranda'],['aduan','Aduan',baru],['kasus','Kasus',nLewat],['kalender','Kalender'],['agenda','<span class="lbD">Agenda Surat</span><span class="lbM">Agenda</span>']];
   if(isAdmin()) menu.push(['bestie','BESTIE']);
   if(isAdmin()) menu.push(['surat','Surat']);
-  if(isUtama()) menu.push(['libur','Hari libur']);
-  if(isUtama()) menu.push(['pengguna','Pengguna']);
   $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob"><svg viewBox="0 0 24 24" aria-hidden="true">'+(IKON_NAV[m[0]]||'')+'</svg></span><span class="lb">'+m[1]+'</span>'+(m[2]?'<span class="n">'+m[2]+'</span>':'')+'</a>'; }).join('');
-  var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, kalender: vKalender, libur: vLibur, pengguna: vPengguna,
+  if($('#mnPengaturan')) $('#mnPengaturan').classList.toggle('hide', !isUtama());
+  var keP=function(t){ return function(){ if(isUtama()) location.replace('#pengaturan/'+t); else vBeranda(); }; };
+  var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, kalender: vKalender, libur: keP('libur'), pengguna: keP('pengguna'),
+    pengaturan: function(){ rPengaturan(bag); },
     bestie: bag[1] ? function(){ vBestieSesi(decodeURIComponent(bag[1])); } : vBestie,
-    surat: function(){ rSurat(bag); }, agenda: function(){ vAgenda(bag[1]); }, kinerja: vKinerja }[bag[0]] || vBeranda;
+    surat: function(){ rSurat(bag); }, agenda: function(){ vAgenda(bag[1]); }, kinerja: isUtama() ? keP('kinerja') : vKinerja }[bag[0]] || vBeranda;
   f(); window.scrollTo(0,0);
   var aktif=$('#nav a.on'); if(aktif && aktif.scrollIntoView && window.innerWidth<=760){ var n=$('#nav'); n.scrollLeft=Math.max(0, aktif.offsetLeft-(n.clientWidth-aktif.offsetWidth)/2); }
 }
@@ -2659,6 +2731,96 @@ function formJenis(){
 }
 function kegiatanKasus(no){ return (D.kegiatan||[]).filter(function(k){ return k.noKasus===no; }).sort(function(a,b){ return a.mulai<b.mulai?-1:1; }); }
 
+/* ---------- PENGATURAN (Admin Utama): satu halaman bertab, dibuka dari menu akun ---------- */
+var PG_TAB=[['libur','Hari libur'],['pengguna','Pengguna'],['pegawai','Data pegawai'],['dasar','Dasar hukum'],['kategori','Kategori'],['bestie','BESTIE'],['log','Log aktivitas'],['status','Status sistem'],['kinerja','Kinerja']];
+function pgAktif(){ var h=location.hash.replace(/^#\/?/,'').split('/'); return h[0]==='pengaturan' ? (h[1]||'libur') : ''; }
+function pgBar(){ var t=pgAktif(); if(!t) return '';
+  return '<h1 style="margin-bottom:2px">Pengaturan</h1><nav class="pgTab" id="pgTab">'+PG_TAB.map(function(x){ return '<a href="#pengaturan/'+x[0]+'" class="'+(x[0]===t?'on':'')+'">'+x[1]+'</a>'; }).join('')+'</nav>'; }
+function pgGulirTab(){ var a=$('#pgTab a.on'), n=$('#pgTab'); if(a && n && n.scrollWidth>n.clientWidth) n.scrollLeft=Math.max(0, a.offsetLeft-(n.clientWidth-a.offsetWidth)/2); }
+function rPengaturan(bag){
+  if(!isUtama()){ location.hash='beranda'; return; }
+  var t=bag[1]||'libur';
+  var f={ libur:vLibur, pengguna:vPengguna, pegawai:function(){ srPerlu(function(){ vPegawai(); pgGulirTab(); }); }, dasar:function(){ srPerlu(function(){ vDasarHukum(); pgGulirTab(); }); },
+    kategori:vPgKategori, bestie:vPgBestie, log:vPgLog, status:vPgStatus, kinerja:vKinerja }[t];
+  if(!f){ location.replace('#pengaturan/libur'); return; }
+  f(); pgGulirTab();
+}
+/* Kategori pelanggaran (sheet Kategori): "Form lapor" = kolom Aktif, "Kasus" = kolom Untuk Kasus. Nama tidak diubah dari sini (kasus lama memakai nama itu). */
+var PGK=null;
+function vPgKategori(){
+  $('#isi').innerHTML=pgBar()+'<div class="kepalaB"><h2 style="margin:0">Kategori pelanggaran</h2><div class="alatB"><button class="btn utama" id="pgKBaru">+ Tambah kategori</button></div></div>'+
+    '<p class="sub">Centang <b>Form lapor</b> agar tampil di pilihan jenis pelanggaran pada Kanal Lapor publik, dan <b>Kasus</b> agar bisa dipilih saat membuat kasus. Kategori tidak dihapus (kasus lama tetap memakainya); cukup hapus kedua centang.</p><div id="pgKL" class="sub">Memuat…</div>';
+  $('#pgKBaru').onclick=pgKFormBaru;
+  var isi=function(){ var L=(PGK||[]).slice().sort(function(a,b){ return a.nama.localeCompare(b.nama,'id'); });
+    $('#pgKL').innerHTML=L.length?'<table class="t"><thead><tr><th>Kategori</th><th style="width:100px;text-align:center">Form lapor</th><th style="width:80px;text-align:center">Kasus</th></tr></thead><tbody>'+
+      L.map(function(k){ return '<tr'+(k.lapor||k.kasus?'':' style="opacity:.55"')+'><td>'+esc(k.nama)+'</td><td style="text-align:center"><input type="checkbox" data-n="'+esc(k.nama)+'" data-k="lapor"'+(k.lapor?' checked':'')+'></td><td style="text-align:center"><input type="checkbox" data-n="'+esc(k.nama)+'" data-k="kasus"'+(k.kasus?' checked':'')+'></td></tr>'; }).join('')+'</tbody></table>'
+      :'<div class="kartu kosong">Belum ada kategori.</div>';
+    $$('#pgKL input[type=checkbox]').forEach(function(c){ c.onchange=function(){ var n=c.getAttribute('data-n'), k=(PGK||[]).filter(function(x){ return x.nama===n; })[0]; if(!k) return;
+      var o={ nama:n, lapor:k.lapor, kasus:k.kasus }; o[c.getAttribute('data-k')]=c.checked; c.disabled=true;
+      api('simpanKategori',o).then(function(j){ PGK=j.kategori; toast('Tersimpan'); isi(); muatData(true); }).catch(function(e){ c.checked=!c.checked; c.disabled=false; toast(e.message); }); }; }); };
+  api('kategoriDaftar').then(function(j){ PGK=j.kategori; if(pgAktif()==='kategori') isi(); }).catch(function(e){ $('#pgKL').textContent=e.message; });
+}
+function pgKFormBaru(){
+  modal('Tambah kategori','<div class="f"><label class="pn wajib"><span>Nama kategori <i class="bt">*</i></span><input id="kN" maxlength="100" placeholder="mis. Pedagang kaki lima"></label>'+
+    '<label class="cek"><input type="checkbox" id="kL" checked> Tampil di form lapor publik</label><label class="cek"><input type="checkbox" id="kK" checked> Bisa dipilih untuk kasus</label></div>'+
+    '<div class="galat" id="mg"></div><div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="ok">Simpan</button></div>');
+  $('#ok').onclick=function(){ var b=this; b.disabled=true;
+    api('simpanKategori',{ baru:true, nama:$('#kN').value, lapor:$('#kL').checked, kasus:$('#kK').checked }).then(function(j){ PGK=j.kategori; tutupModal(); toast('Kategori ditambahkan'); vPgKategori(); muatData(true); })
+      .catch(function(e){ $('#mg').textContent=e.message; b.disabled=false; }); };
+}
+function vPgBestie(){
+  $('#isi').innerHTML=pgBar()+'<h2 style="margin:0 0 8px">BESTIE</h2><div class="daftar">'+
+    '<div class="item" onclick="bankSoalB()"><div class="a"><b>Bank soal</b><span class="pill">SMP · SMA/SMK</span></div><div class="sub">Soal pilihan ganda pre-test &amp; post-test. Perubahan berlaku untuk sesi yang dibuat sesudahnya.</div></div>'+
+    '<div class="item" onclick="bankKueB()"><div class="a"><b>Kuesioner</b></div><div class="sub">Pernyataan kuesioner pelaksanaan yang diisi siswa setelah post-test.</div></div></div>';
+}
+/* Log aktivitas: 500 baris terbaru per muat, disaring di perangkat. */
+var PGL=null, pglCari='', pglUser='';
+function vPgLog(){
+  $('#isi').innerHTML=pgBar()+'<div class="kepalaB"><h2 style="margin:0">Log aktivitas</h2><div class="alatB"><button class="btn" id="pgLSeg">Muat ulang</button></div></div>'+
+    '<div class="agSaring"><input type="search" id="pgLC" placeholder="Cari aksi / rincian…" value="'+esc(pglCari)+'"><select id="pgLU"><option value="">Semua pengguna</option></select></div><div id="pgLL" class="sub">Memuat…</div>';
+  var muat=function(lagi){ return api('logAktivitas',{ dari: lagi&&PGL ? PGL.log.length : 0, n:500 }).then(function(j){
+      if(lagi && PGL){ PGL.log=PGL.log.concat(j.log); PGL.lagi=j.lagi; PGL.total=j.total; } else PGL=j; if(pgAktif()==='log') isi(); }).catch(function(e){ $('#pgLL').textContent=e.message; }); };
+  var isi=function(){
+    var us={}; PGL.log.forEach(function(x){ if(x.u) us[x.u]=1; });
+    $('#pgLU').innerHTML='<option value="">Semua pengguna</option>'+Object.keys(us).sort().map(function(u){ return '<option'+(u===pglUser?' selected':'')+'>'+esc(u)+'</option>'; }).join('');
+    var q=pglCari.toLowerCase(), L=PGL.log.filter(function(x){ return (!pglUser || x.u===pglUser) && (!q || (x.a+' '+x.r+' '+x.u).toLowerCase().indexOf(q)>=0); });
+    $('#pgLL').innerHTML='<div class="sub" style="margin-bottom:6px">Menampilkan '+L.length+' dari '+PGL.log.length+' entri terbaru (total '+PGL.total+').</div>'+
+      (L.length?'<table class="t"><thead><tr><th style="width:150px">Waktu</th><th style="width:120px" class="only-desk">Pengguna</th><th>Aksi</th></tr></thead><tbody>'+L.slice(0,300).map(function(x){
+        return '<tr><td style="white-space:nowrap">'+esc(String(x.w).slice(0,16))+'</td><td class="only-desk">'+esc(x.u)+'</td><td><b>'+esc(x.a)+'</b><span class="only-mob sub"> · '+esc(x.u)+'</span>'+(x.r?'<div class="sub" style="word-break:break-word">'+esc(x.r)+'</div>':'')+'</td></tr>'; }).join('')+'</tbody></table>'
+        +(L.length>300?'<div class="sub" style="margin-top:6px">Hanya 300 pertama yang ditampilkan; persempit pencarian.</div>':''):'<div class="kartu kosong">Tidak ada entri yang cocok.</div>')+
+      (PGL.lagi?'<div style="margin-top:10px"><button class="btn" id="pgLLagi">Muat 500 entri lebih lama</button></div>':'');
+    if($('#pgLLagi')) $('#pgLLagi').onclick=function(){ this.disabled=true; this.textContent='Memuat…'; muat(true); };
+  };
+  $('#pgLC').oninput=function(){ pglCari=this.value; if(PGL) isi(); };
+  $('#pgLU').onchange=function(){ pglUser=this.value; if(PGL) isi(); };
+  $('#pgLSeg').onclick=function(){ PGL=null; $('#pgLL').textContent='Memuat…'; muat(false); };
+  if(PGL) isi(); else muat(false);
+}
+function vPgStatus(){
+  $('#isi').innerHTML=pgBar()+'<div class="kepalaB"><h2 style="margin:0">Status sistem</h2><div class="alatB"><button class="btn" id="pgSU">Periksa ulang</button><button class="btn utama" id="pgSK">Kirim ulang salinan Cloudflare</button></div></div><div id="pgSL" class="sub">Memeriksa…</div>';
+  var nama={ data:'Data dashboard', surat:'Data surat' }, varian={ A:'lengkap', L:'akun Lihat', U:'Admin Utama', X:'Admin' };
+  var muat=function(){ $('#pgSL').textContent='Memeriksa…';
+    api('statusSistem').then(function(j){ if(pgAktif()!=='status') return;
+      var cf=j.cfTerkini||[], ok=j.cfAktif && !j.cfGalat && !j.cfCekGalat;
+      $('#pgSL').innerHTML='<div class="kartu"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>Salinan baca Cloudflare</b>'+(ok?'<span class="pill p-hijau">Normal</span>':'<span class="pill p-merah">Perlu dicek</span>')+'</div>'+
+        '<dl class="pgSt">'+
+        (!j.cfAktif?'<dt>Kunci</dt><dd>Kunci Cloudflare belum dipasang; dashboard membaca langsung dari Google.</dd>':'')+
+        (j.sheetDiubah?'<dt>Spreadsheet terakhir berubah</dt><dd>'+esc(j.sheetDiubah)+(j.salinanSesuaiSheet?' · salinan sudah mengikuti':' · salinan menyusul lewat pemicu tiap menit')+'</dd>':'')+
+        (cf.length?'<dt>Salinan terakhir</dt><dd>'+cf.map(function(x){ return esc((nama[x.jenis]||x.jenis)+' ('+(varian[x.varian]||x.varian)+')')+': '+esc(x.waktu); }).join('<br>')+'</dd><dt>Izin baca aktif</dt><dd>'+(j.cfIzinAktif||0)+' perangkat</dd>':'')+
+        (j.cfGalat?'<dt>Galat pengiriman terakhir</dt><dd style="color:var(--merah)">'+esc(j.cfGalat)+'</dd>':'')+
+        (j.cfCekGalat?'<dt>Gagal memeriksa Cloudflare</dt><dd style="color:var(--merah)">'+esc(j.cfCekGalat)+'</dd>':'')+'</dl></div>'+
+        '<div class="kartu" style="margin-top:12px"><b>Apps Script</b><dl class="pgSt">'+
+        '<dt>Pemicu terpasang</dt><dd>'+(j.pemicu.length?j.pemicu.map(function(p){ return esc({ dorongBerkala:'Salinan Cloudflare (tiap menit)', emailMingguan:'Email mingguan (Senin)', sinkronLibur:'Sinkron hari libur (Minggu)' }[p]||p); }).join('<br>'):'<span style="color:var(--merah)">Tidak ada</span>')+'</dd>'+
+        '<dt>Pencarian tempat hari ini</dt><dd>'+j.geoHariIni+' dari '+j.geoMaks+' unit</dd>'+
+        (j.kuotaEmail!=null?'<dt>Sisa kuota email hari ini</dt><dd>'+j.kuotaEmail+'</dd>':'')+
+        '<dt>Diperiksa</dt><dd>'+esc(j.waktu)+'</dd></dl></div>';
+    }).catch(function(e){ $('#pgSL').innerHTML='<div class="kartu galat">'+esc(e.message)+'</div>'; }); };
+  $('#pgSU').onclick=muat;
+  $('#pgSK').onclick=function(){ var b=this; b.disabled=true; b.textContent='Mengirim…';
+    api('kirimUlangCF').then(function(){ toast('Salinan terkirim'); muat(); }).catch(function(e){ toast(e.message); }).finally(function(){ b.disabled=false; b.textContent='Kirim ulang salinan Cloudflare'; }); };
+  muat();
+}
+
 /* ---------- hari libur ---------- */
 var tahunLibur = null;
 function vLibur(){
@@ -2666,7 +2828,7 @@ function vLibur(){
   var th = tahunLibur || D.hariIni.slice(0,4);
   var tahun={}; D.libur.forEach(function(l){ tahun[l.tanggal.slice(0,4)]=1; }); tahun[D.hariIni.slice(0,4)]=1;
   var list=D.libur.filter(function(l){ return l.tanggal.slice(0,4)===th; });
-  $('#isi').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h1>Hari libur '+esc(th)+'</h1><div style="display:flex;gap:8px;flex-wrap:wrap">'+
+  $('#isi').innerHTML=pgBar()+'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Hari libur '+esc(th)+'</h2><div style="display:flex;gap:8px;flex-wrap:wrap">'+
     '<select id="thL">'+opsi(Object.keys(tahun).sort(), th)+'</select>'+(isUtama()?'<button class="btn" id="sinkL">Sinkronkan kalender</button><button class="btn utama" id="tambahL">+ Tambah</button>':'')+'</div></div>'+
     '<p class="sub" style="margin-top:0">Dipakai untuk menghitung tenggat (hari kerja = Senin–Jumat, selain tanggal yang dicentang "dihitung libur"). Sumber otomatis: kalender Google "Hari Libur di Indonesia", disinkronkan tiap minggu.'+(isUtama()?' Hapus centang bila tanggal itu tetap hari kerja.':'')+'</p>'+
     (list.length?'<table class="t"><thead><tr><th style="width:190px">Tanggal</th><th>Keterangan</th><th style="width:90px">Sumber</th><th style="width:120px">Dihitung libur</th></tr></thead><tbody>'+list.map(function(l){
@@ -2684,7 +2846,7 @@ function vLibur(){
 /* ---------- pengguna ---------- */
 function vPengguna(){
   if(!isUtama()){ location.hash='beranda'; return; }
-  $('#isi').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h1>Pengguna</h1><button class="btn utama" onclick="formPengguna()">+ Tambah pengguna</button></div><div id="listU" class="sub">Memuat…</div>';
+  $('#isi').innerHTML=pgBar()+'<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Pengguna</h2><button class="btn utama" onclick="formPengguna()">+ Tambah pengguna</button></div><div id="listU" class="sub">Memuat…</div>';
   api('daftarPengguna').then(function(j){ D.pengguna=j.pengguna; isiPengguna(); }).catch(function(e){ $('#listU').textContent=e.message; });
 }
 function isiPengguna(){
@@ -2731,7 +2893,7 @@ function vBestie(){
   if(!isAdmin()){ location.hash='beranda'; return; }
   $('#isi').innerHTML='<div class="kepalaB"><h1>BESTIE · Pre-test &amp; Post-test</h1><div class="alatB">'+
     '<a class="btn" href="'+BESTIE_URL+'presentasi/" target="_blank" rel="noopener">▶ Presentasi</a>'+
-    (isUtama()?'<button class="btn" onclick="bankSoalB()">Bank soal</button><button class="btn" onclick="bankKueB()">Kuesioner</button>':'')+'<button class="btn utama" onclick="formSesiB()">+ Sesi baru</button></div></div>'+
+    '<button class="btn utama" onclick="formSesiB()">+ Sesi baru</button></div></div>'+
     '<p class="sub" style="margin-top:-6px">Halaman siswa hanya bisa dibuka lewat QR atau tautan sesi. Tidak ditautkan dari landing page.</p><div id="listB" class="sub">Memuat…</div>';
   /* tampil langsung dari data terakhir di perangkat; data server & sinkron Cloudflare berjalan bersamaan */
   var c=simpananB('ppud_bs'), dariSimpan=false;
