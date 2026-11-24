@@ -363,6 +363,13 @@ nav.tab a.on .ic svg{stroke-width:2.2}
 .pgSt dt{font-weight:600;margin-top:8px}.pgSt dd{margin:2px 0 0}
 input:-webkit-autofill{animation-name:lgOto;animation-duration:1ms}@keyframes lgOto{from{opacity:1}to{opacity:1}}
 @media print{header.top,nav.tab,.alat,.aksi,.btn{display:none!important}main{padding:0}}
+/* Laporan penegakan */
+.lpK{margin-bottom:12px}.lpJ{font-weight:600;margin-bottom:10px}.lpSubJ{font-weight:600;font-size:13px;margin:4px 0 6px;color:var(--abu)}
+.lpTblW{overflow-x:auto}.lpT{font-size:13px}.lpT th,.lpT td{padding:6px 8px}
+.lpGrafik{margin-top:10px}.lpGrafik img{width:100%;border:1px solid var(--garis);border-radius:8px;background:#fff;display:block}
+.lpWarn{background:var(--kuningbg);border:1px solid var(--kuninggaris);color:var(--kuningtx);border-radius:8px;padding:6px 10px;margin-top:6px;font-size:13px}
+.lpK textarea{line-height:1.45}.lpStat .v{font-size:22px;word-break:break-word}.lpAksi{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin:4px 0 30px}
+@media (max-width:760px){.lpStat{grid-template-columns:repeat(2,minmax(0,1fr))}.lpStat .v{font-size:19px}.lpGrafik,.lpK .grid.g2{grid-template-columns:1fr}.lpAksi .btn{flex:1;justify-content:center}.lpK .alat select{flex:1 1 140px}}
 </style>
 </head>
 <body>
@@ -493,7 +500,7 @@ var nMuat=0; function muat(on){ nMuat+=on?1:-1; var b=$('.muat'); if(nMuat>0&&!b
 
 /* Permintaan baca diulang sekali (jeda 1 dtk) bila gagal tersambung; permintaan simpan tidak diulang supaya tidak dobel.
    Setiap permintaan dicatat (aksi, lama, lama di server, dari simpanan/tidak) untuk halaman #kinerja. */
-var API_BACA = { data:1, berkas:1, suratData:1, bestieData:1, bestieRekap:1, daftarPengguna:1, cariTempat:1, agendaBerkas:1, agendaArsipData:1, logAktivitas:1, statusSistem:1, kategoriDaftar:1 };
+var API_BACA = { laporanSumber:1, data:1, berkas:1, suratData:1, bestieData:1, bestieRekap:1, daftarPengguna:1, cariTempat:1, agendaBerkas:1, agendaArsipData:1, logAktivitas:1, statusSistem:1, kategoriDaftar:1 };
 function catatKinerja(x){ try{ var l=JSON.parse(localStorage.getItem('ppud_kinerja')||'[]'); l.push(x); if(l.length>200) l=l.slice(-200); localStorage.setItem('ppud_kinerja', JSON.stringify(l)); }catch(e){} }
 function api(action, data){
   muat(true);
@@ -2605,6 +2612,7 @@ var IKON_NAV = {
   bestie: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17 6.6 19.9l1-6.1-4.4-4.3 6.1-.9z"/>',
   surat: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6M9 9h2"/>',
   agenda: '<path d="M5 4h14l2 9v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/><path d="M3 13h5l1.5 3h5l1.5-3h5M8 8h8"/>',
+  laporan: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   libur: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
   pengguna: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M17.5 14.3a6.5 6.5 0 0 1 4 6.2"/>'
 };
@@ -2618,13 +2626,14 @@ function render(){
   var menu = [['beranda','Beranda'],['aduan','Aduan',baru],['kasus','Kasus',nLewat],['kalender','Kalender'],['agenda','<span class="lbD">Agenda Surat</span><span class="lbM">Agenda</span>']];
   if(isAdmin()) menu.push(['bestie','BESTIE']);
   if(isAdmin()) menu.push(['surat','Surat']);
+  if(isAdmin()) menu.push(['laporan','Laporan']);
   $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob"><svg viewBox="0 0 24 24" aria-hidden="true">'+(IKON_NAV[m[0]]||'')+'</svg></span><span class="lb">'+m[1]+'</span>'+(m[2]?'<span class="n">'+m[2]+'</span>':'')+'</a>'; }).join('');
   if($('#mnPengaturan')) $('#mnPengaturan').classList.toggle('hide', !isUtama());
   var keP=function(t){ return function(){ if(isUtama()) location.replace('#pengaturan/'+t); else vBeranda(); }; };
   var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, kalender: vKalender, libur: keP('libur'), pengguna: keP('pengguna'),
     pengaturan: function(){ rPengaturan(bag); },
     bestie: bag[1] ? function(){ vBestieSesi(decodeURIComponent(bag[1])); } : vBestie,
-    surat: function(){ rSurat(bag); }, agenda: function(){ vAgenda(bag[1]); }, kinerja: isUtama() ? keP('kinerja') : vKinerja }[bag[0]] || vBeranda;
+    surat: function(){ rSurat(bag); }, laporan: vLaporan, agenda: function(){ vAgenda(bag[1]); }, kinerja: isUtama() ? keP('kinerja') : vKinerja }[bag[0]] || vBeranda;
   f(); window.scrollTo(0,0);
   var aktif=$('#nav a.on'); if(aktif && aktif.scrollIntoView && window.innerWidth<=760){ var n=$('#nav'); n.scrollLeft=Math.max(0, aktif.offsetLeft-(n.clientWidth-aktif.offsetWidth)/2); }
 }
@@ -4392,6 +4401,663 @@ function pdfKasus(no){
       styles:{fontSize:8.5, cellPadding:1.8, valign:'top'}, headStyles:{fillColor:tpRgb(tpNilai('gelap'))}, columnStyles:{0:{cellWidth:22},1:{cellWidth:34},3:{cellWidth:22},5:{cellWidth:14}} });
     kakiPDF(doc); doc.save('kasus-'+k.no+'.pdf');
   }).catch(function(e){ toast(e.message); });
+}
+
+/* Laporan Penegakan — pengolah data (tanpa DOM, bisa diuji di Node).
+ * Semua sumber diubah dulu ke FORMAT BAKU (satu baris = satu kejadian penegakan):
+ *   { bulan:1-12, tanggal:'YYYY-MM-DD'|null, subjek, kecamatan, perdaUtama, perdaPendamping, jenis, jumlah, hasil, keterangan, lok }
+ * Pembuat laporan hanya mengenal format baku ini. Sumber saat ini: rekap Excel / Google Sheet (12 sheet bulanan).
+ * Nanti cukup ditambah penerjemah dari data kasus dashboard.
+ */
+var LaporanData = (function () {
+  var BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  var KEC26 = ['Buahdua', 'Cibugel', 'Cimalaka', 'Cimanggung', 'Cisarua', 'Cisitu', 'Conggeang', 'Darmaraja', 'Ganeas', 'Jatigede',
+    'Jatinangor', 'Jatinunggal', 'Pamulihan', 'Paseh', 'Rancakalong', 'Situraja', 'Sukasari', 'Sumedang Selatan',
+    'Sumedang Utara', 'Surian', 'Tanjungkerta', 'Tanjungmedar', 'Tanjungsari', 'Tomo', 'Ujungjaya', 'Wado'];
+  /* Bawaan Tahap 1 (Tahap 2: diatur di Pengaturan › Laporan) */
+  var BAWAAN = {
+    padanan: {
+      'Bangunan Liar': 'Perda No. 4 Tahun 2018 (RTRW)',
+      'Perizinan Bangunan Gedung': 'Perda No. 15 Tahun 2011 & Perbup No. 81 Tahun 2022 (PBG)',
+      'Penertiban Bersama': 'Operasi Gabungan Lintas Sektor',
+      'PKL': 'Perda No. 7 Tahun 2014 (Ketertiban Umum)',
+      'Perizinan Usaha': 'Perda No. 5 Tahun 2021 (Penyelenggaraan Berusaha)',
+      'Moratorium Pendirian Minimarket': 'Perbup No. 73 Tahun 2020',
+      'Penyakit Masyarakat': 'Perda No. 7 Tahun 2014 (Ketertiban Umum)',
+      'Peredaran Minuman Beralkohol': 'Perda No. 17 Tahun 2003'
+    },
+    ambangKec: { tinggi: 10, sedang: 2 },          // Tinggi ≥10, Sedang 2–9, Rendah 1, Nihil 0
+    ambangBln: { rendah: 5, moderat: 20 },         // Rendah 1–5, Moderat 6–20, Tinggi >20; bulan terbanyak = Puncak
+    ejaan: { 'PENTUPAN': 'Penutupan', 'Penhentian Sementara': 'Penghentian Sementara' }
+  };
+  function bersih(t) { return String(t == null ? '' : t).replace(/\s+/g, ' ').trim(); }
+  function adaIsi(r) { return r && r.some(function (v) { return v !== null && v !== undefined && String(v).trim() !== ''; }); }
+
+  /* Nilai tanggal dari sheet: Date, 'YYYY-MM-DD…', serial Excel, atau 'dd/mm/yyyy' */
+  function tanggal(v) {
+    if (v instanceof Date && !isNaN(v)) return v.getFullYear() + '-' + ('0' + (v.getMonth() + 1)).slice(-2) + '-' + ('0' + v.getDate()).slice(-2);
+    if (typeof v === 'number' && v > 20000 && v < 80000) { var d = new Date(Math.round((v - 25569) * 864e5)); return d.toISOString().slice(0, 10); }
+    var s = bersih(v), m;
+    if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return m[1] + '-' + m[2] + '-' + m[3];
+    if ((m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/))) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+    return null;
+  }
+  function singkatPerda(s) {
+    s = bersih(s); if (!s) return '';
+    var m = s.match(/^Peraturan (Daerah|Bupati) Kabupaten Sumedang Nomor ([\w.\-\/]+) Tahun (\d{4}) (?:Tentang )?(.+)$/i);
+    if (m) return (m[1].toLowerCase() === 'daerah' ? 'Perda' : 'Perbup') + ' No. ' + m[2] + ' Tahun ' + m[3] + ' tentang ' + m[4].replace(/[.;]+$/, '');
+    return s.replace(/[;]+$/, '');
+  }
+  function cocokKec(k) {
+    var n = bersih(k).toLowerCase().replace(/^kec(amatan)?\.?\s*/, '');
+    for (var i = 0; i < KEC26.length; i++) if (KEC26[i].toLowerCase() === n) return KEC26[i];
+    return null;
+  }
+  function cariKolom(header) {
+    var H = header.map(function (h) { return bersih(h).toLowerCase().replace(/\.$/, ''); });
+    var c = function (re, cad) { for (var i = 0; i < H.length; i++) if (re.test(H[i])) return i; return cad; };
+    return { tgl: c(/^tanggal/, 1), subjek: c(/instansi|perusahaan/, 2), kec: c(/^kecamatan/, 7), perdaU: c(/perda utama/, 8), perdaP: c(/perda pendamping/, 9),
+      jenis: c(/jenis penegakan/, 10), jumlah: c(/jumlah penegakan/, 11), ket: c(/^keterangan/, 13), hasil: c(/hasil pemantauan/, 14) };
+  }
+
+  /* sheets: { 'Januari': [[header...],[...],...], ... } → { baku, periksa, tahun } */
+  function dariRekap(sheets, opsi) {
+    opsi = opsi || {}; var ej = opsi.ejaan || BAWAAN.ejaan;
+    var baku = [], periksa = [], tahunHit = {};
+    var catat = function (lok, masalah, usul) { periksa.push({ lok: lok, masalah: masalah, usul: usul }); };
+    var namaSheet = Object.keys(sheets);
+    BULAN.forEach(function (b, bi) {
+      var nm = namaSheet.filter(function (n) { return bersih(n).toLowerCase() === b.toLowerCase(); })[0];
+      if (!nm) { catat('Sumber', 'Sheet "' + b + '" tidak ditemukan', 'Bulan ini dianggap tanpa data'); return; }
+      var rows = sheets[nm] || [], K = cariKolom(rows[0] || []);
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i]; if (!adaIsi(r)) continue;
+        var lok = b + ' baris ' + (i + 1), tgl = tanggal(r[K.tgl]), kec = bersih(r[K.kec]), jenis = bersih(r[K.jenis]);
+        if (!tgl && !kec && !jenis) { catat(lok, 'Sel berisi nilai tanpa data penegakan (sisa ketikan)', 'Hapus isi sel; tidak dihitung'); continue; }
+        if (tgl) { tahunHit[tgl.slice(0, 4)] = (tahunHit[tgl.slice(0, 4)] || 0) + 1; if (+tgl.slice(5, 7) !== bi + 1) catat(lok, 'Tanggal ' + tgl.split('-').reverse().join('-') + ' tidak sesuai sheet ' + b, 'Periksa tanggal; dihitung di bulan ' + b); }
+        else catat(lok, 'Tanggal kosong/tidak terbaca', 'Dihitung di bulan ' + b);
+        var jml = r[K.jumlah], n = typeof jml === 'number' ? jml : parseFloat(String(jml || '').replace(',', '.'));
+        if (!(n > 0)) { catat(lok, 'Jumlah penegakan kosong', 'Dihitung 1'); n = 1; }
+        var kecB = kec ? cocokKec(kec) : null;
+        if (kec && !kecB) catat(lok, 'Kecamatan "' + kec + '" tidak dikenal', 'Periksa ejaan; dihitung apa adanya');
+        if (!kec) catat(lok, 'Kecamatan kosong', 'Masuk "Tidak tercatat"');
+        if (!jenis) catat(lok, 'Jenis penegakan kosong', 'Masuk "Tidak tercatat"');
+        var hasil = bersih(r[K.hasil]), ket = bersih(r[K.ket]);
+        if (ej[hasil]) { catat(lok, 'Hasil pemantauan "' + hasil + '"', 'Ganti menjadi "' + ej[hasil] + '"'); hasil = ej[hasil]; }
+        if (ej[ket]) { catat(lok, 'Keterangan "' + ket + '"', 'Ganti menjadi "' + ej[ket] + '"'); ket = ej[ket]; }
+        baku.push({ bulan: bi + 1, tanggal: tgl, subjek: bersih(r[K.subjek]), kecamatan: kecB || kec || 'Tidak tercatat',
+          perdaUtama: singkatPerda(r[K.perdaU]) || 'Tidak tercatat', perdaPendamping: singkatPerda(r[K.perdaP]),
+          jenis: jenis || 'Tidak tercatat', jumlah: Math.round(n), hasil: hasil || null, keterangan: ket || null, lok: lok });
+      }
+    });
+    var tanpaHasil = baku.filter(function (x) { return !x.hasil; });
+    if (tanpaHasil.length) {
+      var pb = {}; tanpaHasil.forEach(function (x) { var k = BULAN[x.bulan - 1]; pb[k] = (pb[k] || 0) + 1; });
+      catat(Object.keys(pb).map(function (k) { return k + ' (' + pb[k] + ')'; }).join(', '), tanpaHasil.length + ' baris tanpa Hasil Pemantauan',
+        'Isi bila ada; di rekap tindak lanjut masuk "Belum dicatat"');
+    }
+    var tahun = Object.keys(tahunHit).sort(function (a, b) { return tahunHit[b] - tahunHit[a]; })[0] || null;
+    return { baku: baku, periksa: periksa, tahun: tahun ? +tahun : null };
+  }
+
+  /* Satu tabel (CSV / sheet tunggal) → dikelompokkan per bulan menurut kolom Tanggal, lalu diolah seperti rekap. */
+  function dariTabel(rows, opsi) {
+    var K = cariKolom(rows[0] || []), sheets = {}, lepas = [];
+    BULAN.forEach(function (b) { sheets[b] = [rows[0]]; });
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i]; if (!adaIsi(r)) continue;
+      var t = tanggal(r[K.tgl]);
+      if (!t) { lepas.push(i + 1); continue; }
+      var sh = sheets[BULAN[+t.slice(5, 7) - 1]]; sh[i] = r;   // nomor baris asli tetap
+    }
+    var o = dariRekap(sheets, opsi);
+    o.periksa.forEach(function (x) { x.lok = x.lok.replace(/^\S+ baris/, 'Baris'); });
+    if (lepas.length) o.periksa.unshift({ lok: 'Baris ' + lepas.slice(0, 8).join(', ') + (lepas.length > 8 ? ', …' : ''), masalah: lepas.length + ' baris tanpa tanggal yang terbaca', usul: 'Tidak dihitung; isi kolom Tanggal' });
+    return o;
+  }
+
+  /* jenis: 'bulanan' (nomor 1-12) | 'triwulan' (1-4) | 'tahunan' */
+  function periode(jenis, nomor, tahun) {
+    var awal, akhir, judul, nama;
+    if (jenis === 'bulanan') { awal = akhir = nomor; nama = 'Bulan ' + BULAN[nomor - 1]; judul = 'BULAN ' + BULAN[nomor - 1].toUpperCase(); }
+    else if (jenis === 'triwulan') { awal = (nomor - 1) * 3 + 1; akhir = nomor * 3; nama = 'Triwulan ' + ['I', 'II', 'III', 'IV'][nomor - 1]; judul = nama.toUpperCase(); }
+    else { awal = 1; akhir = 12; nama = 'Tahun ' + tahun; judul = ''; }
+    var hariAkhir = new Date(Date.UTC(tahun, akhir, 0)).getUTCDate();
+    return { jenis: jenis, nomor: nomor, tahun: tahun, awal: awal, akhir: akhir, nama: nama,
+      judul: 'LAPORAN PENEGAKAN ' + (judul ? judul + ' ' : '') + 'TAHUN ' + tahun,
+      teks: '1 ' + BULAN[awal - 1] + ' – ' + hariAkhir + ' ' + BULAN[akhir - 1] + ' ' + tahun,
+      blnAkhir: BULAN[akhir - 1], tahunan: jenis === 'tahunan' };
+  }
+
+  function hit(rows, key) { var o = {}; rows.forEach(function (x) { var k = x[key] || 'Belum dicatat'; o[k] = (o[k] || 0) + x.jumlah; }); return o; }
+  function jml(rows) { return rows.reduce(function (a, x) { return a + x.jumlah; }, 0); }
+  function urut(o, o2) { return Object.keys(o).sort(function (a, b) { return (o[b] - o[a]) || ((o2 && (o2[b] || 0) - (o2[a] || 0)) || 0) || a.localeCompare(b, 'id'); }); }
+
+  /* baku + periode → semua angka laporan */
+  function hitung(baku, P, opsi) {
+    opsi = opsi || {}; var pad = opsi.padanan || BAWAAN.padanan, aK = opsi.ambangKec || BAWAAN.ambangKec, aB = opsi.ambangBln || BAWAAN.ambangBln;
+    var katKec = function (n) { return n >= aK.tinggi ? 'Tinggi' : n >= aK.sedang ? 'Sedang' : n >= 1 ? 'Rendah' : 'Nihil'; };
+    var katBln = function (n) { return n === 0 ? 'Nihil' : n <= aB.rendah ? 'Aktivitas Rendah' : n <= aB.moderat ? 'Aktivitas Moderat' : 'Aktivitas Tinggi'; };
+    var Pr = baku.filter(function (x) { return x.bulan >= P.awal && x.bulan <= P.akhir; });
+    var Ku = baku.filter(function (x) { return x.bulan <= P.akhir; });
+    var totP = jml(Pr), totK = jml(Ku);
+    var kP = hit(Pr, 'kecamatan'), kK = hit(Ku, 'kecamatan'), jP = hit(Pr, 'jenis'), jK = hit(Ku, 'jenis'), pP = hit(Pr, 'perdaUtama'), pK = hit(Ku, 'perdaUtama');
+    var bK = {}; Ku.forEach(function (x) { bK[x.bulan] = (bK[x.bulan] || 0) + x.jumlah; });
+    var kec = urut(kK, kP).map(function (k) { return { nama: k, p: kP[k] || 0, k: kK[k], kat: katKec(kK[k]) }; });
+    var nihil = KEC26.filter(function (k) { return !kK[k]; });
+    var bulan = []; for (var m = 1; m <= P.akhir; m++) bulan.push({ bulan: BULAN[m - 1], m: m, n: bK[m] || 0, tw: m >= P.awal, cat: katBln(bK[m] || 0) });
+    var dalam = bulan.filter(function (b) { return b.tw; }), puncak = null;
+    bulan.forEach(function (b) { if (b.n > 0 && (!puncak || b.n > puncak.n)) puncak = b; });
+    if (puncak) puncak.cat = 'Puncak Aktivitas (' + Math.round(100 * puncak.n / (totK || 1)) + '%)';
+    var reg = function (j) {
+      if (pad[j]) return { reg: pad[j], padan: true };
+      var c = hit(Ku.filter(function (x) { return x.jenis === j; }), 'perdaUtama'), t = urut(c)[0];
+      return { reg: t || '—', padan: false };
+    };
+    var jenis = urut(jK, jP).map(function (j) { var r = reg(j); return { nama: j, p: jP[j] || 0, k: jK[j], reg: r.reg, padan: r.padan }; });
+    var perda = urut(pK, pP).map(function (p) { return { nama: p, p: pP[p] || 0, k: pK[p] }; });
+    var o = { P: P, totP: totP, totK: totK, kec: kec, nihil: nihil, bulan: bulan, dalam: dalam, puncak: puncak, jenis: jenis, perda: perda, baris: Pr.length };
+    if (P.tahunan) {
+      o.tw = [1, 2, 3, 4].map(function (t) {
+        var r = baku.filter(function (x) { return Math.ceil(x.bulan / 3) === t; });
+        return { nama: 'Triwulan ' + ['I', 'II', 'III', 'IV'][t - 1], n: jml(r), j: hit(r, 'jenis') };
+      });
+      var hP = hit(Pr, 'hasil'), kt = hit(Pr, 'keterangan');
+      o.hasil = urut(hP).map(function (h) { return { nama: h, n: hP[h] }; });
+      o.keterangan = urut(kt).map(function (h) { return { nama: h, n: kt[h] }; });
+    }
+    return o;
+  }
+
+  function pct(a, b) { return b ? Math.round(100 * a / b) : 0; }
+  function daftar(L) { return L.length < 2 ? (L[0] || '') : L.slice(0, -1).join(', ') + ' dan ' + L[L.length - 1]; }
+
+  /* Narasi bawaan (bisa disunting di pratinjau) */
+  function narasi(h) {
+    var P = h.P, N = P.nama, T = h.totP, K = h.totK, tah = P.tahunan, Nk = P.jenis === 'bulanan' ? 'bulan ' + P.blnAkhir : tah ? 'tahun ' + P.tahun : N;
+    var kecP = h.kec.filter(function (k) { return k.p > 0; }).sort(function (a, b) { return b.p - a.p; });
+    var jenP = h.jenis.filter(function (j) { return j.p > 0; }).sort(function (a, b) { return b.p - a.p; });
+    var blnP = h.dalam.slice().sort(function (a, b) { return b.n - a.n; })[0];
+    var n = {};
+    if (!T) {
+      n.ringkasan = 'Laporan ini menyajikan data penegakan Peraturan Daerah dan Peraturan Kepala Daerah pada ' + N + (tah ? '' : ' Tahun ' + P.tahun) + ' (' + P.teks + '). Pada periode ini tidak tercatat kejadian penegakan' + (tah ? '.' : '; total kumulatif sejak Januari ' + P.tahun + ' sebanyak ' + K + ' kejadian.');
+      n.kec = 'Tidak ada penegakan yang tercatat di kecamatan mana pun pada periode ini.';
+      n.bulan = 'Tidak ada kegiatan penegakan yang tercatat pada periode ini.';
+      n.jenis = [];
+      n.penutup = 'Pada periode ini tidak tercatat kegiatan penegakan. Laporan ini diharapkan dapat menjadi bahan evaluasi dan pertimbangan bagi pimpinan dalam menyusun rencana dan program kerja periode berikutnya.';
+      return n;
+    }
+    n.ringkasan = 'Laporan ini menyajikan data penegakan Peraturan Daerah dan Peraturan Kepala Daerah pada ' + N + (tah ? '' : ' Tahun ' + P.tahun) + ' (' + P.teks + ')' +
+      (tah ? '. Sepanjang tahun ' + P.tahun + ' tercatat ' + T + ' kejadian penegakan.' :
+        ', dilengkapi angka kumulatif sejak Januari ' + P.tahun + '. Selama ' + Nk + ' tercatat ' + T + ' kejadian penegakan, atau ' + pct(T, K) + '% dari total kumulatif ' + K + ' kejadian hingga ' + P.blnAkhir + ' ' + P.tahun + '.') +
+      ' Penegakan tertinggi ' + (tah ? 'berada' : 'pada periode ini berada') + ' di Kecamatan ' + kecP[0].nama + ' (' + kecP[0].p + ' kejadian)' +
+      (P.jenis === 'bulanan' ? '' : ' dan pada bulan ' + blnP.bulan + ' (' + blnP.n + ' kejadian)') +
+      ', dengan jenis penegakan terbanyak ' + jenP[0].nama + ' (' + jenP[0].p + ' kejadian).';
+    var t3 = h.kec.slice(0, 3);
+    n.kec = 'Pada ' + Nk + ', penegakan tercatat di ' + kecP.length + ' kecamatan, yaitu ' + daftar(kecP.map(function (k) { return k.nama + ' (' + k.p + ')'; })) + '.' +
+      (tah ? '' : ' Secara kumulatif hingga ' + P.blnAkhir + ' ' + P.tahun + ', penegakan telah menjangkau ' + h.kec.filter(function (k) { return KEC26.indexOf(k.nama) >= 0; }).length + ' dari 26 kecamatan') +
+      (t3.length >= 3 ? (tah ? ' Tiga' : '; tiga') + ' kecamatan dengan penegakan tertinggi (' + daftar(t3.map(function (k) { return k.nama; })) + ') menyumbang ' + pct(t3.reduce(function (a, k) { return a + k.k; }, 0), K) + '% dari seluruh kejadian.' : (tah ? '' : '.'));
+    if (P.jenis === 'bulanan') {
+      var sebelum = h.bulan[h.bulan.length - 2];
+      n.bulan = 'Pada bulan ' + P.blnAkhir + ' tercatat ' + T + ' kejadian penegakan (' + h.dalam[0].cat.replace(/ \(.*/, '').toLowerCase() + ')' +
+        (sebelum ? ', ' + (T > sebelum.n ? 'naik' : T < sebelum.n ? 'turun' : 'sama') + ' dibandingkan bulan ' + sebelum.bulan + ' (' + sebelum.n + ' kejadian)' : '') +
+        '. Bulan dengan penegakan terbanyak sejak Januari ' + P.tahun + ' adalah ' + h.puncak.bulan + ' (' + h.puncak.n + ' kejadian).';
+    } else {
+      var lain = h.dalam.filter(function (b) { return b.bulan !== h.puncak.bulan; });
+      var puncakDalam = h.puncak.tw;
+      n.bulan = puncakDalam ? 'Bulan ' + h.puncak.bulan + ' menjadi puncak kegiatan dengan ' + h.puncak.n + ' kejadian, setara ' + pct(h.puncak.n, T) + '% dari ' + Nk + (tah ? '' : ' dan ' + pct(h.puncak.n, K) + '% dari total kumulatif') + '.' +
+        (lain.length && !tah ? ' Bulan lainnya pada periode ini, ' + daftar(lain.map(function (b) { return b.bulan + ' (' + b.n + ')'; })) + ', tergolong ' + uniq(lain.map(function (b) { return b.cat.replace(/^Aktivitas /, '').replace(/ \(.*/, '').toLowerCase(); })).join('/') + '.' : '')
+        : 'Bulan dengan penegakan terbanyak pada periode ini adalah ' + blnP.bulan + ' (' + blnP.n + ' kejadian). Puncak kegiatan sejak Januari ' + P.tahun + ' terjadi pada bulan ' + h.puncak.bulan + ' (' + h.puncak.n + ' kejadian).';
+    }
+    n.jenis = jenP.slice(0, 3).map(function (j) { return j.nama + ': ' + j.p + ' kejadian (' + pct(j.p, T) + '%' + (tah ? '' : '; kumulatif ' + j.k + ' kejadian') + '), regulasi terkait ' + j.reg + '.'; });
+    n.penutup = 'Berdasarkan hasil rekapitulasi dan analisis data, pelaksanaan penegakan pada ' + (tah ? 'tahun ' + P.tahun : 'periode ini') + ' didominasi oleh ' + jenP[0].nama.toLowerCase() + ' (' + pct(jenP[0].p, T) + '% dari kejadian) dan terpusat di Kecamatan ' + daftar(kecP.slice(0, 3).map(function (k) { return k.nama; })) +
+      '. Hasil analisis dalam laporan ini diharapkan dapat menjadi bahan evaluasi dan pertimbangan bagi pimpinan dalam menentukan arah kebijakan, menetapkan prioritas kegiatan, mengoptimalkan sumber daya manusia, serta menyusun rencana dan program kerja periode berikutnya.';
+    if (tah) {
+      var tw = h.tw.slice().sort(function (a, b) { return b.n - a.n; })[0];
+      n.tw = 'Kegiatan penegakan terbanyak terjadi pada ' + tw.nama + ' (' + tw.n + ' kejadian, ' + pct(tw.n, T) + '% dari total tahunan). Rincian per triwulan: ' + daftar(h.tw.map(function (x) { return x.nama + ' ' + x.n; })) + ' kejadian.';
+      var bc = (h.hasil.filter(function (x) { return x.nama === 'Belum dicatat'; })[0] || {}).n || 0;
+      n.hasil = 'Hasil pemantauan yang tercatat: ' + daftar(h.hasil.filter(function (x) { return x.nama !== 'Belum dicatat'; }).map(function (x) { return x.nama + ' (' + x.n + ')'; })) + '.' + (bc ? ' Sebanyak ' + bc + ' kejadian belum dicatat hasil pemantauannya.' : '');
+    }
+    return n;
+  }
+  function uniq(L) { return L.filter(function (x, i) { return L.indexOf(x) === i; }); }
+
+  return { BULAN: BULAN, KEC26: KEC26, BAWAAN: BAWAAN, dariRekap: dariRekap, dariTabel: dariTabel, periode: periode, hitung: hitung, narasi: narasi, pct: pct, singkatPerda: singkatPerda };
+})();
+
+
+/* Laporan Penegakan — pembuat .docx (F4, kop Satpol PP, huruf Bookman) tanpa server.
+ * buat({ h, n, ttd, tempatTanggal, kop, grafik }) → Promise<Uint8Array>
+ *   h = LaporanData.hitung(...), n = narasi (boleh sudah disunting),
+ *   ttd = { jabatan:['Kepala Bidang Penegakan','Perundang-undangan Daerah,'], nama, pangkat, nip },
+ *   kop = { logo: Uint8Array PNG, logoW, logoH, baris:[...alamat] , teks1, teks2 },
+ *   grafik = { kec:{png,w,h}, bln:{png,w,h} } (opsional; digambar di browser dengan canvas)
+ */
+var LaporanDocx = (function () {
+  var JSZipRef = typeof JSZip !== 'undefined' ? JSZip : null;
+  function pasang(o) { if (o && o.JSZip) JSZipRef = o.JSZip; }
+  var FONT = 'Bookman Old Style', KOPF = 'Tahoma', BIRU = '12307A', BIRU_BG = 'E3E9F6', MUDA = 'F3F6FC';
+  var PG_W = 12242, PG_H = 18722, M_LR = 1134, M_TB = 851, W = PG_W - 2 * M_LR, TW = W - 360;
+  var W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  var BAWAAN_KOP = { teks1: 'PEMERINTAH KABUPATEN SUMEDANG', teks2: 'SATUAN POLISI PAMONG PRAJA',
+    baris: ['Alamat : Jl. Pangaduan Heubeul No.48, No. Tlp: (0261) 201811,', 'Website : satpolpp.sumedangkab.go.id  E-mail : satpol.pp@sumedangkab.go.id, Sumedang 45311'] };
+  var TETAP = {
+    dasar: ['Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintahan Daerah;',
+      'Peraturan Pemerintah Nomor 16 Tahun 2018 tentang Satuan Polisi Pamong Praja;',
+      'Peraturan Menteri Dalam Negeri Nomor 16 Tahun 2023 tentang Standar Operasional Prosedur Satuan Polisi Pamong Praja dan Kode Etik Polisi Pamong Praja;',
+      'Peraturan Bupati Sumedang Nomor 177 Tahun 2021 tentang Uraian Tugas Jabatan Struktural pada Satuan Polisi Pamong Praja.'],
+    gambaran: ['Dalam rangka mengantisipasi perkembangan dan dinamika kegiatan masyarakat, pertumbuhan ekonomi sejalan dengan tuntutan era globalisasi dan otonomi daerah, maka kondisi ketenteraman dan ketertiban umum daerah yang kondusif merupakan suatu kebutuhan mendasar bagi seluruh masyarakat untuk meningkatkan mutu kehidupannya serta persaingan yang sehat bagi dunia usaha.',
+      'Satuan Polisi Pamong Praja mempunyai tugas membantu Kepala Daerah dalam menegakkan Peraturan Daerah dan Peraturan Kepala Daerah untuk menciptakan kondisi daerah yang tenteram, tertib, dan teratur serta masyarakat yang taat hukum, sehingga penyelenggaraan roda pemerintahan dapat berjalan dengan lancar dan masyarakat serta pelaku dunia usaha dapat melakukan kegiatannya dengan nyaman. Untuk mengoptimalkan kinerja Satuan Polisi Pamong Praja, perlu ditingkatkan kegiatan penindakan pelanggaran Peraturan Daerah dan peraturan lainnya untuk mendukung terwujudnya kondisi daerah yang tenteram, tertib, dan teratur.'],
+    kegiatan: 'Melaksanakan penindakan pelanggaran Peraturan Daerah dan peraturan lainnya terhadap masyarakat, kelompok, atau badan usaha/hukum pelaku usaha yang melanggar Peraturan Daerah Kabupaten Sumedang.',
+    maksud: 'Maksud dilaksanakannya kegiatan penindakan pelanggaran Peraturan Daerah dan peraturan lainnya adalah untuk memberikan kejelasan hukum terhadap para pelaku pelanggaran serta pemahaman masyarakat, kelompok, atau badan usaha/hukum pelaku usaha terhadap Peraturan Daerah yang berlaku di Kabupaten Sumedang, serta meningkatkan pendapatan asli daerah.'
+  };
+
+  function x(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function rpr(o) { o = o || {}; var f = o.f || FONT;
+    return '<w:rPr><w:rFonts w:ascii="' + f + '" w:hAnsi="' + f + '" w:eastAsia="' + f + '" w:cs="' + f + '"/>' + (o.b ? '<w:b/><w:bCs/>' : '') + (o.i ? '<w:i/><w:iCs/>' : '') +
+      (o.c ? '<w:color w:val="' + o.c + '"/>' : '') + '<w:sz w:val="' + (o.sz || 24) + '"/><w:szCs w:val="' + (o.sz || 24) + '"/></w:rPr>'; }
+  function run(t, o) { return '<w:r>' + rpr(o) + '<w:t xml:space="preserve">' + x(t) + '</w:t></w:r>'; }
+  /* p(isi, opsi): isi = string atau array [teks, opsiRun] */
+  function p(isi, o) {
+    o = o || {};
+    var runs = typeof isi === 'string' ? run(isi, o) : isi.map(function (r) { return typeof r === 'string' ? r : run(r[0], r[1]); }).join('');
+    var ppr = '<w:pPr>' + (o.keep ? '<w:keepNext/>' : '') + (o.num ? '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="' + o.num + '"/></w:numPr>' : '') +
+      (o.border ? o.border : '') +
+      '<w:spacing w:before="' + (o.before || 0) + '" w:after="' + (o.after == null ? 120 : o.after) + '" w:line="' + (o.line || 360) + '" w:lineRule="atLeast"/>' +
+      (o.ind ? '<w:ind w:left="' + o.ind + '"/>' : '') + '<w:jc w:val="' + (o.al || 'both') + '"/></w:pPr>';
+    return '<w:p>' + ppr + runs + '</w:p>';
+  }
+  function h1(t) { return p([[t, { b: true }]], { al: 'left', before: 240, after: 120, keep: true }); }
+  function h2(t) { return p([[t, { b: true }]], { al: 'left', before: 120, after: 80, keep: true, ind: 360 }); }
+  function h3(t) { return p([[t, { b: true }]], { al: 'left', before: 160, after: 80, keep: true, ind: 720 }); }
+  function isi(t, ind) { return p(t, { ind: ind == null ? 720 : ind }); }
+  function catatan(t) { return p([[t, { sz: 18, i: true, c: '555555' }]], { line: 240, after: 60, before: 40, ind: 0 }); }
+  function kosong(after) { return p('', { after: after == null ? 120 : after, line: 240 }); }
+
+  var TEPI = '<w:top w:val="single" w:sz="4" w:space="0" w:color="808080"/><w:left w:val="single" w:sz="4" w:space="0" w:color="808080"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="808080"/><w:right w:val="single" w:sz="4" w:space="0" w:color="808080"/>';
+  function sel(t, w, o) {
+    o = o || {};
+    return '<w:tc><w:tcPr><w:tcW w:w="' + w + '" w:type="dxa"/><w:tcBorders>' + TEPI + '</w:tcBorders>' +
+      (o.bg ? '<w:shd w:val="clear" w:color="auto" w:fill="' + o.bg + '"/>' : '') +
+      '<w:tcMar><w:top w:w="50" w:type="dxa"/><w:left w:w="90" w:type="dxa"/><w:bottom w:w="50" w:type="dxa"/><w:right w:w="90" w:type="dxa"/></w:tcMar><w:vAlign w:val="center"/></w:tcPr>' +
+      p([[String(t), { sz: 20, b: o.b, c: o.c, i: o.i }]], { al: o.al || 'left', after: 0, line: 260 }) + '</w:tc>';
+  }
+  /* kolom: [{t, w (relatif), al}], baris: [{sel:[...], b, bg, i}] */
+  function tabel(kolom, baris) {
+    var s0 = kolom.reduce(function (a, k) { return a + k.w; }, 0), L = kolom.map(function (k) { return Math.round(k.w * TW / s0); });
+    L[0] += TW - L.reduce(function (a, b) { return a + b; }, 0);
+    var kepala = '<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>' + kolom.map(function (k, i) { return sel(k.t, L[i], { bg: BIRU, c: 'FFFFFF', b: true, al: 'center' }); }).join('') + '</w:tr>';
+    var isiB = baris.map(function (b) { return '<w:tr><w:trPr><w:cantSplit/></w:trPr>' + b.sel.map(function (t, i) { return sel(t, L[i], { b: b.b, bg: b.bg, i: b.i, al: kolom[i].al }); }).join('') + '</w:tr>'; }).join('');
+    return '<w:tbl><w:tblPr><w:tblW w:w="' + TW + '" w:type="dxa"/><w:jc w:val="center"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>' +
+      L.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid>' + kepala + isiB + '</w:tbl>';
+  }
+
+  var gambarList = [];
+  function gambar(png, wPx, hPx, lebarTw) {
+    var id = gambarList.length + 1, rid = 'rIdG' + id;
+    gambarList.push({ rid: rid, nama: 'media/gambar' + id + '.png', data: png });
+    var cx = Math.round(lebarTw * 635), cy = Math.round(cx * hPx / wPx);   // 1 twip = 635 EMU
+    return '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="' + cx + '" cy="' + cy + '"/><wp:docPr id="' + id + '" name="Gambar ' + id + '"/>' +
+      '<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
+      '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+      '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="' + id + '" name="gambar' + id + '.png"/><pic:cNvPicPr/></pic:nvPicPr>' +
+      '<pic:blipFill><a:blip r:embed="' + rid + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+      '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>';
+  }
+
+  function kopXml(kop) {
+    var K = Object.assign({}, BAWAAN_KOP, kop || {});
+    var GARIS = '<w:tcBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="thickThinSmallGap" w:sz="24" w:space="0" w:color="000000"/><w:right w:val="nil"/></w:tcBorders>';
+    var tc = function (w, inner) { return '<w:tc><w:tcPr><w:tcW w:w="' + w + '" w:type="dxa"/>' + GARIS + '<w:vAlign w:val="center"/></w:tcPr>' + inner + '</w:tc>'; };
+    var t = function (s, sz, b) { return p([[s, { f: KOPF, sz: sz, b: b }]], { al: 'center', after: 0, line: 240 }); };
+    var logo = K.logo ? p([gambar(K.logo, K.logoW || 1, K.logoH || 1, 1470)], { al: 'center', after: 60, line: 240 }) : p('', { after: 0 });
+    return '<w:tbl><w:tblPr><w:tblW w:w="10774" w:type="dxa"/><w:tblInd w:w="-400" w:type="dxa"/>' +
+      '<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>' +
+      '<w:tblGrid><w:gridCol w:w="1866"/><w:gridCol w:w="8908"/></w:tblGrid><w:tr>' +
+      tc(1866, logo) + tc(8908, t(K.teks1, 32) + t(K.teks2, 36, true) + K.baris.map(function (b) { return t(b, 22); }).join('') + p('', { after: 60, line: 240 })) +
+      '</w:tr></w:tbl>' + p('', { after: 200, line: 240 });
+  }
+
+  function badan(o) {
+    var h = o.h, n = o.n, P = h.P, N = P.nama, tah = P.tahunan, T = h.totP, K = h.totK, out = [];
+    var kolP = tah ? 'Jumlah' : N, kolK = 'Kumulatif s.d. ' + P.blnAkhir;
+    var pct = function (a, b) { return b ? Math.round(100 * a / b) : 0; };
+    var kecP = h.kec.filter(function (k) { return k.p > 0; }).sort(function (a, b) { return b.p - a.p; });
+    var jenP = h.jenis.filter(function (j) { return j.p > 0; }).sort(function (a, b) { return b.p - a.p; });
+    var blnP = h.dalam.slice().sort(function (a, b) { return b.n - a.n; })[0];
+    var ttl = function (bawah) { return bawah ? '' : ''; };
+    out.push(kopXml(o.kop));
+    [P.judul, 'BIDANG PENEGAKAN PERUNDANG-UNDANGAN DAERAH', 'SATUAN POLISI PAMONG PRAJA KABUPATEN SUMEDANG'].forEach(function (t, i) {
+      out.push(p([[t, { b: true, sz: i ? 24 : 26 }]], { al: 'center', after: 0, line: 300 })); });
+    out.push(p([['Periode ' + P.teks, { i: true }]], { al: 'center', before: 60, after: 240 }));
+    var T0 = o.tetap || TETAP;
+    out.push(h1('I.  LATAR BELAKANG'), h2('A.  Dasar Hukum'));
+    T0.dasar.forEach(function (t) { out.push(p(t, { num: 1, after: 60 })); });
+    out.push(h2('B.  Gambaran Umum'));
+    T0.gambaran.forEach(function (t) { out.push(isi(t)); });
+    out.push(h1('II.  KEGIATAN YANG DILAKSANAKAN'), isi(T0.kegiatan, 360), h1('III.  MAKSUD DAN TUJUAN'), isi(T0.maksud, 360));
+    out.push(h1('IV.  LAPORAN DATA PENEGAKAN ' + (tah ? 'TAHUN ' + P.tahun : N.toUpperCase())), h2('A.  Ringkasan'), isi(n.ringkasan));
+    var ring = T ? [
+      { sel: ['Jumlah kejadian penegakan', T, K], b: true },
+      { sel: ['Kecamatan dengan penegakan', kecP.length + ' kecamatan', h.kec.length + ' kecamatan'] },
+      { sel: ['Kecamatan tertinggi', kecP[0].nama + ' (' + kecP[0].p + ')', h.kec[0].nama + ' (' + h.kec[0].k + ')'] },
+      { sel: ['Bulan tertinggi', blnP.bulan + ' (' + blnP.n + ')', h.puncak.bulan + ' (' + h.puncak.n + ')'] },
+      { sel: ['Jenis penegakan terbanyak', jenP[0].nama + ' (' + jenP[0].p + ')', h.jenis[0].nama + ' (' + h.jenis[0].k + ')'] }] :
+      [{ sel: ['Jumlah kejadian penegakan', 0, K], b: true }];
+    if (P.jenis === 'bulanan' && T) ring.splice(3, 1);
+    if (tah) ring.forEach(function (r) { r.sel.pop(); });
+    out.push(tabel([{ t: 'Uraian', w: 4826 }, { t: kolP, w: 2000, al: 'center' }].concat(tah ? [] : [{ t: kolK, w: 2200, al: 'center' }]), ring), kosong());
+
+    out.push(h2('B.  Analisis Detail'));
+    var no = 0, sub = function (t) { no++; out.push(h3(no + '.  ' + t)); };
+    var dua = function (a, b) { return tah ? [a] : [a, b]; };
+    var kolDua = function (w1, w2) { return [{ t: kolP, w: w1, al: 'center' }].concat(tah ? [] : [{ t: kolK, w: w2, al: 'center' }]); };
+    var gb = 0, judulGb = function (t) { gb++; out.push(p([['Gambar ' + gb + '. ' + t, { sz: 18, i: true, c: '555555' }]], { al: 'center', after: 200, line: 240 })); };
+
+    sub('Berdasarkan Wilayah Kecamatan'); out.push(isi(n.kec));
+    var bk = h.kec.map(function (k, i) { return { sel: [i + 1, k.nama, k.kat].concat(dua(k.p, k.k)) }; });
+    if (h.nihil.length) bk.push({ sel: [h.kec.length + 1, h.nihil.length + ' kecamatan lainnya*', 'Nihil'].concat(dua(0, 0)), i: true });
+    bk.push({ sel: ['', 'Jumlah', ''].concat(dua(T, K)), b: true, bg: BIRU_BG });
+    out.push(tabel([{ t: 'No', w: 600, al: 'center' }, { t: 'Kecamatan', w: 3326 }, { t: 'Kategori', w: 1500, al: 'center' }].concat(kolDua(1600, 2000)), bk));
+    if (h.nihil.length) out.push(catatan('* Kecamatan nihil: ' + h.nihil.join(', ') + '.'));
+    out.push(catatan('Kategori' + (tah ? '' : ' (kumulatif)') + ': ' + (o.ketKategori || 'Tinggi ≥ 10, Sedang 2–9, Rendah 1, Nihil 0 kejadian.')));
+    if (o.grafik && o.grafik.kec) { out.push(p([gambar(o.grafik.kec.png, o.grafik.kec.w, o.grafik.kec.h, 9300)], { al: 'center', before: 120, after: 60, line: 240 })); judulGb('Jumlah penegakan per kecamatan' + (tah ? '' : ', ' + N + ' dan kumulatif')); }
+
+    sub('Berdasarkan Tren Bulanan'); out.push(isi(n.bulan));
+    var bb = h.bulan.map(function (b, i) { return { sel: [i + 1, b.bulan, b.n, b.cat], b: b.tw && !tah, bg: b.tw && !tah ? MUDA : null }; });
+    if (tah) bb.push({ sel: ['', 'Jumlah', T, ''], b: true, bg: BIRU_BG });
+    else { bb.push({ sel: ['', 'Jumlah ' + N, T, pct(T, K) + '% dari kumulatif'], b: true, bg: BIRU_BG }); bb.push({ sel: ['', 'Kumulatif Januari – ' + P.blnAkhir, K, ''], b: true, bg: BIRU_BG }); }
+    out.push(tabel([{ t: 'No', w: 600, al: 'center' }, { t: 'Bulan', w: 2426 }, { t: 'Jumlah Penegakan', w: 2200, al: 'center' }, { t: 'Catatan Operasional', w: 3800 }], bb));
+    if (o.grafik && o.grafik.bln) { out.push(p([gambar(o.grafik.bln.png, o.grafik.bln.w, o.grafik.bln.h, 9300)], { al: 'center', before: 120, after: 60, line: 240 })); judulGb('Tren penegakan bulanan Januari – ' + P.blnAkhir + ' ' + P.tahun); }
+
+    sub('Berdasarkan Peraturan Perundang-undangan Daerah');
+    out.push(isi('Rincian berikut disusun dari Perda/Perkada utama yang tercatat pada setiap kejadian penegakan.'));
+    var bp = h.perda.map(function (x, i) { return { sel: [i + 1, x.nama].concat(dua(x.p, x.k)) }; });
+    bp.push({ sel: ['', 'Jumlah'].concat(dua(T, K)), b: true, bg: BIRU_BG });
+    out.push(tabel([{ t: 'No', w: 600, al: 'center' }, { t: 'Peraturan Daerah / Peraturan Bupati (Perda Utama tercatat)', w: 5226 }].concat(kolDua(1400, 1800)), bp), kosong());
+
+    sub('Berdasarkan Jenis Penegakan');
+    if ((n.jenis || []).length) { out.push(isi('Jenis penegakan terbanyak pada ' + (tah ? 'tahun ' + P.tahun : P.jenis === 'bulanan' ? 'bulan ' + P.blnAkhir : N) + ':')); n.jenis.forEach(function (t) { out.push(p(t, { num: 2, after: 60 })); }); out.push(kosong(60)); }
+    var adaTanpa = false;
+    var bj = h.jenis.map(function (j, i) { if (!j.padan) adaTanpa = true; return { sel: [i + 1, j.nama].concat(dua(j.p, j.k), [j.padan ? j.reg : j.reg + ' **']) }; });
+    bj.push({ sel: ['', 'Jumlah'].concat(dua(T, K), ['']), b: true, bg: BIRU_BG });
+    out.push(tabel([{ t: 'No', w: 600, al: 'center' }, { t: 'Jenis Penegakan', w: 2300 }, { t: kolP, w: 1100, al: 'center' }].concat(tah ? [] : [{ t: 'Kumulatif', w: 1326, al: 'center' }], [{ t: 'Regulasi Terkait', w: 3700 }]), bj));
+    if (adaTanpa) out.push(catatan('** Belum ada di tabel padanan; sementara memakai Perda utama yang paling sering tercatat untuk jenis ini.'));
+
+    if (tah) {
+      sub('Perbandingan Antartriwulan'); out.push(isi(n.tw));
+      var jt = h.jenis.slice(0, 6).map(function (j) { return j.nama; });
+      out.push(tabel([{ t: 'Triwulan', w: 1800 }, { t: 'Jumlah', w: 1000, al: 'center' }, { t: '%', w: 800, al: 'center' }, { t: 'Jenis terbanyak', w: 5400 }],
+        h.tw.map(function (t) { var top = Object.keys(t.j).sort(function (a, b) { return t.j[b] - t.j[a]; }).slice(0, 2).map(function (k) { return k + ' (' + t.j[k] + ')'; }).join(', ');
+          return { sel: [t.nama, t.n, pct(t.n, T) + '%', top || '—'] }; }).concat([{ sel: ['Jumlah', T, '100%', ''], b: true, bg: BIRU_BG }])), kosong());
+      sub('Rekap Hasil dan Tindak Lanjut'); out.push(isi(n.hasil));
+      out.push(tabel([{ t: 'Hasil Pemantauan', w: 5000 }, { t: 'Jumlah', w: 1500, al: 'center' }, { t: '%', w: 1200, al: 'center' }],
+        h.hasil.map(function (x) { return { sel: [x.nama, x.n, pct(x.n, T) + '%'], i: x.nama === 'Belum dicatat' }; }).concat([{ sel: ['Jumlah', T, '100%'], b: true, bg: BIRU_BG }])), kosong(80));
+      out.push(tabel([{ t: 'Status / Keterangan', w: 5000 }, { t: 'Jumlah', w: 1500, al: 'center' }, { t: '%', w: 1200, al: 'center' }],
+        h.keterangan.map(function (x) { return { sel: [x.nama, x.n, pct(x.n, T) + '%'], i: x.nama === 'Belum dicatat' }; }).concat([{ sel: ['Jumlah', T, '100%'], b: true, bg: BIRU_BG }])));
+    }
+
+    out.push(h1('V.  PENUTUP'));
+    out.push(isi('Demikian Laporan Penegakan Peraturan Perundang-undangan Daerah ' + (tah ? 'Tahun ' + P.tahun : N + ' Tahun ' + P.tahun) + ' ini disusun sebagai bentuk pelaksanaan tugas dan pertanggungjawaban atas kegiatan penegakan peraturan perundang-undangan daerah selama periode ' + P.teks + '.', 360));
+    out.push(isi(n.penutup, 360), isi('Demikian laporan ini disampaikan untuk dapat dipergunakan sebagaimana mestinya.', 360));
+    if (o.ttd) {
+      var t = o.ttd, kiri = 5000, bl = function (s, b) { return p([[s, { b: b }]], { al: 'left', ind: kiri, after: 0, line: 276 }); };
+      out.push(kosong(240), bl(o.tempatTanggal || ''));
+      (t.jabatan || []).forEach(function (j) { out.push(bl(j)); });
+      out.push(p('', { after: 1100, line: 240 }), bl(t.nama || '……………………………', true));
+      if (t.pangkat) out.push(bl(t.pangkat));
+      out.push(bl('NIP. ' + (t.nip || '…………………')));
+    }
+    return out.join('');
+  }
+
+  function buat(o) {
+    if (!JSZipRef) return Promise.reject(new Error('Pustaka JSZip belum dimuat.'));
+    gambarList = [];
+    var body = badan(o), P = o.h.P;
+    var kaki = 'Laporan Penegakan ' + (P.tahunan ? 'Tahun ' + P.tahun : P.nama + ' ' + P.tahun) + ' — hal. ';
+    var doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="' + W_NS + '" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>' + body +
+      '<w:sectPr><w:footerReference w:type="default" r:id="rIdF1"/><w:pgSz w:w="' + PG_W + '" w:h="' + PG_H + '" w:code="14"/><w:pgMar w:top="' + M_TB + '" w:right="' + M_LR + '" w:bottom="' + M_TB + '" w:left="' + M_LR + '" w:header="567" w:footer="284" w:gutter="0"/></w:sectPr></w:body></w:document>';
+    var footer = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr xmlns:w="' + W_NS + '"><w:p><w:pPr><w:jc w:val="right"/></w:pPr>' + run(kaki, { sz: 16, c: '777777' }) +
+      '<w:r>' + rpr({ sz: 16, c: '777777' }) + '<w:fldChar w:fldCharType="begin"/></w:r><w:r>' + rpr({ sz: 16, c: '777777' }) + '<w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r>' + rpr({ sz: 16, c: '777777' }) + '<w:fldChar w:fldCharType="separate"/></w:r>' + run('1', { sz: 16, c: '777777' }) + '<w:r>' + rpr({ sz: 16, c: '777777' }) + '<w:fldChar w:fldCharType="end"/></w:r></w:p></w:ftr>';
+    var lvl = function (fmt) { return '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="' + fmt + '"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1080" w:hanging="360"/></w:pPr>' + rpr() + '</w:lvl>'; };
+    var numbering = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="' + W_NS + '">' +
+      '<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="singleLevel"/>' + lvl('%1)') + '</w:abstractNum>' +
+      '<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="singleLevel"/>' + lvl('%1.') + '</w:abstractNum>' +
+      '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>';
+    var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="' + W_NS + '"><w:docDefaults><w:rPrDefault>' + rpr().replace('<w:rPr>', '<w:rPr>').replace('</w:rPr>', '<w:lang w:val="id-ID"/></w:rPr>') +
+      '</w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>' +
+      '<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style></w:styles>';
+    var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      '<Relationship Id="rIdN" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' +
+      '<Relationship Id="rIdSt" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>' +
+      '<Relationship Id="rIdF1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' +
+      gambarList.map(function (g) { return '<Relationship Id="' + g.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="' + g.nama + '"/>'; }).join('') + '</Relationships>';
+    var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/>' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>';
+    var core = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>' + x(P.judul) + '</dc:title><dc:creator>Dashboard PPUD</dc:creator></cp:coreProperties>';
+    var z = new JSZipRef(), zf = z.file.bind(z); z.file = function (n, d) { return zf(n, d, { createFolders: false }); };
+    z.file('[Content_Types].xml', ct);
+    z.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>');
+    z.file('docProps/core.xml', core);
+    z.file('word/document.xml', doc); z.file('word/styles.xml', styles); z.file('word/numbering.xml', numbering);
+    z.file('word/footer1.xml', footer);
+    z.file('word/settings.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="' + W_NS + '"><w:defaultTabStop w:val="720"/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>'); z.file('word/_rels/document.xml.rels', rels);
+    gambarList.forEach(function (g) { z.file('word/' + g.nama, g.data); });
+    return z.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+  }
+  function namaBerkas(P) { return 'Laporan Penegakan ' + (P.tahunan ? 'Tahun ' + P.tahun : P.nama + ' ' + P.tahun) + '.docx'; }
+  return { pasang: pasang, buat: buat, namaBerkas: namaBerkas, TETAP: TETAP, BAWAAN_KOP: BAWAAN_KOP };
+})();
+
+
+/* ---------- Laporan Penegakan (menu "Laporan", Admin & Admin Utama) ----------
+   Alur: pilih periode → ambil data (Google Sheet rekap / unggah Excel-CSV) → daftar periksa → pratinjau & sunting narasi
+   → penandatangan → unduh Word (dibuat di perangkat) / PDF (Word dikonversi Google lewat aksi laporanPDF).
+   Pengolah: LaporanData (format baku + hitungan + narasi), LaporanDocx (Word F4 berkop). */
+var LP = null;
+var LP_TTD = [
+  ['kabid', 'Kabid PPUD', ['Kepala Bidang Penegakan', 'Perundang-undangan Daerah,'], /^(pl[th]\.?\s*)?kepala bidang penegakan perundang/i],
+  ['kasat', 'Kasat', ['Kepala Satuan Polisi Pamong Praja', 'Kabupaten Sumedang,'], /^(pl[th]\.?\s*)?kepala satuan polisi pamong praja/i],
+  ['sekdis', 'Sekretaris', ['Sekretaris Satuan Polisi Pamong Praja', 'Kabupaten Sumedang,'], /^(pl[th]\.?\s*)?sekretaris\b/i],
+  ['sidiklidik', 'Kasi Sidiklidik', ['Kepala Seksi Penyelidikan', 'dan Penyidikan,'], /^(pl[th]\.?\s*)?kepala seksi penyelidikan/i],
+  ['binwasluh', 'Kasi Binwasluh', ['Kepala Seksi Pembinaan,', 'Pengawasan, Penyuluhan,'], /^(pl[th]\.?\s*)?kepala seksi pembinaan/i]];
+function lpAwal(){
+  var t=D.hariIni, th=+t.slice(0,4), bl=+t.slice(5,7);
+  var twLalu=Math.floor((bl-1)/3), blLalu=bl-1;
+  return { jenis:'triwulan', tahun: twLalu?th:th-1, tw: twLalu||4, bulan: blLalu||12, sumber:'sheet', data:null, h:null, n:null, ubah:{}, ttd:'kabid', tanggal:t, sibuk:false };
+}
+function vLaporan(){
+  if(!isAdmin()){ location.hash='beranda'; return; }
+  if(!LP) LP=lpAwal();
+  srMuatData().then(function(){ if((location.hash||'').indexOf('#laporan')===0) lpTtdGambar(); }).catch(function(){});
+  var th=+D.hariIni.slice(0,4), tahun=[]; for(var y=th; y>=Math.max(2024,th-4); y--) tahun.push(String(y));
+  $('#isi').innerHTML='<div class="kepalaB"><h1>Laporan Penegakan</h1></div>'+
+    '<div class="kartu lpK"><div class="lpJ">1 · Periode</div>'+
+      '<div class="alat"><div class="seg" id="lpSeg">'+[['bulanan','Bulanan'],['triwulan','Triwulan'],['tahunan','Tahunan']].map(function(x){ return '<button data-j="'+x[0]+'" class="'+(LP.jenis===x[0]?'on':'')+'">'+x[1]+'</button>'; }).join('')+'</div>'+
+      '<select id="lpTh" aria-label="Tahun">'+opsi(tahun,String(LP.tahun))+'</select>'+
+      '<select id="lpBl" aria-label="Bulan" class="'+(LP.jenis==='bulanan'?'':'hide')+'">'+opsi(LaporanData.BULAN.map(function(b,i){ return [String(i+1),b]; }),String(LP.bulan))+'</select>'+
+      '<select id="lpTw" aria-label="Triwulan" class="'+(LP.jenis==='triwulan'?'':'hide')+'">'+opsi([['1','Triwulan I (Jan–Mar)'],['2','Triwulan II (Apr–Jun)'],['3','Triwulan III (Jul–Sep)'],['4','Triwulan IV (Okt–Des)']],String(LP.tw))+'</select></div>'+
+      '<div class="sub" id="lpPer"></div></div>'+
+    '<div class="kartu lpK"><div class="lpJ">2 · Sumber data</div>'+
+      '<div class="alat"><div class="seg" id="lpSb"><button data-s="sheet" class="'+(LP.sumber==='sheet'?'on':'')+'">Google Sheet rekap</button><button data-s="file" class="'+(LP.sumber==='file'?'on':'')+'">Unggah Excel/CSV</button></div></div>'+
+      '<div id="lpSbIsi"></div><div id="lpSbInfo" class="sub" style="margin-top:8px"></div></div>'+
+    '<div id="lpHasil"></div>';
+  $('#lpSeg').addEventListener('click', function(e){ var j=e.target.getAttribute('data-j'); if(!j||j===LP.jenis) return; LP.jenis=j; LP.ubah={}; vLaporan(); });
+  $('#lpTh').onchange=function(){ var lama=LP.tahun; LP.tahun=+this.value; LP.ubah={};
+    if(LP.data && LP.data.asal==='sheet' && lama!==LP.tahun){ LP.data=null; } lpSumberGambar(); lpHitung(); };
+  $('#lpBl').onchange=function(){ LP.bulan=+this.value; LP.ubah={}; lpHitung(); };
+  $('#lpTw').onchange=function(){ LP.tw=+this.value; LP.ubah={}; lpHitung(); };
+  $('#lpSb').addEventListener('click', function(e){ var s=e.target.getAttribute('data-s'); if(!s||s===LP.sumber) return; LP.sumber=s;
+    [].forEach.call(this.children, function(b){ b.classList.toggle('on', b.getAttribute('data-s')===s); }); lpSumberGambar(); });
+  lpSumberGambar(); lpHitung();
+}
+function lpPeriode(){ return LaporanData.periode(LP.jenis, LP.jenis==='bulanan'?LP.bulan:LP.jenis==='triwulan'?LP.tw:0, LP.tahun); }
+function lpSumberGambar(){
+  var el=$('#lpSbIsi'); if(!el) return;
+  el.innerHTML = LP.sumber==='sheet'
+    ? '<div class="sub" style="margin-bottom:8px">Membaca 12 sheet bulanan dari Google Sheet rekap tahun '+LP.tahun+' (data terkini).</div><button class="btn utama" id="lpAmbil">⟳ Ambil data '+LP.tahun+'</button>'
+    : '<div class="sub" style="margin-bottom:8px">File .xlsx berisi sheet Januari–Desember (format rekap), atau satu tabel .xlsx/.csv dengan kolom Tanggal, Kecamatan, Jenis Penegakan, Jumlah Penegakan.</div>'+
+      '<label class="btn utama" style="cursor:pointer">📂 Pilih file<input type="file" id="lpFile" accept=".xlsx,.xls,.csv" style="display:none"></label>';
+  if($('#lpAmbil')) $('#lpAmbil').onclick=function(){ lpAmbilSheet(this); };
+  if($('#lpFile')) $('#lpFile').onchange=function(){ var f=this.files[0]; if(f) lpUnggah(f); this.value=''; };
+  lpInfoSumber();
+}
+function lpInfoSumber(){
+  var el=$('#lpSbInfo'); if(!el) return; var d=LP.data;
+  if(!d){ el.innerHTML='Belum ada data.'; return; }
+  var beda = d.tahun && d.tahun!==LP.tahun;
+  el.innerHTML='✓ <b>'+esc(d.nama)+'</b>'+(d.diubah?' · diubah '+esc(d.diubah):'')+' · '+d.baku.length+' baris kejadian'+(d.tahun?' · tahun data '+d.tahun:'')+
+    (beda?'<div class="lpWarn">Tahun data ('+d.tahun+') berbeda dengan tahun laporan ('+LP.tahun+'). Pilih tahun '+d.tahun+' atau ganti sumber.</div>':'');
+}
+function lpAmbilSheet(btn){
+  btn.disabled=true; var t0=btn.textContent; btn.textContent='Membaca…';
+  api('laporanSumber',{ tahun: LP.tahun }).then(function(j){
+    var sheets={}; Object.keys(j.sheets).forEach(function(n){ var x=j.sheets[n], rows=[x.h]; x.b.forEach(function(b){ rows[b[0]-1]=b[1]; }); sheets[n]=rows; });
+    var o=LaporanData.dariRekap(sheets); o.nama=j.nama; o.diubah=j.diubah; o.asal='sheet'; LP.data=o; LP.ubah={};
+    toast('Data '+j.nama+' terbaca'); lpInfoSumber(); lpHitung();
+  }).catch(function(e){ toast(e.message); }).finally(function(){ btn.disabled=false; btn.textContent=t0; });
+}
+function lpUnggah(file){
+  if(file.size>15e6){ toast('File terlalu besar (maks. 15 MB).'); return; }
+  $('#lpSbInfo').textContent='Membaca '+file.name+'…';
+  muatSkrip('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js').then(function(){
+    return new Promise(function(ok,gagal){ var r=new FileReader(); r.onload=function(){ ok(r.result); }; r.onerror=function(){ gagal(new Error('File tidak dapat dibaca.')); }; r.readAsArrayBuffer(file); });
+  }).then(function(buf){
+    var wb=XLSX.read(new Uint8Array(buf), { type:'array', cellDates:true });
+    var sheets={}; wb.SheetNames.forEach(function(n){ sheets[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{ header:1, raw:true, defval:null, blankrows:true }); });
+    var adaBulan=wb.SheetNames.some(function(n){ return LaporanData.BULAN.some(function(b){ return b.toLowerCase()===String(n).trim().toLowerCase(); }); });
+    var o=adaBulan ? LaporanData.dariRekap(sheets) : LaporanData.dariTabel(sheets[wb.SheetNames[0]]);
+    if(!o.baku.length) throw new Error('Tidak ada baris penegakan yang terbaca dari file ini.');
+    o.nama=file.name; o.asal='file'; LP.data=o; LP.ubah={};
+    if(o.tahun && o.tahun!==LP.tahun && confirm('Data di file ini tahun '+o.tahun+'. Ganti tahun laporan ke '+o.tahun+'?')){ LP.tahun=o.tahun; vLaporan(); return; }
+    lpInfoSumber(); lpHitung();
+  }).catch(function(e){ $('#lpSbInfo').textContent=''; toast(e.message||'File tidak dapat dibaca.'); });
+}
+function lpHitung(){
+  var P=lpPeriode(); if($('#lpPer')) $('#lpPer').textContent='Periode '+P.teks+(P.tahunan?'':' · angka kumulatif sejak 1 Januari '+P.tahun);
+  ['#lpBl','#lpTw'].forEach(function(s){ var el=$(s); if(el) el.classList.toggle('hide', !((s==='#lpBl'&&LP.jenis==='bulanan')||(s==='#lpTw'&&LP.jenis==='triwulan'))); });
+  if(!LP.data){ LP.h=null; $('#lpHasil').innerHTML=''; return; }
+  LP.h=LaporanData.hitung(LP.data.baku, P);
+  var bawaan=LaporanData.narasi(LP.h), n=LP.n||{};
+  Object.keys(bawaan).forEach(function(k){ if(!LP.ubah[k]) n[k]=bawaan[k]; });
+  Object.keys(n).forEach(function(k){ if(!(k in bawaan)) delete n[k]; });
+  LP.n=n; LP.bawaan=bawaan;
+  lpGambarHasil();
+}
+function lpGambarHasil(){
+  var h=LP.h, P=h.P, d=LP.data, tah=P.tahunan, el=$('#lpHasil');
+  var periksa = d.periksa.length ? '<div class="kartu lpK"><details'+(d.periksa.length<=6?' open':'')+'><summary class="lpJ" style="cursor:pointer">3 · Daftar periksa data <span class="pill p-kuning">'+d.periksa.length+'</span></summary>'+
+    '<div class="sub" style="margin:6px 0 8px">Laporan tetap bisa dibuat. Perbaiki di sumber lalu ambil ulang bila perlu.</div>'+
+    '<div class="lpTblW"><table class="t lpT"><tr><th>Lokasi</th><th>Masalah</th><th>Usulan</th></tr>'+d.periksa.map(function(x){ return '<tr><td>'+esc(x.lok)+'</td><td>'+esc(x.masalah)+'</td><td>'+esc(x.usul)+'</td></tr>'; }).join('')+'</table></div></details></div>'
+    : '<div class="kartu lpK"><div class="lpJ">3 · Daftar periksa data</div><div class="sub">✓ Tidak ada masalah data.</div></div>';
+  var kecP=h.kec.filter(function(k){ return k.p>0; });
+  var stat=function(l,v,s){ return '<div class="stat" style="cursor:default"><div class="l">'+esc(l)+'</div><div class="v">'+esc(v)+'</div>'+(s?'<div class="sub">'+esc(s)+'</div>':'')+'</div>'; };
+  var ta=function(k,baris,label){ var v=Array.isArray(LP.n[k])?LP.n[k].join('\n'):(LP.n[k]||''); return '<label class="pn">'+esc(label)+(LP.ubah[k]?' <span class="pill p-biru">disunting</span>':'')+'<textarea data-k="'+k+'" rows="'+baris+'">'+esc(v)+'</textarea></label>'; };
+  var kol=tah?'':'<th>Kumulatif</th>';
+  var tbl=function(judul, rows){ return '<div><div class="lpSubJ">'+esc(judul)+'</div><div class="lpTblW"><table class="t lpT"><tr><th>'+(judul==='Kecamatan'?'Kecamatan':'Jenis penegakan')+'</th><th>'+(tah?'Jumlah':esc(P.nama))+'</th>'+kol+'</tr>'+rows+'</table></div></div>'; };
+  el.innerHTML = periksa +
+    '<div class="kartu lpK"><div class="lpJ">4 · Pratinjau angka</div>'+
+      '<div class="grid g4 lpStat">'+stat(tah?'Total '+P.tahun:P.nama, h.totP+' kejadian')+(tah?'':stat('Kumulatif s.d. '+P.blnAkhir, h.totK+' kejadian'))+
+        stat('Kecamatan tertinggi', kecP.length?kecP.sort(function(a,b){ return b.p-a.p; })[0].nama:'–', kecP.length?kecP[0].p+' kejadian':'')+
+        stat('Jenis terbanyak', h.totP?h.jenis.slice().sort(function(a,b){ return b.p-a.p; })[0].nama:'–')+'</div>'+
+      '<div class="grid g2 lpGrafik"><img id="lpGKec" alt="Grafik per kecamatan"><img id="lpGBln" alt="Grafik bulanan"></div>'+
+      '<div class="grid g2" style="margin-top:10px">'+
+        tbl('Kecamatan', h.kec.map(function(k){ return '<tr><td>'+esc(k.nama)+' <span class="sub">'+esc(k.kat)+'</span></td><td>'+k.p+'</td>'+(tah?'':'<td>'+k.k+'</td>')+'</tr>'; }).join('')+'<tr><td><b>Jumlah</b></td><td><b>'+h.totP+'</b></td>'+(tah?'':'<td><b>'+h.totK+'</b></td>')+'</tr>')+
+        tbl('Jenis penegakan', h.jenis.map(function(j){ return '<tr><td>'+esc(j.nama)+(j.padan?'':' <span class="pill p-kuning" title="Belum ada di tabel padanan regulasi">padanan?</span>')+'</td><td>'+j.p+'</td>'+(tah?'':'<td>'+j.k+'</td>')+'</tr>'; }).join(''))+
+      '</div></div>'+
+    '<div class="kartu lpK"><div class="kepalaB" style="align-items:center"><div class="lpJ">5 · Narasi laporan</div><button class="btn kecil" id="lpReset">↺ Kembalikan teks otomatis</button></div>'+
+      '<div class="sub" style="margin:2px 0 10px">Disusun otomatis dari angka. Boleh disunting; suntingan hilang bila periode atau data berganti.</div>'+
+      '<div class="f">'+ta('ringkasan',5,'A. Ringkasan')+ta('kec',4,'B.1 Berdasarkan wilayah kecamatan')+ta('bulan',3,'B.2 Berdasarkan tren bulanan')+
+        ta('jenis',4,'B.4 Jenis penegakan terbanyak (satu butir per baris)')+(tah?ta('tw',3,'B.5 Perbandingan antartriwulan')+ta('hasil',3,'B.6 Rekap hasil dan tindak lanjut'):'')+ta('penutup',4,'V. Penutup (paragraf kedua)')+'</div></div>'+
+    '<div class="kartu lpK"><div class="lpJ">6 · Penandatangan</div><div class="f">'+
+      '<label>Penandatangan<select id="lpTtd">'+opsi(LP_TTD.map(function(t){ return [t[0],t[1]]; }),LP.ttd)+'</select></label>'+
+      '<label>Tanggal laporan<input type="date" id="lpTgl" value="'+esc(LP.tanggal)+'"></label>'+
+      '<div class="pn sub" id="lpTtdInfo"></div></div></div>'+
+    '<div class="lpAksi"><button class="btn utama" id="lpWord">⬇ Unduh Word</button><button class="btn utama" id="lpPdf">⬇ Unduh PDF</button></div>';
+  [].forEach.call(el.querySelectorAll('textarea[data-k]'), function(t){ t.addEventListener('input', function(){ var k=this.getAttribute('data-k');
+    LP.n[k] = k==='jenis' ? this.value.split('\n').map(function(x){ return x.trim(); }).filter(String) : this.value; LP.ubah[k]=true; }); });
+  $('#lpReset').onclick=function(){ LP.ubah={}; LP.n=null; lpHitung(); toast('Teks otomatis dipulihkan'); };
+  $('#lpTtd').onchange=function(){ LP.ttd=this.value; lpTtdGambar(); };
+  $('#lpTgl').onchange=function(){ LP.tanggal=this.value||D.hariIni; };
+  $('#lpWord').onclick=function(){ lpUnduh('docx', this); };
+  $('#lpPdf').onclick=function(){ lpUnduh('pdf', this); };
+  lpTtdGambar();
+  var gk=lpGrafikKec(h), gb=lpGrafikBln(h); $('#lpGKec').src=gk.toDataURL('image/png'); $('#lpGBln').src=gb.toDataURL('image/png');
+}
+/* Penandatangan dicocokkan dari sheet Pegawai (pegawai aktif, kolom Jabatan; boleh awalan Plt./Plh.) */
+function lpTtdData(){
+  var t=LP_TTD.filter(function(x){ return x[0]===LP.ttd; })[0]||LP_TTD[0];
+  var p=((SRD&&SRD.pegawai)||[]).filter(function(x){ return x.aktif!==false && t[3].test(String(x.jabatan||'').trim()); })[0];
+  var plt=p && (String(p.jabatan).match(/^(pl[th]\.?)\s*/i)||[])[1];
+  var jab=t[2].slice(); if(plt) jab[0]=plt.replace(/^p/i,'P').replace(/\.?$/,'.')+' '+jab[0];
+  return { jabatan:jab, nama:p?p.nama:'', pangkat:p?p.pangkat:'', nip:p?p.nip:'', ketemu:!!p, label:t[1] };
+}
+function lpTtdGambar(){
+  var el=$('#lpTtdInfo'); if(!el) return;
+  if(!SRD){ el.textContent='Memuat data pegawai…'; return; }
+  var t=lpTtdData();
+  el.innerHTML = t.ketemu ? '✓ '+esc(t.nama)+(t.nip?' · NIP '+esc(t.nip):'') : '<span class="lpWarn" style="display:inline-block">Pegawai aktif dengan jabatan '+esc(t.label)+' tidak ditemukan di data pegawai; nama &amp; NIP dikosongkan (titik-titik).</span>';
+}
+/* ---- grafik (canvas, juga dipakai di Word) ---- */
+function lpKanvas(w,h){ var c=document.createElement('canvas'); c.width=w; c.height=h; var x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,w,h); return [c,x]; }
+var LP_GELAP='#12307a', LP_MUDA='#9fb3e0', LP_HURUF='Helvetica, Arial, sans-serif';
+function lpGrafikKec(h){
+  var tah=h.P.tahunan, L=h.kec.length?h.kec:[{nama:'(belum ada data)',p:0,k:0}], s=2, rowH=(tah?22:30)*s, top=34*s, kiri=150*s, W=1240, H=top+L.length*rowH+12*s;
+  var ck=lpKanvas(W,H), c=ck[0], x=ck[1], mx=Math.max(1,Math.max.apply(null,L.map(function(k){ return tah?k.p:k.k; }))), lebar=W-kiri-50*s;
+  x.font='600 '+(12*s)+'px '+LP_HURUF; x.fillStyle='#333'; x.textBaseline='middle';
+  x.fillText('Jumlah penegakan per kecamatan', 4*s, 12*s);
+  if(!tah){ x.font=(10*s)+'px '+LP_HURUF; x.fillStyle=LP_GELAP; x.fillRect(W-250*s,7*s,10*s,10*s); x.fillStyle='#333'; x.fillText(h.P.nama, W-236*s, 12*s);
+    x.fillStyle=LP_MUDA; x.fillRect(W-130*s,7*s,10*s,10*s); x.fillStyle='#333'; x.fillText('Kumulatif', W-116*s, 12*s); }
+  L.forEach(function(k,i){
+    var y=top+i*rowH; x.font=(11*s)+'px '+LP_HURUF; x.fillStyle='#333'; x.textAlign='right'; x.fillText(k.nama, kiri-8*s, y+rowH/2); x.textAlign='left';
+    var bar=function(v,yy,hh,warna){ var w=Math.max(v?2*s:0, v/mx*lebar); x.fillStyle=warna; x.fillRect(kiri,yy,w,hh); x.font=(10*s)+'px '+LP_HURUF; x.fillStyle=warna===LP_MUDA?'#555':LP_GELAP; x.fillText(String(v), kiri+w+4*s, yy+hh/2); };
+    if(tah) bar(k.p, y+4*s, rowH-8*s, LP_GELAP);
+    else { bar(k.k, y+3*s, (rowH-8*s)/2, LP_MUDA); bar(k.p, y+3*s+(rowH-8*s)/2+2*s, (rowH-8*s)/2, LP_GELAP); }
+  });
+  x.strokeStyle='#999'; x.lineWidth=s; x.beginPath(); x.moveTo(kiri,top); x.lineTo(kiri,top+L.length*rowH); x.stroke();
+  return c;
+}
+function lpGrafikBln(h){
+  var s=2, W=1240, H=300*s/1.4, B=h.bulan, top=40*s, bawah=26*s, ck=lpKanvas(W,H), c=ck[0], x=ck[1];
+  var mx=Math.max(1,Math.max.apply(null,B.map(function(b){ return b.n; }))), lb=(W-20*s)/B.length, tinggi=H-top-bawah;
+  x.font='600 '+(12*s)+'px '+LP_HURUF; x.fillStyle='#333'; x.textBaseline='middle'; x.fillText('Jumlah penegakan per bulan'+(h.P.tahunan?'':' (biru tua = '+h.P.nama+')'), 4*s, 12*s);
+  x.textAlign='center';
+  B.forEach(function(b,i){ var bh=b.n/mx*tinggi, bx=10*s+i*lb+lb*0.18, bw=lb*0.64, by=top+tinggi-bh;
+    x.fillStyle=(h.P.tahunan||b.tw)?LP_GELAP:LP_MUDA; x.fillRect(bx,by,bw,Math.max(b.n?2*s:0,bh));
+    x.fillStyle='#333'; x.font=(10*s)+'px '+LP_HURUF; x.fillText(String(b.n), bx+bw/2, by-8*s); x.fillText(b.bulan.slice(0,3), bx+bw/2, H-bawah/2); });
+  x.strokeStyle='#999'; x.lineWidth=s; x.beginPath(); x.moveTo(6*s,top+tinggi); x.lineTo(W-6*s,top+tinggi); x.stroke();
+  return c;
+}
+function lpPng(c){ var b=atob(c.toDataURL('image/png').split(',')[1]), u=new Uint8Array(b.length); for(var i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return { png:u, w:c.width, h:c.height }; }
+function lpLogo(){ return new Promise(function(ok){ var im=new Image(); im.onload=function(){ var k=Math.min(1, 420/Math.max(im.width,im.height)), w=Math.round(im.width*k)||1, hh=Math.round(im.height*k)||1;
+  var c=document.createElement('canvas'); c.width=w; c.height=hh; c.getContext('2d').drawImage(im,0,0,w,hh); ok(lpPng(c)); }; im.onerror=function(){ ok(null); }; im.src=tpLogo(1); }); }
+function lpB64(u){ var s='', n=0x8000; for(var i=0;i<u.length;i+=n) s+=String.fromCharCode.apply(null, u.subarray(i,i+n)); return btoa(s); }
+function lpUnduh(jenis, btn){
+  if(!LP.h){ toast('Ambil data dulu.'); return; }
+  if(LP.data.tahun && LP.data.tahun!==LP.tahun && !confirm('Tahun data ('+LP.data.tahun+') berbeda dengan tahun laporan ('+LP.tahun+'). Tetap buat laporan?')) return;
+  var t=lpTtdData(), P=LP.h.P, b2=$('#lpWord'), b3=$('#lpPdf'), teks=btn.textContent;
+  b2.disabled=b3.disabled=true; btn.textContent=jenis==='pdf'?'Membuat PDF…':'Membuat Word…';
+  var nama=LaporanDocx.namaBerkas(P);
+  muatSkrip('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js').then(function(){ LaporanDocx.pasang({ JSZip: window.JSZip }); return lpLogo(); })
+    .then(function(logo){
+      var n=Object.assign({}, LP.n); n.jenis=(LP.n.jenis||[]).slice();
+      return LaporanDocx.buat({ h:LP.h, n:n, ttd:{ jabatan:t.jabatan, nama:t.nama, pangkat:t.pangkat, nip:t.nip },
+        tempatTanggal:'Sumedang, '+(function(t){ var q=t.split('-'); return (+q[2])+' '+LaporanData.BULAN[+q[1]-1]+' '+q[0]; })(LP.tanggal), kop: logo?{ logo:logo.png, logoW:logo.w, logoH:logo.h }:{},
+        grafik:{ kec:lpPng(lpGrafikKec(LP.h)), bln:lpPng(lpGrafikBln(LP.h)) } });
+    })
+    .then(function(bytes){
+      if(jenis==='docx'){ srUnduh(bytes, nama); toast('Word diunduh'); return; }
+      return api('laporanPDF',{ docx: lpB64(bytes), nama: nama.replace(/\.docx$/,'') }).then(function(j){
+        var b=atob(j.pdf), u=new Uint8Array(b.length); for(var i=0;i<b.length;i++) u[i]=b.charCodeAt(i);
+        var ios=/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+        var url=URL.createObjectURL(new Blob([u],{ type: ios?'application/octet-stream':'application/pdf' })), a=document.createElement('a');
+        a.href=url; a.download=nama.replace(/\.docx$/,'.pdf'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(url); },60000);
+        toast('PDF diunduh'); });
+    })
+    .catch(function(e){ toast(e.message||'Gagal membuat laporan.'); })
+    .finally(function(){ b2.disabled=b3.disabled=false; btn.textContent=teks; });
 }
 
 /* ---------- tombol lihat password ---------- */
