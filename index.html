@@ -355,6 +355,7 @@ nav.tab a.on .ic svg{stroke-width:2.2}
 .tpOG .im{width:96px;height:96px;border-radius:8px;border:1px solid var(--garis);background:#fff;display:flex;align-items:center;justify-content:center;flex:none;padding:6px}.tpOG .im img{max-width:100%;max-height:100%}
 .tpOG .tx{min-width:0;font-size:13px}.tpOG .lb{font-size:11px;letter-spacing:.06em;color:var(--abu);font-weight:700;text-transform:uppercase}.tpOG .ur{color:var(--hijau);word-break:break-all}
 .tpOG .jd{font-weight:700;margin:2px 0}.tpOG .ds{color:var(--teks);opacity:.85}
+.pgIT{margin-bottom:10px}.pgIT summary{cursor:pointer;list-style:revert}.pgIKat{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0 12px}.pgIKat .cek{margin-top:4px;font-size:13.5px}
 .tpAksi{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 20px}.tpBeda{font-size:12.5px;color:var(--kuningtx);background:var(--kuningbg);border-radius:6px;padding:3px 8px}
 @media (max-width:760px){.tpG,.tpG.t3{grid-template-columns:1fr}.tpOG .im{width:64px;height:64px}.tpAksi .btn{flex:1;justify-content:center}.tpLogo .kn .bb .btn{flex:1}}
 .srTtd{margin-top:10px;padding:10px 12px;border:1px dashed var(--garis2);border-radius:8px;background:var(--latar2)}
@@ -1239,6 +1240,12 @@ var PeringatanDocx = (function () {
       return '**Surat Peringatan ' + TINGKAT[m[1]] + '** tertanggal ' + tgl + ' untuk dapat segera ' + rapikanAkhir(x.perintah || BAWAAN.perintah) +
         ' dengan jangka waktu paling lambat ' + teksTenggat(+m[1], x.hitungan || e.hitungan) + ' terhitung sejak tanggal yang tercantum dalam surat tersebut';
     }
+    if (e.tahap === 'Pencegahan' && sp && sp.jenis === 'Surat Imbauan') {   // Surat Imbauan tahap Pencegahan
+      var I = typeof ImbauanDocx !== 'undefined' ? ImbauanDocx : null, hal = rapikanAkhir(I ? I.tanpaTebal(I.isi(sp.hal, sp)) : sp.hal);
+      var lok = String(sp.lokasi || '').trim();
+      if (lok && hal.toLowerCase().indexOf(lok.toLowerCase()) < 0) hal += ' di ' + lok;
+      return '**Surat ' + hal.replace(/^surat\s+/i, '') + '** tertanggal ' + tglPanjang(sp.tanggal || e.tanggal) + ' yang pada pokoknya “…”';
+    }
     if (e.tahap === 'Surat Pernyataan') return '**Surat Pernyataan** tertanggal ' + tgl + ' yang pada pokoknya “…”';
     if (e.tahap === 'Teguran Tertulis') return '**Surat Teguran Tertulis** tertanggal ' + tgl + ' yang pada pokoknya “…”';
     return '';
@@ -1308,11 +1315,125 @@ var PeringatanDocx = (function () {
     kalimat1: kalimat1, kalimat2: kalimat2, butirOtomatis: butirOtomatis, teksTenggat: teksTenggat, tanpaTebal: tanpaTebal, tglPanjang: tglPanjang,
     TINGKAT: TINGKAT, HARI_SP: HARI_SP, BAWAAN: BAWAAN };
 })();
+/* Surat Imbauan (tahap Pencegahan) — pengisi draf "Surat Biasa" kosong dari e-office & .docx cadangan (tanpa server).
+ * Memakai pengisi umum Surat Biasa milik UndanganDocx (kop, Lampiran/Hal/Yth., tanda tangan TTE tidak diubah).
+ * Badan mengikuti contoh HIMBAUAN.docx (Pemberitahuan Larangan Kegiatan Usaha di Ruang Milik Jalan):
+ *   paragraf pembuka (hasil pengawasan, lokasi, tanggal, instansi bersama, aturan, tujuan, sasaran) →
+ *   butir bernomor (";" dan "." akhir otomatis) → paragraf penutup. Spasi 1,5; teks di antara **…** dicetak tebal.
+ * Penanda {lokasi}, {Lokasi} (huruf awal kapital), dan {kecamatan} di Hal, Yth., sasaran, tujuan, butir, dan penutup diganti isian form.
+ */
+var ImbauanDocx = (function () {
+  var U = typeof UndanganDocx !== 'undefined' ? UndanganDocx : null;
+  var BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  var HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  var PENANDA = ['lokasi', 'Lokasi', 'kecamatan'];
+
+  function tglObj(s) { var m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null; }
+  function tglPanjang(s) { var d = tglObj(s); return d ? d.getUTCDate() + ' ' + BULAN[d.getUTCMonth()] + ' ' + d.getUTCFullYear() : ''; }
+  function hari(s) { var d = tglObj(s); return d ? HARI[d.getUTCDay()] : ''; }
+  function rapikanAkhir(t) { return String(t || '').trim().replace(/[;.,:\s]+$/, ''); }
+  function baris(t) { return String(t || '').split('\n').map(function (x) { return x.trim(); }).filter(String); }
+  function bersih(t) { return String(t || '').replace(/\s+/g, ' ').trim(); }
+
+  /* Ganti {lokasi} / {kecamatan}. Penanda yang isiannya kosong dibiarkan supaya tertangkap validasi. */
+  function isi(t, s) {
+    return String(t || '').replace(/\{(lokasi|Lokasi|kecamatan)\}/g, function (m, k) {
+      var v = bersih(s[k.toLowerCase()]); if (!v) return m;
+      return k === 'Lokasi' ? v.charAt(0).toUpperCase() + v.slice(1) : v; });   // {Lokasi} = huruf awal kapital (mis. di Yth.)
+  }
+  function gabungAturan(L) {
+    L = (L || []).map(rapikanAkhir).filter(String);
+    if (L.length < 2) return L[0] || '';
+    return L.slice(0, -1).join(', ') + ' dan ' + L[L.length - 1];
+  }
+  /* "Dengan hormat, Sehubungan dengan hasil pengawasan … hal-hal sebagai berikut;" */
+  function pembuka(s) {
+    var kec = bersih(s.kecamatan), lok = bersih(isi(s.lokasi, s)), wil;
+    if (kec && lok) wil = 'di wilayah Kecamatan ' + kec + ', khususnya di ' + lok;
+    else wil = kec ? 'di wilayah Kecamatan ' + kec : 'di ' + (lok || '…');
+    var t = 'Dengan hormat, Sehubungan dengan hasil pengawasan, pemantauan dan evaluasi kondisi ketertiban ' + wil;
+    if (s.tglAwas) t += ' pada ' + hari(s.tglAwas) + ', tanggal ' + tglPanjang(s.tglAwas);
+    if (bersih(s.bersama)) t += ' yang dilaksanakan bersama ' + rapikanAkhir(bersih(s.bersama));
+    t += '. Dalam rangka penegakan ' + (gabungAturan(s.aturan) || '…');
+    if (rapikanAkhir(isi(s.tujuan, s))) t += ', serta ' + rapikanAkhir(bersih(isi(s.tujuan, s)));
+    t += ', dengan ini disampaikan kepada ' + (rapikanAkhir(bersih(isi(s.sasaran, s))) || '…') + ' hal-hal sebagai berikut;';
+    return t;
+  }
+  function butirJadi(s) {
+    var L = (s.butir || []).map(function (t) { return rapikanAkhir(isi(t, s)); }).filter(String);
+    return L.map(function (t, i) { return t + (i === L.length - 1 ? '.' : ';'); });
+  }
+  function penutupJadi(s) { var t = rapikanAkhir(isi(s.penutup, s)); return t ? t + '.' : ''; }
+
+  /* "a **b** c" → [[a,{}],[b,{b:true}],[c,{}]] */
+  function runs(t) {
+    return String(t).split('**').map(function (b, i) { return [b, i % 2 ? { b: true } : {}]; }).filter(function (r) { return r[0]; });
+  }
+  function tanpaTebal(t) { return String(t || '').replace(/\*\*/g, ''); }
+
+  function xmlBadan(s) {
+    var P = U.para, L = 360, out = [P('')];
+    out.push(P(runs(pembuka(s)), { line: L, jc: 'both', first: 720 }));
+    butirJadi(s).forEach(function (t, i) {
+      out.push(P([[(i + 1) + '.\t', {}]].concat(runs(t)), { line: L, jc: 'both', ind: [720, 360], tabs: [720] }));
+    });
+    var p = penutupJadi(s);
+    if (p) { out.push(P('')); out.push(P(runs(p), { line: L, jc: 'both', first: 720 })); }
+    return out.join('');
+  }
+  function xmlYth(s) { return baris(isi(s.yth, s)).map(function (b) { return U.para(b); }).join(''); }
+
+  function sisaPenanda(t) { var m = String(t || '').match(/\{[^}\n]{1,30}\}/g); return m || []; }
+  function validasi(s) {
+    var g = [];
+    if (!tglObj(s.tanggal)) g.push('Tanggal surat belum diisi.');
+    if (!String(s.hal || '').trim()) g.push('Hal belum diisi.');
+    if (!baris(s.yth).length) g.push('Penerima (Yth.) belum diisi.');
+    if (!bersih(s.lokasi) && !bersih(s.kecamatan)) g.push('Lokasi belum diisi.');
+    if (!tglObj(s.tglAwas)) g.push('Tanggal pengawasan belum diisi.');
+    if (!(s.aturan || []).map(rapikanAkhir).filter(String).length) g.push('Aturan yang ditegakkan belum dipilih.');
+    if (!rapikanAkhir(s.sasaran)) g.push('Sasaran imbauan ("disampaikan kepada …") belum diisi.');
+    if (!butirJadi(s).length) g.push('Butir imbauan belum diisi.');
+    if (!rapikanAkhir(s.penutup)) g.push('Kalimat penutup belum diisi.');
+    var sisa = [];
+    [['Hal', s.hal], ['Yth.', s.yth], ['Lokasi', s.lokasi], ['Sasaran', s.sasaran], ['Tujuan', s.tujuan], ['Penutup', s.penutup]]
+      .concat((s.butir || []).map(function (t, i) { return ['Butir ' + (i + 1), t]; }))
+      .forEach(function (x) {
+        var t = isi(x[1], s);
+        sisaPenanda(t).forEach(function (m) { sisa.push(x[0] + ' ' + m); });
+        if (/…|\.\.\./.test(t)) g.push(x[0] + ' masih ada titik-titik (…) yang belum diganti.');
+        if ((String(t).match(/\*\*/g) || []).length % 2) g.push('Ada tanda ** (tebal) yang belum ditutup di ' + x[0] + '.');
+      });
+    if (sisa.length) g.push('Penanda belum terisi: ' + sisa.join(', ') + (sisa.some(function (x) { return /\{(lokasi|Lokasi|kecamatan)\}/.test(x); }) ? ' (isi Lokasi/Kecamatan)' : '') + '.');
+    return g;
+  }
+  function kepala(s) { return { lampiran: '-', hal: tanpaTebal(isi(s.hal, s)).trim(), di: String(s.di || '').trim() || 'Tempat', badan: xmlBadan(s), tanggal: tglPanjang(s.tanggal) }; }
+
+  function isiDraf(buf, s) {
+    var g = validasi(s); if (g.length) return Promise.reject(new Error(g.join(' ')));
+    var k = kepala(s); k.yth = xmlYth(s); k.ekor = null;
+    return U.isiSuratBiasa(buf, k);
+  }
+  function docxCadangan(s) {
+    var g = validasi(s); if (g.length) return Promise.reject(new Error(g.join(' ')));
+    var k = kepala(s); k.yth = baris(isi(s.yth, s)); k.ekor = '';
+    return U.docxCadanganBiasa(k);
+  }
+  function teksSalin(s) { return { hal: tanpaTebal(isi(s.hal, s)).trim(), lampiran: '-', kepada: baris(isi(s.yth, s)).join(' ') }; }
+  function namaBerkas(s) {
+    var d = tglObj(s.tanggal), obj = (baris(isi(s.yth, s))[0] || 'Imbauan').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'Imbauan';
+    return 'Imbauan_' + (d ? ('0' + d.getUTCDate()).slice(-2) + '_' + BULAN[d.getUTCMonth()] + '_' + String(d.getUTCFullYear()).slice(2) + '_' : '') + obj + '.docx';
+  }
+
+  return { pasang: function (o) { if (o.UndanganDocx) U = o.UndanganDocx; },
+    isiDraf: isiDraf, docxCadangan: docxCadangan, validasi: validasi, teksSalin: teksSalin, namaBerkas: namaBerkas,
+    pembuka: pembuka, butirJadi: butirJadi, penutupJadi: penutupJadi, isi: isi, tanpaTebal: tanpaTebal, tglPanjang: tglPanjang, hari: hari, PENANDA: PENANDA };
+})();
 
 /* ---------- SURAT (Surat Perintah, Undangan, Surat Peringatan) ---------- */
 var SRD = null, SF = null, srMuat = null;
 var SR_DRAF0 = 'ppud_surat_draf_';
-function srKunci(j){ if(j===undefined) j=SF&&SF.jenis; if(j==='Surat Peringatan') return prKunci(SF&&SF.idTahap||''); return SR_DRAF0+(j==='Undangan'?'und_':'')+(ME?ME.username:''); }
+function srKunci(j){ if(j===undefined) j=SF&&SF.jenis; if(j==='Surat Peringatan') return prKunci(SF&&SF.idTahap||''); if(j==='Surat Imbauan') return imKunci(SF&&SF.idTahap||''); return SR_DRAF0+(j==='Undangan'?'und_':'')+(ME?ME.username:''); }
 var SEKSI_SR = ['Binwasluh', 'Sidiklidik'];
 function srMuatData(paksa){
   if(SRD && !paksa) return Promise.resolve(SRD);
@@ -1333,6 +1454,7 @@ function rSurat(bag){
   if(b==='pegawai' || b==='dasar'){ location.replace(isUtama()?'#pengaturan/'+b:'#surat'); return; }
   if(b==='undangan'){ srPerlu(function(){ vUndanganForm('baru'); }); return; }
   if(b==='peringatan'){ srPerlu(function(){ vPeringatanForm('baru', decodeURIComponent(bag[2]||'')); }); return; }
+  if(b==='imbauan'){ srPerlu(function(){ vImbauanForm('baru', decodeURIComponent(bag[2]||'')); }); return; }
   if(b) srPerlu(function(){ vSuratForm(decodeURIComponent(b)); }); else srPerlu(vSurat);
 }
 function srHari(t){ return SuratDocx.hari(t); }
@@ -1416,7 +1538,7 @@ function srSimpanNomor(){ var b=this; b.disabled=true; var no=$('#srNomor').valu
 /* Arsip surat (Admin Utama): surat pindah ke sheet "Arsip Surat" dan bisa dipulihkan. */
 function srTombolArsip(){ return SF && SF.id && isUtama() ? '<button class="btn bahaya" onclick="srArsipkan()">🗄 Arsipkan</button>' : ''; }
 function srArsipkan(){
-  var per=SF.jenis==='Surat Peringatan';
+  var per=SF.jenis==='Surat Peringatan' || SF.jenis==='Surat Imbauan';
   modal('Arsipkan surat','<p style="margin-top:0">Surat ini dipindah ke arsip dan hilang dari daftar surat. Salinannya tetap di sheet <i>Arsip Surat</i> dan bisa dipulihkan dari filter <b>Arsip</b>.'+
     (per?' Tautan ke entri tahap di kasus dilepas; nomor surat di entri tahap tetap.':'')+'</p>'+
     '<div class="f"><label class="pn wajib"><span>Alasan <i class="bt">*</i></span><input id="arAlasan" maxlength="300" placeholder="mis. dibuat dobel"></label></div>'+
@@ -1481,16 +1603,18 @@ function vSurat(){
     '<button class="btn utama" onclick="srBaru()">+ Surat Perintah</button><button class="btn utama" onclick="unBaru()">+ Undangan</button></div></div>'+
     (srDrafAda()?banner('Ada isian surat perintah yang belum disimpan.', "location.hash='surat/baru'", 'srBuangDraf()'):'')+
     (unDrafAda()?banner('Ada isian undangan yang belum disimpan.', "location.hash='surat/undangan'", 'unBuangDraf()'):'')+
-    ((SRD.surat||[]).length||A.length?'<div class="alat"><div class="seg" id="srJenis"><button data-j="">Semua</button><button data-j="Surat Perintah">Perintah</button><button data-j="Undangan">Undangan</button><button data-j="Surat Peringatan">Peringatan</button></div></div>':'')+
+    ((SRD.surat||[]).length||A.length?'<div class="alat"><div class="seg" id="srJenis"><button data-j="">Semua</button><button data-j="Surat Perintah">Perintah</button><button data-j="Undangan">Undangan</button><button data-j="Surat Peringatan">Peringatan</button><button data-j="Surat Imbauan">Imbauan</button></div></div>':'')+
     (isUtama()&&(A.length||arsip)?'<div style="margin:-4px 0 10px"><button class="btn kecil" id="srArsipBtn">'+(arsip?'‹ Kembali ke daftar surat':'🗄 Arsip ('+A.length+')')+'</button></div>':'')+
     (srSaringJenis==='Surat Peringatan'?'<div class="sub" style="margin:-4px 0 10px">Surat Peringatan dibuat dari halaman kasus: catat tahap SP1/SP2/SP3, lalu tekan <b>Buat SP</b> di entri tahap itu.</div>':'')+
+    (srSaringJenis==='Surat Imbauan'?'<div class="sub" style="margin:-4px 0 10px">Surat Imbauan dibuat dari halaman kasus: catat tahap Pencegahan, lalu tekan <b>Buat Imbauan</b> di entri tahap itu.</div>':'')+
     (L.length?'<div class="daftar">'+L.map(arsip?srItemArsip:srItem).join('')+'</div>'
-      :'<div class="kartu kosong">'+(arsip?'Arsip kosong.':(SRD.surat||[]).length?'Belum ada surat jenis ini.':'Belum ada surat. Tekan <b>+ Surat Perintah</b> atau <b>+ Undangan</b> untuk membuat. Surat Peringatan dibuat dari halaman kasus.')+'</div>');
+      :'<div class="kartu kosong">'+(arsip?'Arsip kosong.':(SRD.surat||[]).length?'Belum ada surat jenis ini.':'Belum ada surat. Tekan <b>+ Surat Perintah</b> atau <b>+ Undangan</b> untuk membuat. Surat Peringatan dan Surat Imbauan dibuat dari halaman kasus.')+'</div>');
   if($('#srJenis')) [].forEach.call($('#srJenis').children, function(b){ b.classList.toggle('on', b.getAttribute('data-j')===srSaringJenis); b.onclick=function(){ srSaringJenis=b.getAttribute('data-j'); vSurat(); }; });
   if($('#srArsipBtn')) $('#srArsipBtn').onclick=function(){ srSaringJenis=arsip?'':'Arsip'; vSurat(); };
 }
 function srRingkas(s){ var d=s.data||{}, j=s.jenis||'Surat Perintah';
   if(j==='Surat Peringatan') return { pill:'<span class="pill p-kuning">Surat Peringatan '+(d.tingkat||'')+'</span>', tempat:'Kasus '+(d.no||'')+' · '+String(d.yth||s.tempat||'').split('\n')[0], jumlah:'tenggat '+srTgl(s.tanggalKegiatan) };
+  if(j==='Surat Imbauan') return { pill:'<span class="pill p-hijau">Surat Imbauan</span>', tempat:'Kasus '+(d.no||'')+' · '+(s.tempat||''), jumlah:'pengawasan '+srTgl(d.tglAwas) };
   if(j==='Undangan') return { pill:'<span class="pill p-biru">Undangan</span>', tempat:((d.acara||{}).tempat||s.tempat)+' · '+srTgl((d.acara||{}).tanggal||s.tanggalKegiatan), jumlah:s.jumlah+' penerima' };
   return { pill:'<span class="pill">Surat Perintah</span>', tempat:(d.jadwal||[]).map(function(x){ return x.tempat+' · '+srTgl(x.tanggal); }).join(' | ')||s.tempat, jumlah:s.jumlah+' personel' }; }
 function srItem(s){ var r=srRingkas(s);
@@ -1518,8 +1642,8 @@ function srSimpanLokal(){ if(SF && !SF.id) simpan(srKunci(), SF); }
 /* ===== form ===== */
 function vSuratForm(id){
   if(id!=='baru'){ var s1=(SRD.surat||[]).filter(function(x){ return x.id===id; })[0], j1=s1?s1.jenis:(SF && SF.id===id?SF.jenis:'');
-    if(j1==='Undangan'){ vUndanganForm(id); return; } if(j1==='Surat Peringatan'){ vPeringatanForm(id); return; } }
-  if(id==='baru'){ if(!SF || SF.id || SF.jenis==='Undangan' || SF.jenis==='Surat Peringatan') SF=ambil(srKunci('SP'))||srKosong(); }
+    if(j1==='Undangan'){ vUndanganForm(id); return; } if(j1==='Surat Peringatan'){ vPeringatanForm(id); return; } if(j1==='Surat Imbauan'){ vImbauanForm(id); return; } }
+  if(id==='baru'){ if(!SF || SF.id || SF.jenis==='Undangan' || SF.jenis==='Surat Peringatan' || SF.jenis==='Surat Imbauan') SF=ambil(srKunci('SP'))||srKosong(); }
   else if(!SF || SF.id!==id){
     var s=(SRD.surat||[]).filter(function(x){ return x.id===id; })[0];
     if(!s){ $('#isi').innerHTML='<div class="kartu galat">Surat tidak ditemukan.</div>'; return; }
@@ -1546,7 +1670,7 @@ function vSuratForm(id){
   srGambarGaya(); srGambarDasar(); srGambarJadwal(); srGambarHasil();
   [].forEach.call(document.querySelectorAll('#isi textarea.auto'), srTinggi);
 }
-function srUbah(ringan){ if(SF.jenis==='Undangan'){ unUbah(ringan); return; } if(SF.jenis==='Surat Peringatan'){ prUbah(ringan); return; } srRata(); SF.berubah=true; srSimpanLokal(); if(ringan) srGambarSalin(); else srGambarHasil(); }
+function srUbah(ringan){ if(SF.jenis==='Undangan'){ unUbah(ringan); return; } if(SF.jenis==='Surat Peringatan'){ prUbah(ringan); return; } if(SF.jenis==='Surat Imbauan'){ imUbah(ringan); return; } srRata(); SF.berubah=true; srSimpanLokal(); if(ringan) srGambarSalin(); else srGambarHasil(); }
 function srTinggi(t){ t.style.height='auto'; t.style.height=(t.scrollHeight+2)+'px'; }
 function srGambarGaya(){
   [].forEach.call($('#srGaya').children, function(b){ b.classList.toggle('on', b.getAttribute('data-g')===(SF.gaya||'B')); });
@@ -1753,7 +1877,7 @@ function srSimpanRiwayat(btn){
   return api('suratSimpan',{ id:SF.id||'', surat:srData(), idKirim:SF.id?'':SF.idKirim }).then(function(j){
     var baru=!SF.id; SF.id=j.id; SF.berubah=false; if(baru){ simpan(srKunci(),null); history.replaceState(null,'','#surat/'+j.id); }
     return srMuatData(true).then(function(){
-      if(SF.jenis==='Surat Peringatan') return muatData(true).then(function(){ return j; });   // entri tahap di kasus ikut berubah
+      if(SF.jenis==='Surat Peringatan' || SF.jenis==='Surat Imbauan') return muatData(true).then(function(){ return j; });   // entri tahap di kasus ikut berubah
       if((location.hash||'').indexOf('#surat/')===0){ vSuratForm(SF.id); } return j; });
   }).finally(function(){ if(btn) btn.disabled=false; });
 }
@@ -2053,7 +2177,7 @@ function unSalinJadiBaru(){ var d=srData(); d.id=''; d.idKirim=buatIdKirim(); d.
 function unKosongkan(){ if(!confirm('Kosongkan semua isian undangan ini?')) return; SF=unKosong(); simpan(srKunci('Undangan'),null); vUndanganForm('baru'); }
 /* ---------- SURAT: Surat Peringatan 1/2/3 (Surat Biasa), dibuat dari entri tahap di kasus ---------- */
 var PR_JENIS='Surat Peringatan', PR_PAKET='Peringatan Bangunan & Usaha';
-var PR_TAHAP_LALU=['Teguran Tertulis','Surat Pernyataan','Surat Peringatan 1','Surat Peringatan 2'];
+var PR_TAHAP_LALU=['Pencegahan','Teguran Tertulis','Surat Pernyataan','Surat Peringatan 1','Surat Peringatan 2'];   // Pencegahan hanya bila punya Surat Imbauan
 function prKunci(idTahap){ return SR_DRAF0+'per_'+idTahap+'_'+(ME?ME.username:''); }
 function prTingkat(tahap){ var m=String(tahap||'').match(/^Surat Peringatan (\d)$/); return m?+m[1]:0; }
 function prSuratDari(idSurat){ return idSurat?(SRD.surat||[]).filter(function(x){ return x.id===idSurat && x.jenis===PR_JENIS; })[0]:null; }
@@ -2065,10 +2189,10 @@ function prDariTahap(idTahap){
   var e=D.riwayat.filter(function(x){ return x.id===idTahap; })[0]; if(!e) return null;
   var k=D.kasus.filter(function(x){ return x.no===e.no; })[0]||{}, t=prTingkat(e.tahap), B=PeringatanDocx.BAWAAN;
   var riw=riwayatKasus(e.no), iE=riw.indexOf(e);
-  var lalu=riw.slice(0, iE<0?riw.length:iE).filter(function(x){ var j=PR_TAHAP_LALU.indexOf(x.tahap); return j>=0 && (prTingkat(x.tahap)===0 || prTingkat(x.tahap)<t); });
+  var lalu=riw.slice(0, iE<0?riw.length:iE).filter(function(x){ var j=PR_TAHAP_LALU.indexOf(x.tahap); if(x.tahap==='Pencegahan' && !imSuratDari(x.idSurat)) return false; return j>=0 && (prTingkat(x.tahap)===0 || prTingkat(x.tahap)<t); });
   var bi=-1, dasarSP=null; lalu.forEach(function(x,i){ var s=prSuratDari(x.idSurat); if(s){ bi=i; dasarSP=s.data; } });
   var butir=dasarSP?(dasarSP.pertimbangan||[]).slice():[];
-  lalu.slice(bi<0?0:bi).forEach(function(x){ var s=prSuratDari(x.idSurat), b=PeringatanDocx.butirOtomatis(x, s&&s.data); if(b) butir.push(b); });
+  lalu.slice(bi<0?0:bi).forEach(function(x){ var s=prSuratDari(x.idSurat)||imSuratDari(x.idSurat), b=PeringatanDocx.butirOtomatis(x, s&&s.data); if(b) butir.push(b); });
   var o={ jenis:PR_JENIS, id:'', tingkat:t, no:e.no, idTahap:e.id, tanggal:e.tanggal, hitungan:e.hitungan||'Hari Kerja',
     hal:'Peringatan '+PeringatanDocx.TINGKAT[t], yth:prBarisYth(k), di:'Tempat', paket:'', dasar:[], pertimbangan:butir,
     subjek:B.subjek, perintah:B.perintah, objek:B.objek };
@@ -2189,6 +2313,223 @@ function prGambarSalin(){
   [].forEach.call(el.querySelectorAll('button[data-i]'), function(b){ b.onclick=function(){ var x=B[+b.getAttribute('data-i')]; srSalin(x[1], x[0]); }; });
 }
 function prIsiUlang(){ if(!confirm('Buang isian ini dan isi ulang dari data kasus?')) return; var id=SF.idTahap; simpan(prKunci(id),null); SF=prDariTahap(id); vPeringatanForm('baru', id); }
+/* ---------- SURAT: Surat Imbauan (Surat Biasa, tahap Pencegahan), dibuat dari entri tahap di kasus ---------- */
+var IM_JENIS='Surat Imbauan';
+function imKunci(idTahap){ return SR_DRAF0+'imb_'+idTahap+'_'+(ME?ME.username:''); }
+function imSuratDari(idSurat){ return idSurat?(SRD.surat||[]).filter(function(x){ return x.id===idSurat && x.jenis===IM_JENIS; })[0]:null; }
+function imTemplat(){ return SRD.imbauan||[]; }
+/* Templat yang cocok dengan kategori kasus (pertama yang menandai kategori itu), selain itu templat pertama. */
+function imTemplatUntuk(kategori){ var L=imTemplat(); return L.filter(function(t){ return (t.kategori||[]).indexOf(kategori)>=0; })[0]||L[0]||null; }
+function imPakaiTemplat(o, t){
+  t=t||{}; o.templat=t.nama||''; o.hal=t.hal||''; o.yth=t.yth||''; o.sasaran=t.sasaran||''; o.tujuan=t.tujuan||'';
+  o.butir=(t.butir||[]).slice(); o.penutup=t.penutup||''; return o; }
+/* Aturan awal: "Aturan yang Dilanggar" di kasus bila cocok dengan daftar dasar hukum (per baris), selain itu kosong. */
+function imAturanKasus(k){
+  var D2=srDasarDaftar(), L=[];
+  String(k.aturan||'').split(/\n|;/).map(function(x){ return x.trim().replace(/[;.\s]+$/,''); }).filter(String).forEach(function(x){
+    var d=D2.filter(function(d){ return d.teks.toLowerCase()===x.toLowerCase() || d.teks.toLowerCase().indexOf(x.toLowerCase())===0; })[0];
+    if(d && L.indexOf(d.teks)<0) L.push(d.teks); });
+  return L;
+}
+function imDariTahap(idTahap){
+  var e=D.riwayat.filter(function(x){ return x.id===idTahap; })[0]; if(!e) return null;
+  var k=D.kasus.filter(function(x){ return x.no===e.no; })[0]||{};
+  var o={ jenis:IM_JENIS, id:'', no:e.no, idTahap:e.id, tanggal:D.hariIni, di:'Tempat',
+    lokasi:k.alamat||'', kecamatan:k.kecamatan||'', tglAwas:e.tanggal, bersama:'', aturan:imAturanKasus(k) };
+  return imPakaiTemplat(o, imTemplatUntuk(k.kategori));
+}
+function imUbah(ringan){ SF.berubah=true; srSimpanLokal(); imGambarPembuka(); if(ringan) imGambarSalin(); else imGambarHasil(); }
+
+function vImbauanForm(id, idTahap){
+  if(id==='baru'){
+    var e=D.riwayat.filter(function(x){ return x.id===idTahap; })[0];
+    if(!e || e.tahap!=='Pencegahan'){ $('#isi').innerHTML='<div class="kartu galat">Entri tahap Pencegahan tidak ditemukan. Buka lagi dari halaman kasus.</div>'; return; }
+    if(e.idSurat && imSuratDari(e.idSurat)){ location.replace('#surat/'+encodeURIComponent(e.idSurat)); return; }
+    if(!SF || SF.id || SF.idTahap!==idTahap || SF.jenis!==IM_JENIS){ var lok=ambil(imKunci(idTahap)); SF=(lok && !lok.id && lok.jenis===IM_JENIS)?lok:imDariTahap(idTahap); }
+  } else if(!SF || SF.id!==id){
+    var s=(SRD.surat||[]).filter(function(x){ return x.id===id; })[0];
+    if(!s){ $('#isi').innerHTML='<div class="kartu galat">Surat tidak ditemukan.</div>'; return; }
+    SF=JSON.parse(JSON.stringify(s.data)); SF.id=s.id; SF.nomor=s.nomor;
+  }
+  SF.jenis=IM_JENIS; SF.aturan=SF.aturan||[]; SF.butir=SF.butir||[];
+  var s0=SF.id?(SRD.surat||[]).filter(function(x){ return x.id===SF.id; })[0]:null;
+  var k=D.kasus.filter(function(x){ return x.no===SF.no; })[0], e2=D.riwayat.filter(function(x){ return x.id===SF.idTahap; })[0];
+  var tertaut=e2 && (!SF.id || e2.idSurat===SF.id), T=imTemplat();
+  $('#isi').innerHTML='<div class="sub" style="display:flex;gap:14px;flex-wrap:wrap"><a href="#surat" style="text-decoration:none">‹ Semua surat</a>'+(k?'<a href="#kasus/'+encodeURIComponent(SF.no)+'" style="text-decoration:none">‹ Kasus '+esc(SF.no)+'</a>':'')+'</div>'+
+    '<h1 style="margin-top:8px">Surat Imbauan'+(SF.id?'':' baru')+'</h1>'+
+    '<div class="sub" style="margin:-8px 0 12px">'+esc(SF.no)+(k?' · '+esc(judulKasus(k))+' · '+esc(k.kategori):'')+
+      (s0?'<br>Dibuat '+esc(nm(s0.dibuatOleh))+' · '+esc(s0.waktuDibuat)+(s0.diubahOleh?' · diubah '+esc(nm(s0.diubahOleh))+' · '+esc(s0.waktuDiubah):''):'')+'</div>'+
+    (!tertaut?'<div class="srW" style="margin-bottom:12px">Entri tahap Pencegahan untuk surat ini sudah tidak ada atau sudah punya surat lain di kasus. Nomor surat tidak ikut ke kasus.</div>':'')+
+    '<div class="srGrid">'+
+    '<section class="kartu"><h2>1. Templat &amp; tanggal surat</h2><div class="f srF">'+
+      '<label class="pn">Templat<select id="imTpl"><option value="">— Pilih templat —</option>'+T.map(function(t){ return '<option'+(SF.templat===t.nama?' selected':'')+'>'+esc(t.nama)+'</option>'; }).join('')+'</select></label>'+
+      '<label>Tanggal surat<input type="date" id="imTgl"></label></div>'+
+      '<div class="sub" style="margin-top:6px">'+(T.length?'Ganti templat = Hal, Yth., sasaran, tujuan, butir, dan penutup diisi ulang dari templat.':'Belum ada templat. Admin Utama dapat membuatnya di Pengaturan › Templat imbauan.')+(isUtama()?' <a href="#pengaturan/imbauan">Kelola templat</a>':'')+'</div></section>'+
+    '<section class="kartu"><h2>2. Pengawasan &amp; lokasi</h2><div class="f srF">'+
+      '<label>Kecamatan<input id="imKec" placeholder="mis. Sumedang Utara"></label>'+
+      '<label>Tanggal pengawasan<input type="date" id="imAwas"></label>'+
+      '<label class="pn">Lokasi <span class="sub">(mengisi penanda {lokasi})</span><input id="imLok" placeholder="mis. ruas Jalan Prabu Gajah Agung"></label>'+
+      '<label class="pn">Dilaksanakan bersama <span class="sub">(opsional; kosong = kalimat ini dihilangkan)</span><input id="imBersama" placeholder="mis. Satuan Kerja 4.1 Pengelola Jalan Nasional"></label></div>'+
+      '<div class="sub" style="margin-top:6px">Tanggal pengawasan terisi dari tanggal entri tahap Pencegahan.</div></section>'+
+    '<section class="kartu"><h2>3. Hal &amp; penerima</h2><div class="f"><label class="pn">Hal<input id="imHal"></label>'+
+      '<label class="pn">Yth. <span class="sub">(satu baris di sini = satu baris di surat, tanpa “Yth.”)</span><textarea id="imYth" class="auto" rows="2"></textarea></label>'+
+      '<label>di<input id="imDi" placeholder="Tempat"></label></div></section>'+
+    '<section class="kartu"><h2>4. Paragraf pembuka</h2>'+
+      '<div class="sub" style="margin-bottom:6px">Aturan yang ditegakkan (“Dalam rangka penegakan …”)</div><div id="imAturan"></div>'+
+      '<div class="f" style="margin-top:10px"><label class="pn">Tujuan <span class="sub">(opsional, “serta …”)</span><input id="imTujuan"></label>'+
+      '<label class="pn">Disampaikan kepada<input id="imSasaran"></label></div>'+
+      '<div class="sub" style="margin:10px 0 4px">Pratinjau</div><p id="imPembuka" class="prK" style="margin:0;text-align:justify"></p></section>'+
+    '<section class="kartu"><h2>5. Butir imbauan</h2><div class="sub" style="margin-bottom:8px">Dicetak bernomor; “;” dan “.” di akhir butir ditambahkan otomatis. Tulis <b>**teks**</b> untuk huruf tebal, <b>{lokasi}</b> / <b>{Lokasi}</b> / <b>{kecamatan}</b> untuk isian lokasi. Tarik <b>⠿</b> untuk mengurutkan.</div>'+
+      '<div id="imButir"></div><div class="alat" style="margin:8px 0 0"><button class="btn" onclick="imTambahButir()">+ Tambah butir</button></div>'+
+      '<div class="f" style="margin-top:12px"><label class="pn">Penutup<textarea id="imPenutup" class="auto" rows="2"></textarea></label></div></section>'+
+    '<section class="kartu" id="srHasil"></section></div>';
+  $('#imTgl').value=SF.tanggal||''; $('#imKec').value=SF.kecamatan||''; $('#imAwas').value=SF.tglAwas||''; $('#imLok').value=SF.lokasi||''; $('#imBersama').value=SF.bersama||'';
+  $('#imHal').value=SF.hal||''; $('#imYth').value=SF.yth||''; $('#imDi').value=SF.di||''; $('#imTujuan').value=SF.tujuan||''; $('#imSasaran').value=SF.sasaran||''; $('#imPenutup').value=SF.penutup||'';
+  /* change setelah input dengan nilai sama diabaikan: menggambar ulang Hasil saat blur membuat klik pertama pada tombol unduh hilang. */
+  function ikat(sel, f, ringan){ var el=$(sel); if(!el) return; el.oninput=el.onchange=function(){ if(SF[f]===el.value) return; SF[f]=el.value; if(el.tagName==='TEXTAREA') srTinggi(el); imUbah(ringan); }; }
+  ikat('#imTgl','tanggal'); ikat('#imKec','kecamatan'); ikat('#imAwas','tglAwas'); ikat('#imLok','lokasi'); ikat('#imBersama','bersama');
+  ikat('#imHal','hal',true); ikat('#imYth','yth',true); ikat('#imDi','di',true); ikat('#imTujuan','tujuan'); ikat('#imSasaran','sasaran'); ikat('#imPenutup','penutup');
+  $('#imTpl').onchange=function(){ var t=T.filter(function(x){ return x.nama===this.value; },this)[0];
+    if(!t){ this.value=SF.templat||''; return; }
+    if(!confirm('Isi ulang Hal, Yth., sasaran, tujuan, butir, dan penutup dari templat “'+t.nama+'”? Isian yang sudah diubah akan diganti.')){ this.value=SF.templat||''; return; }
+    imPakaiTemplat(SF, t); imUbah(); vImbauanForm(SF.id||'baru', SF.idTahap); };
+  imGambarAturan(); imGambarButir(); imGambarPembuka(); imGambarHasil();
+  [].forEach.call(document.querySelectorAll('#isi textarea.auto'), srTinggi);
+}
+function imHtml(t){ return esc(t).split('**').map(function(b,i){ return i%2?'<b>'+b+'</b>':b; }).join(''); }
+function imGambarPembuka(){ var el=$('#imPembuka'); if(el) el.innerHTML=imHtml(ImbauanDocx.pembuka(SF)); }
+
+/* Aturan (dari daftar dasar hukum atau diketik) */
+function imGambarAturan(){
+  var L=SF.aturan;
+  $('#imAturan').innerHTML=(L.length?L.map(function(t,i){
+    return '<div class="srD"><span class="no">'+(i+1)+'.</span><textarea class="auto" rows="2" data-i="'+i+'">'+esc(t)+'</textarea><div class="tb">'+
+      '<button class="btn kecil bahaya" title="Hapus" onclick="SF.aturan.splice('+i+',1);imUbah();imGambarAturan()">✕</button></div></div>'; }).join('')
+    :'<div class="sub" style="margin-bottom:8px">Belum ada. Pilih dari daftar dasar hukum (mis. Perda yang dilanggar) atau ketik manual.</div>')+
+    '<div class="alat" style="margin:8px 0 0"><button class="btn" onclick="imPilihAturan()">+ Pilih dari daftar</button><button class="btn" onclick="SF.aturan.push(\'\');imGambarAturan();var t=document.querySelectorAll(\'#imAturan textarea\');t[t.length-1].focus()">+ Ketik manual</button></div>'+
+    (L.length>1?'<div class="sub" style="margin-top:6px">Beberapa aturan digabung: “A, B dan C”.</div>':'');
+  [].forEach.call(document.querySelectorAll('#imAturan textarea'), function(t){ srTinggi(t);
+    t.oninput=function(){ SF.aturan[+t.getAttribute('data-i')]=t.value; srTinggi(t); imUbah(); }; });
+}
+function imPilihAturan(){
+  var L=srDasarDaftar(), ada=SF.aturan.map(function(t){ return String(t).trim().replace(/[;.\s]+$/,'').toLowerCase(); });
+  var urut=L.slice().sort(function(a,b){ var pa=/^peraturan (daerah|bupati)/i.test(a.teks)?0:1, pb=/^peraturan (daerah|bupati)/i.test(b.teks)?0:1; return pa-pb; });
+  modal('Pilih aturan yang ditegakkan', '<div class="sub" style="margin-bottom:8px">Peraturan daerah & peraturan bupati ditampilkan lebih dulu.</div><div class="pilihL">'+urut.map(function(d){ var on=ada.indexOf(d.teks.toLowerCase())>=0;
+    return '<label class="cekB"><input type="checkbox" value="'+esc(d.id)+'"'+(on?' checked disabled':'')+'><span>'+esc(d.teks)+'</span></label>'; }).join('')+'</div>'+
+    '<div class="aksi"><button class="btn" onclick="tutupModal()">Batal</button><button class="btn utama" id="imPAok">Tambahkan</button></div>', true);
+  $('#imPAok').onclick=function(){ var m={}; L.forEach(function(d){ m[d.id]=d.teks; });
+    [].forEach.call(document.querySelectorAll('.pilihL input:checked:not(:disabled)'), function(c){ SF.aturan.push(m[c.value]); });
+    tutupModal(); imUbah(); imGambarAturan(); };
+}
+
+/* Butir */
+function imGambarButir(){
+  var L=SF.butir;
+  $('#imButir').innerHTML=L.length? L.map(function(t,i){
+    return '<div class="srD dg"><span class="no">'+SR_PEGANG+(i+1)+'.</span><textarea class="auto" rows="2" data-i="'+i+'">'+esc(t)+'</textarea><div class="tb">'+
+      '<button class="btn kecil" title="Naik" onclick="imGeser('+i+',-1)"'+(i?'':' disabled')+'>↑</button><button class="btn kecil" title="Turun" onclick="imGeser('+i+',1)"'+(i<L.length-1?'':' disabled')+'>↓</button>'+
+      '<button class="btn kecil bahaya" title="Hapus" onclick="imHapusButir('+i+')">✕</button></div></div>'; }).join('')
+    :'<div class="sub" style="margin-bottom:8px">Belum ada butir.</div>';
+  [].forEach.call(document.querySelectorAll('#imButir textarea'), function(t){ srTinggi(t);
+    t.oninput=function(){ SF.butir[+t.getAttribute('data-i')]=t.value; srTinggi(t); imUbah(); }; });
+  srSeret($('#imButir'), '.srD', function(a,b){ srPindahkan(SF.butir,a,b); imUbah(); imGambarButir(); });
+}
+function imTambahButir(){ SF.butir.push(''); imUbah(); imGambarButir(); var t=document.querySelectorAll('#imButir textarea'); t=t[t.length-1]; if(t) t.focus(); }
+function imGeser(i,a){ var x=SF.butir.splice(i,1)[0]; SF.butir.splice(i+a,0,x); imUbah(); imGambarButir(); }
+function imHapusButir(i){ if(String(SF.butir[i]||'').trim() && !confirm('Hapus butir ini?')) return; SF.butir.splice(i,1); imUbah(); imGambarButir(); }
+
+/* Hasil */
+function imPeringatan(){
+  var g=ImbauanDocx.validasi(SF), w=[];
+  if(SF.tanggal && SF.tanggal>D.hariIni) w.push('Tanggal surat setelah hari ini.');
+  if(SF.tglAwas && SF.tanggal && SF.tglAwas>SF.tanggal) w.push('Tanggal pengawasan setelah tanggal surat.');
+  return { galat:g, peringatan:w };
+}
+function imGambarHasil(){
+  var h=$('#srHasil'); if(!h) return; var P=imPeringatan();
+  h.innerHTML='<h2>6. Hasil</h2>'+
+    (P.galat.length?'<div class="srW merah"><b>Belum lengkap:</b><ul>'+P.galat.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul></div>':'')+
+    (P.peringatan.length?'<div class="srW"><b>Perlu dicek:</b><ul>'+P.peringatan.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul></div>':'')+
+    '<div class="srLangkah"><b>A. Isi draf dari e-office</b><div class="sub">Unduh draf <b>Surat Biasa</b> kosong dari e-office (sudah ada kop dan tanda tangan), lalu pilih di sini. Hasilnya draf yang sudah terisi Lampiran, Hal, Yth., dan isi imbauan, dengan nama berkas sama seperti draf.</div>'+
+      '<input type="file" id="imDraf" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hide">'+
+      '<button class="btn utama" id="imBtnDraf"'+(P.galat.length?' disabled':'')+'>📄 Pilih draf kosong &amp; unduh hasil</button></div>'+
+    '<div class="srLangkah"><b>B. Tanpa draf</b><div class="sub">Isi surat saja, untuk disalin manual ke draf.</div>'+
+      '<div class="alat" style="margin:6px 0 0"><button class="btn" id="imBtnCadang"'+(P.galat.length?' disabled':'')+'>⬇ Unduh .docx</button></div></div>'+
+    '<div class="srLangkah"><b>C. Salin untuk kolom e-office</b><div id="srSalin"></div></div>'+
+    '<div class="srLangkah"><b>Riwayat</b>'+(SF.id?'<div class="sub">Tersimpan di riwayat surat dan tertaut ke kasus.'+(SF.berubah?' <b>Ada perubahan yang belum disimpan.</b>':'')+'</div>'+
+      srKotakNomor()
+      :'<div class="sub">Surat otomatis tersimpan di riwayat dan tertaut ke kasus saat diunduh. Bisa juga disimpan sekarang.</div>')+
+      '<div class="alat" style="margin:6px 0 0"><button class="btn" id="srBtnSimpan"'+(P.galat.length?' disabled':'')+'>💾 Simpan'+(SF.id?' perubahan':' ke riwayat')+'</button>'+
+      (!SF.id?'<button class="btn bahaya" onclick="imIsiUlang()">Isi ulang dari kasus</button>':'')+srTombolArsip()+'</div></div>';
+  imGambarSalin();
+  $('#imBtnDraf').onclick=function(){ $('#imDraf').value=''; $('#imDraf').click(); };
+  $('#imDraf').onchange=function(){ var f=this.files[0]; if(f) srIsiDraf(f, $('#imBtnDraf'), ImbauanDocx); };
+  $('#imBtnCadang').onclick=function(){ var b=this; b.disabled=true;
+    srPustaka().then(function(){ return ImbauanDocx.docxCadangan(SF); })
+      .then(function(x){ srUnduh(x, ImbauanDocx.namaBerkas(SF).replace(/\.docx$/,'_isi.docx')); toast('Berkas diunduh'); return srSimpanRiwayat(); })
+      .catch(function(e){ toast(e.message); }).finally(function(){ var b2=$('#imBtnCadang'); if(b2) b2.disabled=false; }); };
+  $('#srBtnSimpan').onclick=function(){ srSimpanRiwayat(this).then(function(){ toast('Surat imbauan tersimpan'); }).catch(function(e){ toast(e.message); }); };
+  if($('#srBtnNomor')) $('#srBtnNomor').onclick=srSimpanNomor;
+}
+function imGambarSalin(){
+  var el=$('#srSalin'); if(!el) return; var t=ImbauanDocx.teksSalin(SF);
+  var B=[['Hal', t.hal],['Lampiran', t.lampiran],['Kepada (Yth.)', t.kepada]];
+  el.innerHTML=B.map(function(b,i){ return '<div class="srS"><div><div class="sub">'+esc(b[0])+'</div><div class="tx">'+(b[1]?esc(b[1]):'<span class="sub">–</span>')+'</div></div>'+
+    '<button class="btn kecil" data-i="'+i+'"'+(b[1]?'':' disabled')+'>Salin</button></div>'; }).join('');
+  [].forEach.call(el.querySelectorAll('button[data-i]'), function(b){ b.onclick=function(){ var x=B[+b.getAttribute('data-i')]; srSalin(x[1], x[0]); }; });
+}
+function imIsiUlang(){ if(!confirm('Buang isian ini dan isi ulang dari data kasus & templat?')) return; var id=SF.idTahap; simpan(imKunci(id),null); SF=imDariTahap(id); vImbauanForm('baru', id); }
+
+/* ---------- PENGATURAN › Templat imbauan (Admin Utama) ---------- */
+var PGI=null;   // salinan kerja daftar templat
+function vPgImbauan(){
+  $('#isi').innerHTML=pgBar()+'<div id="pgIIsi" class="sub">Memuat…</div>';
+  srMuatData().then(function(){ if(pgAktif()!=='imbauan') return;
+    PGI=imTemplat().map(function(t){ return JSON.parse(JSON.stringify(t)); }); pgIGambar(); })
+    .catch(function(e){ if($('#pgIIsi')) $('#pgIIsi').textContent=e.message; });
+}
+function pgIGambar(buka){
+  var kat=D.kategori.slice(); PGI.forEach(function(t){ (t.kategori||[]).forEach(function(k){ if(kat.indexOf(k)<0) kat.push(k); }); });
+  var dipakai={}; PGI.forEach(function(t){ (t.kategori||[]).forEach(function(k){ (dipakai[k]=dipakai[k]||[]).push(t.nama||'(tanpa nama)'); }); });
+  var ganda=Object.keys(dipakai).filter(function(k){ return dipakai[k].length>1; });
+  $('#pgIIsi').className=''; $('#pgIIsi').innerHTML='<div class="kepalaB"><h2 style="margin:0">Templat Surat Imbauan</h2><div class="alatB"><button class="btn utama" id="pgIBaru">+ Tambah templat</button></div></div>'+
+    '<p class="sub">Dipakai saat membuat Surat Imbauan dari entri tahap <b>Pencegahan</b> di kasus. Templat terpilih otomatis menurut kategori kasus (bila tidak ada yang cocok, templat pertama). Penanda: <b>{lokasi}</b>, <b>{Lokasi}</b> (huruf awal kapital), <b>{kecamatan}</b>; <b>**teks**</b> = tebal; <b>…</b> = wajib diganti petugas sebelum surat bisa diunduh. Surat yang sudah dibuat tidak berubah bila templat diubah.</p>'+
+    (ganda.length?'<div class="srW" style="margin-bottom:10px">Kategori dipakai lebih dari satu templat (yang paling atas dipilih otomatis): '+ganda.map(function(k){ return '<b>'+esc(k)+'</b> ('+dipakai[k].map(esc).join(', ')+')'; }).join('; ')+'</div>':'')+
+    '<div id="pgIL">'+(PGI.length?PGI.map(function(t,i){
+      var on=buka===i;
+      return '<details class="kartu pgIT"'+(on?' open':'')+' data-i="'+i+'"><summary><b>'+esc(t.nama||'(tanpa nama)')+'</b><span class="sub"> · '+(t.kategori&&t.kategori.length?t.kategori.map(esc).join(', '):'tanpa kategori')+' · '+t.butir.length+' butir</span></summary>'+
+        '<div class="f" style="margin-top:10px"><label class="pn">Nama templat<input data-k="nama" value="'+esc(t.nama)+'"></label>'+
+        '<div class="pn"><div class="sub" style="margin-bottom:4px">Kategori (dipilih otomatis untuk kasus kategori ini)</div><div class="pgIKat">'+kat.map(function(k){ return '<label class="cek"><input type="checkbox" data-kat="'+esc(k)+'"'+((t.kategori||[]).indexOf(k)>=0?' checked':'')+'> '+esc(k)+'</label>'; }).join('')+'</div></div>'+
+        '<label class="pn">Hal<input data-k="hal" value="'+esc(t.hal)+'"></label>'+
+        '<label class="pn">Yth.<textarea class="auto" rows="2" data-k="yth">'+esc(t.yth)+'</textarea></label>'+
+        '<label class="pn">Tujuan (“serta …”, opsional)<input data-k="tujuan" value="'+esc(t.tujuan)+'"></label>'+
+        '<label class="pn">Disampaikan kepada<input data-k="sasaran" value="'+esc(t.sasaran)+'"></label></div>'+
+        '<div class="sub" style="margin:10px 0 6px">Butir</div><div class="pgIB">'+t.butir.map(function(b,j){ return '<div class="srD"><span class="no">'+(j+1)+'.</span><textarea class="auto" rows="2" data-b="'+j+'">'+esc(b)+'</textarea><div class="tb">'+
+          '<button class="btn kecil" title="Naik" data-g="'+j+',-1"'+(j?'':' disabled')+'>↑</button><button class="btn kecil" title="Turun" data-g="'+j+',1"'+(j<t.butir.length-1?'':' disabled')+'>↓</button><button class="btn kecil bahaya" title="Hapus" data-h="'+j+'">✕</button></div></div>'; }).join('')+'</div>'+
+        '<button class="btn kecil" data-tb="1" style="margin-top:6px">+ Tambah butir</button>'+
+        '<div class="f" style="margin-top:10px"><label class="pn">Penutup<textarea class="auto" rows="2" data-k="penutup">'+esc(t.penutup)+'</textarea></label></div>'+
+        '<div class="alat" style="margin:10px 0 0"><button class="btn kecil" data-u="-1"'+(i?'':' disabled')+'>↑ Naikkan</button><button class="btn kecil" data-u="1"'+(i<PGI.length-1?'':' disabled')+'>↓ Turunkan</button><button class="btn kecil" data-dup="1">Salin jadi templat baru</button><button class="btn kecil bahaya" data-del="1">Hapus templat</button></div>'+
+        '</details>'; }).join(''):'<div class="kartu kosong">Belum ada templat.</div>')+'</div>'+
+    '<div class="galat" id="pgIGalat"></div><div class="tpAksi"><button class="btn utama" id="pgISimpan">✓ Simpan templat</button><button class="btn" id="pgIBatal">Batalkan perubahan</button></div>';
+  [].forEach.call(document.querySelectorAll('#pgIL textarea.auto'), srTinggi);
+  $$('#pgIL details').forEach(function(d){ var i=+d.getAttribute('data-i'), t=PGI[i];
+    $$('[data-k]', d).forEach(function(el){ el.oninput=function(){ t[el.getAttribute('data-k')]=el.value; if(el.tagName==='TEXTAREA') srTinggi(el); }; });
+    $$('[data-kat]', d).forEach(function(c){ c.onchange=function(){ var k=c.getAttribute('data-kat'), L=t.kategori=t.kategori||[], x=L.indexOf(k); if(c.checked&&x<0) L.push(k); if(!c.checked&&x>=0) L.splice(x,1); pgIGambar(i); }; });
+    $$('[data-b]', d).forEach(function(el){ el.oninput=function(){ t.butir[+el.getAttribute('data-b')]=el.value; srTinggi(el); }; });
+    $$('[data-g]', d).forEach(function(b){ b.onclick=function(){ var g=b.getAttribute('data-g').split(',').map(Number), x=t.butir.splice(g[0],1)[0]; t.butir.splice(g[0]+g[1],0,x); pgIGambar(i); }; });
+    $$('[data-h]', d).forEach(function(b){ b.onclick=function(){ var j=+b.getAttribute('data-h'); if(String(t.butir[j]||'').trim() && !confirm('Hapus butir ini?')) return; t.butir.splice(j,1); pgIGambar(i); }; });
+    $('[data-tb]', d).onclick=function(){ t.butir.push(''); pgIGambar(i); var L=$$('[data-b]', $('#pgIL details[data-i="'+i+'"]')); if(L.length) L[L.length-1].focus(); };
+    $$('[data-u]', d).forEach(function(b){ b.onclick=function(){ var a=+b.getAttribute('data-u'), x=PGI.splice(i,1)[0]; PGI.splice(i+a,0,x); pgIGambar(i+a); }; });
+    $('[data-dup]', d).onclick=function(){ var c=JSON.parse(JSON.stringify(t)); c.id=''; c.nama=t.nama+' (salinan)'; c.kategori=[]; PGI.splice(i+1,0,c); pgIGambar(i+1); };
+    $('[data-del]', d).onclick=function(){ if(!confirm('Hapus templat “'+(t.nama||'tanpa nama')+'”? Surat yang sudah dibuat tidak terpengaruh.')) return; PGI.splice(i,1); pgIGambar(); };
+  });
+  $('#pgIBaru').onclick=function(){ PGI.push({ id:'', nama:'', kategori:[], hal:'', yth:'', sasaran:'', tujuan:'', butir:[''], penutup:'Demikian surat imbauan ini disampaikan untuk menjadi perhatian dan dilaksanakan sebagaimana mestinya' }); pgIGambar(PGI.length-1); };
+  $('#pgIBatal').onclick=function(){ if(!confirm('Batalkan semua perubahan templat yang belum disimpan?')) return; vPgImbauan(); };
+  $('#pgISimpan').onclick=function(){ var b=this; b.disabled=true; $('#pgIGalat').textContent='';
+    PGI.forEach(function(t){ t.butir=t.butir.filter(function(x){ return String(x).trim(); }); });
+    api('imbauanSimpan',{ templat:PGI }).then(function(j){ SRD.imbauan=j.imbauan; PGI=j.imbauan.map(function(t){ return JSON.parse(JSON.stringify(t)); }); pgIGambar(); toast('Templat imbauan tersimpan'); })
+      .catch(function(e){ $('#pgIGalat').textContent=e.message; b.disabled=false; }); };
+}
 /* Pencarian tempat gabungan untuk titik peta (dipakai form lapor publik & form kasus dashboard; teks ini disalin ke keduanya).
  * 1) OpenStreetMap lewat Photon (photon.komoot.io, gratis, tanpa key; dipanggil langsung dari browser): memberi NAMA tempat.
  * 2) Geocoder Google lewat server Apps Script (aksi cariTempat): memberi alamat bila tempat tak ada di OSM.
@@ -2507,8 +2848,13 @@ function isiKasus(){
       '<td>'+pilTahap(k)+(k.tanggalTahap?'<div class="sub">'+esc(tglIndo(k.tanggalTahap))+'</div>':'')+'</td><td>'+pilTenggat(k)+(k.status==='Selesai'?'<div class="sub">'+esc(k.hasil)+'</div>':'')+'</td></tr>'; }).join('')+
     '</tbody></table><div class="daftar only-mob">'+list.map(itemKasus).join('')+'</div>';
 }
-/* Tombol Surat Peringatan di entri tahap SP1/SP2/SP3 (Admin & Admin Utama). */
+/* Tombol surat di entri tahap: Surat Imbauan (Pencegahan) & Surat Peringatan SP1/SP2/SP3 (Admin & Admin Utama). */
 function tombolSP(k,r){
+  if(r.tahap==='Pencegahan' && isAdmin()){   // Surat Imbauan
+    if(r.idSurat) return '<div class="berkas"><button class="btn kecil" onclick="location.hash=\'surat/'+esc(r.idSurat)+'\'">📄 Buka Imbauan</button></div>';
+    if(k.status==='Selesai') return '';
+    return '<div class="berkas"><button class="btn kecil utama" onclick="location.hash=\'surat/imbauan/'+esc(r.id)+'\'">📄 Buat Imbauan</button></div>';
+  }
   var m=String(r.tahap).match(/^Surat Peringatan (\d)$/); if(!m || !isAdmin()) return '';
   if(r.idSurat) return '<div class="berkas"><button class="btn kecil" onclick="location.hash=\'surat/'+esc(r.idSurat)+'\'">📄 Buka SP'+m[1]+'</button></div>';
   if(k.status==='Selesai') return '';
@@ -2835,7 +3181,7 @@ function formJenis(){
 function kegiatanKasus(no){ return (D.kegiatan||[]).filter(function(k){ return k.noKasus===no; }).sort(function(a,b){ return a.mulai<b.mulai?-1:1; }); }
 
 /* ---------- PENGATURAN (Admin Utama): satu halaman bertab, dibuka dari menu akun ---------- */
-var PG_TAB=[['tampilan','Tampilan'],['libur','Hari libur'],['pengguna','Pengguna'],['pegawai','Data pegawai'],['dasar','Dasar hukum'],['kategori','Kategori'],['bestie','BESTIE'],['log','Log aktivitas'],['status','Status sistem'],['kinerja','Kinerja']];
+var PG_TAB=[['tampilan','Tampilan'],['libur','Hari libur'],['pengguna','Pengguna'],['pegawai','Data pegawai'],['dasar','Dasar hukum'],['imbauan','Templat imbauan'],['kategori','Kategori'],['bestie','BESTIE'],['log','Log aktivitas'],['status','Status sistem'],['kinerja','Kinerja']];
 function pgAktif(){ var h=location.hash.replace(/^#\/?/,'').split('/'); return h[0]==='pengaturan' ? (h[1]||'tampilan') : ''; }
 function pgBar(){ var t=pgAktif(); if(!t) return '';
   return '<h1 style="margin-bottom:2px">Pengaturan</h1><nav class="pgTab" id="pgTab">'+PG_TAB.map(function(x){ return '<a href="#pengaturan/'+x[0]+'" class="'+(x[0]===t?'on':'')+'">'+x[1]+'</a>'; }).join('')+'</nav>'; }
@@ -2844,7 +3190,7 @@ function rPengaturan(bag){
   if(!isUtama()){ location.hash='beranda'; return; }
   var t=bag[1]||'tampilan';
   var f={ tampilan:vPgTampilan, libur:vLibur, pengguna:vPengguna, pegawai:function(){ srPerlu(function(){ vPegawai(); pgGulirTab(); }); }, dasar:function(){ srPerlu(function(){ vDasarHukum(); pgGulirTab(); }); },
-    kategori:vPgKategori, bestie:vPgBestie, log:vPgLog, status:vPgStatus, kinerja:vKinerja }[t];
+    imbauan:vPgImbauan, kategori:vPgKategori, bestie:vPgBestie, log:vPgLog, status:vPgStatus, kinerja:vKinerja }[t];
   if(!f){ location.replace('#pengaturan/tampilan'); return; }
   f(); pgGulirTab();
 }
