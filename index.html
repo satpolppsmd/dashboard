@@ -159,7 +159,7 @@ table.t tr.lewat td:first-child{box-shadow:inset 3px 0 0 var(--merah)}
 .x{background:none;border:0;font-size:24px;line-height:1;cursor:pointer;color:var(--abu);padding:4px 8px}
 .f{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .f label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--abu);font-weight:500}
-.f label.pn{grid-column:1/-1}
+.f label.pn,.f>.pn{grid-column:1/-1}
 .f input,.f select,.f textarea{width:100%;color:var(--teks);font-weight:400}
 .f .bt{color:var(--merah);font-style:normal}
 .galat{color:var(--merah);font-size:13px;margin-top:8px}
@@ -4235,8 +4235,8 @@ function agForm(jenis, id){
   var lama=(x.berkas||[]).map(function(b){ return '<label class="cek" style="margin-top:2px"><input type="checkbox" class="agHapusB" value="'+esc(b.id)+'"> Hapus 📎 '+esc(b.nama)+'</label>'; }).join('');
   f+='<label class="pn">'+(m?'Lampiran pindaian':'Berkas')+' (opsional · foto/PDF, maks 5 MB per berkas, paling banyak 5 berkas)<input type="file" id="agFile" multiple accept="image/*,application/pdf"></label>'+
     (lama?'<div class="pn">'+lama+'</div>':'')+'<div class="pn sub" id="agFileInfo"></div>';
-  if(m) f+='<div class="pn f" id="agAcara" style="margin:0;padding:10px 12px;border:1px solid var(--garis);border-radius:10px;background:var(--latar2)">'+
-    '<h3 class="pn" style="margin:0;font-size:15px;color:var(--teks)">📅 Acara undangan</h3>'+
+  if(m) f+='<div class="f" id="agAcara" style="grid-column:1/-1;margin:0;padding:10px 12px;border:1px solid var(--garis);border-radius:10px;background:var(--latar2)">'+
+    '<h3 style="grid-column:1/-1;margin:0;font-size:15px;color:var(--teks)">📅 Acara undangan</h3>'+
     '<label class="wajib">'+w('Tanggal acara')+'<input type="date" id="agTa" value="'+esc(x.tanggalAcara||'')+'"></label>'+
     '<label>Jam mulai – selesai<span style="display:flex;gap:6px"><input type="time" id="agJm" value="'+esc(x.jamMulai||'')+'" style="flex:1"><input type="time" id="agJs" value="'+esc(x.jamSelesai||'')+'" style="flex:1"></span></label>'+
     '<label class="pn">Tempat<input id="agTp" maxlength="300" placeholder="Contoh: Pendopo Kecamatan Tanjungsari" value="'+esc(x.tempatAcara||'')+'"></label>'+
