@@ -60,6 +60,8 @@
 :root{--biru:#12307a;--biru2:#1f4bb5;--kuning:#f7c600;--latar:#eef2f8;--teks:#1d2433;--abu:#5b6475;--garis:#dde3ee;--putih:#fff;
 --merah:#b42318;--merahbg:#fde2e1;--hijau:#127a3a;--hijaubg:#d7f2df;--kuningbg:#fff3c4;--kuningtx:#7a5b00;--birubg:#dbe8ff;--r:10px;
 --latar2:#f7f9fd;--garis2:#c9d2e3;--merahgaris:#f0b3ae;--kuninggaris:#f0d48a;--aksen:#12307a;color-scheme:light}
+.lgIngat{display:flex!important;flex-direction:row;align-items:center;gap:8px;margin:10px 0 2px;font-size:13.5px;font-weight:400;cursor:pointer}
+.lgIngat input{width:18px!important;height:18px;min-height:0!important;margin:0;padding:0;flex:none}
 .tawarNotif{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:260;background:var(--putih,#fff);color:var(--teks,#1d2433);border:1px solid var(--garis,#dfe3ea);border-left:4px solid var(--kuning,#f5c400);border-radius:12px;box-shadow:0 8px 28px rgba(16,32,80,.22);padding:12px 14px;display:flex;gap:12px;align-items:center;width:min(560px,calc(100vw - 24px));font-size:14px;line-height:1.4}
 .tawarNotif span{font-size:13px;opacity:.85}
 .pgNPrev{display:flex;gap:10px;align-items:flex-start;background:var(--latar);border:1px solid var(--garis);border-radius:14px;padding:10px 12px;max-width:420px;font-size:13.5px;line-height:1.35}
@@ -408,6 +410,7 @@ input:-webkit-autofill{animation-name:lgOto;animation-duration:1ms}@keyframes lg
     <input id="lgUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
     <label for="lgPass">Password</label>
     <input id="lgPass" name="password" type="password" autocomplete="current-password" required>
+    <label class="lgIngat"><input type="checkbox" id="lgIngat"> Ingat saya di perangkat ini (30 hari)</label>
     <div class="galat" id="lgGalat"></div>
     <button class="btn utama" id="lgBtn">Masuk</button>
   </form>
@@ -528,6 +531,30 @@ var nMuat=0; function muat(on){ nMuat+=on?1:-1; var b=$('.muat'); if(nMuat>0&&!b
    Setiap permintaan dicatat (aksi, lama, lama di server, dari simpanan/tidak) untuk halaman #kinerja. */
 var API_BACA = { laporanAtur:1, laporanSumber:1, data:1, berkas:1, suratData:1, bestieData:1, bestieRekap:1, daftarPengguna:1, cariTempat:1, agendaBerkas:1, agendaArsipData:1, logAktivitas:1, statusSistem:1, kategoriDaftar:1 };
 function catatKinerja(x){ try{ var l=JSON.parse(localStorage.getItem('ppud_kinerja')||'[]'); l.push(x); if(l.length>200) l=l.slice(-200); localStorage.setItem('ppud_kinerja', JSON.stringify(l)); }catch(e){} }
+/* ---------- Ingat saya: tetap masuk 30 hari di perangkat ini ----------
+   Kunci perangkat (ppud_ingat {u, r, s}) dipakai untuk meminta sesi baru (aksi loginIngat) saat sesi 1 jam berakhir;
+   perangkat yang diingat tidak dikeluarkan karena diam 1 jam. Dihapus saat Keluar atau bila server menolak. */
+var Ingat=(function(){
+  var janji=null;
+  function data(){ var x=ambil('ppud_ingat'); return x && x.r && x.s > Date.now() ? x : null; }
+  function ada(){ var x=data(); return !!(x && (!ME || x.u===ME.username)); }
+  function pulihkan(){
+    if(janji) return janji;
+    var x=data(); if(!x) return Promise.reject(new Error('Tidak diingat'));
+    janji=fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({ action:'loginIngat', ingat:x.r }) })
+      .then(function(r){ return r.json(); }, function(){ throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet.'); })
+      .then(function(j){
+        if(!j || !j.ok){ simpan('ppud_ingat', null); throw new Error(j && j.error || 'Silakan login kembali.'); }
+        TOKEN=j.token; ME=j.me; x.s=j.me.ingatSampai||x.s; simpan('ppud_ingat', x); simpan('ppud_sesi',{ token:TOKEN, me:ME }); if(D) D.me=ME;
+        catatAktivitas(); terakhirGoogle=Date.now(); return j; })
+      .finally(function(){ janji=null; });
+    return janji;
+  }
+  return { ada:ada, data:data, pulihkan:pulihkan,
+    simpanBaru:function(u, r, sampai){ simpan('ppud_ingat', { u:u, r:r, s:sampai }); },
+    hapus:function(){ simpan('ppud_ingat', null); },
+    kunci:function(){ var x=data(); return x ? x.r : ''; } };
+})();
 function api(action, data){
   muat(true);
   var body = JSON.stringify(Object.assign({ action: action, token: TOKEN, aktif: diamSelama() < BATAS_DIAM }, data||{}));
@@ -543,6 +570,8 @@ function api(action, data){
   return kirim()
     .then(function(j){
       var s=j._srv||{}; catatKinerja({ w:t0, a:action, ms:Date.now()-t0, s:s.ms, c:s.c?1:0, u:ulang, e:j.ok?0:1 });
+      if(!j.ok && j.sesiHabis && action!=='logout' && Ingat.ada()){   // sesi 1 jam habis: ambil sesi baru dengan kunci "ingat saya", ulangi sekali
+        return Ingat.pulihkan().then(function(){ return api(action, data); }, function(){ keluar('Sesi berakhir. Silakan login kembali.'); throw new Error('Sesi berakhir. Silakan login kembali.'); }); }
       if(!j.ok){ if(j.sesiHabis){ keluar(j.error); } throw new Error(j.error||'Terjadi kesalahan.'); }
       if(j._cfUbah) cfTandaiUbah(j._cfUbah, j._cfWaktu);
       terakhirGoogle=Date.now();
@@ -611,7 +640,8 @@ function vKinerja(){
 /* ---------- login ---------- */
 function tampil(id){ ['layarLogin','layarGanti','aplikasi'].forEach(function(x){ $('#'+x).classList.toggle('hide', x!==id); }); }
 function keluar(pesan){
-  if(TOKEN && !pesan) api('logout').catch(function(){});
+  if(TOKEN && !pesan) api('logout', { ingat: Ingat.kunci() }).catch(function(){});
+  Ingat.hapus();
   if(!pesan) try{ Lampiran.hapusJadi(); }catch(e){}
   if(!pesan) Notif.hapus(); Notif.tutupTawaran();   // Keluar = perangkat ini berhenti menerima notifikasi akun ini   // lampiran perangkat milik surat/laporan yang sudah jadi
   var cfk=ambil('ppud_cf'); if(cfk && cfk.k) cfPost({ action:'keluar', kunci:cfk.k }).catch(function(){}); simpan('ppud_cf', null); simpan('ppud_cfmin', null);
@@ -621,8 +651,9 @@ function keluar(pesan){
 }
 $('#formLogin').addEventListener('submit', function(e){
   e.preventDefault(); var b=$('#lgBtn'); b.disabled=true; $('#lgGalat').textContent='';
-  api('login',{ username: $('#lgUser').value.trim(), password: $('#lgPass').value })
-    .then(function(j){ TOKEN=j.token; ME=j.me; aktSimpan=0; filterPeta=Object.assign({}, FP_AWAL); catatAktivitas(); simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#lgPass').value=''; lgOtoHasil(true); masuk(); })
+  var ingat=$('#lgIngat').checked;
+  api('login',{ username: $('#lgUser').value.trim(), password: $('#lgPass').value, ingat: ingat, perangkat: ingat && window.Notif ? Notif.perangkat() : '' })
+    .then(function(j){ TOKEN=j.token; ME=j.me; if(j.ingat) Ingat.simpanBaru(ME.username, j.ingat, j.me.ingatSampai); else Ingat.hapus(); aktSimpan=0; filterPeta=Object.assign({}, FP_AWAL); catatAktivitas(); simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#lgPass').value=''; lgOtoHasil(true); masuk(); })
     .catch(function(err){ lgOtoHasil(false); $('#lgGalat').textContent=err.message; })
     .finally(function(){ b.disabled=false; });
 });
@@ -651,7 +682,7 @@ $('#formGanti').addEventListener('submit', function(e){
   e.preventDefault(); var g=$('#gpGalat'); g.textContent='';
   if($('#gpBaru').value!==$('#gpUlang').value){ g.textContent='Ulangi password baru tidak sama.'; return; }
   var b=$('#gpBtn'); b.disabled=true;
-  api('gantiPassword',{ lama:$('#gpLama').value, baru:$('#gpBaru').value })
+  api('gantiPassword',{ lama:$('#gpLama').value, baru:$('#gpBaru').value, ingat: Ingat.kunci() })
     .then(function(j){ ME=j.me; simpan('ppud_sesi',{token:TOKEN, me:ME}); $('#formGanti').reset(); toast('Password tersimpan'); masuk(); })
     .catch(function(err){ g.textContent=err.message; })
     .finally(function(){ b.disabled=false; });
@@ -664,7 +695,7 @@ function masuk(){
   if(ME.wajibGanti){ bukaGanti(true); return; }
   tampil('aplikasi');
   $('#btnAkun').textContent = ME.nama.split(' ')[0] + ' ▾';
-  $('#infoAkun').innerHTML = '<b style="color:var(--teks)">'+esc(ME.nama)+'</b><br>'+esc(ME.username)+' · '+esc(ME.peran)+'<br><small style="font-size:12px;opacity:.85">Keluar otomatis setelah 1 jam tanpa aktivitas</small>';
+  $('#infoAkun').innerHTML = '<b style="color:var(--teks)">'+esc(ME.nama)+'</b><br>'+esc(ME.username)+' · '+esc(ME.peran)+'<br><small style="font-size:12px;opacity:.85">'+(Ingat.ada()?'Diingat di perangkat ini sampai '+new Date(Ingat.data().s).toLocaleDateString('id-ID',{ day:'numeric', month:'short', year:'numeric' })+' (diperpanjang saat dibuka)':'Keluar otomatis setelah 1 jam tanpa aktivitas')+'</small>';
   muatData();
   if(Date.now()-terakhirGoogle > 60*1000) jagaSesi(true);
   setTimeout(function(){ if(ME) Notif.setelahMasuk(); }, 1500);
@@ -768,7 +799,7 @@ var Notif=(function(){
     var u=e.data && e.data.buka; if(!u) return;
     try{ var x=new URL(u, location.href); if(x.pathname.indexOf('/dashboard')===0){ if(x.hash && x.hash!==location.hash) location.hash=x.hash; else if(D) muatData(true); } }catch(err){}
   });
-  return { setelahMasuk:setelahMasuk, hapus:hapus, panel:panel, tutupTawaran:tutupTawaran, keadaan:keadaan };
+  return { setelahMasuk:setelahMasuk, hapus:hapus, panel:panel, tutupTawaran:tutupTawaran, keadaan:keadaan, perangkat:perangkat };
 })();
 
 var terakhirMuat=0, sedangSegar=false, tiketDikenal=null;
@@ -824,7 +855,7 @@ function segarkan(){
   if(!TOKEN || !D || sedangSegar || sibuk()) return;
   sedangSegar=true; muatData(true).finally(function(){ sedangSegar=false; });
 }
-function cekDiam(){ if(TOKEN && diamSelama()>=BATAS_DIAM){ tutupModal(); keluar('Anda keluar otomatis karena tidak ada aktivitas selama 1 jam.'); return true; } return false; }
+function cekDiam(){ if(TOKEN && diamSelama()>=BATAS_DIAM && !Ingat.ada()){ tutupModal(); keluar('Anda keluar otomatis karena tidak ada aktivitas selama 1 jam.'); return true; } return false; }
 setInterval(function(){ if(cekDiam()) return; jagaSesi(); if(document.visibilityState==='visible' && Date.now()-terakhirMuat>=5*60*1000) segarkan(); }, 30*1000);
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState!=='visible' || cekDiam()) return; if(Date.now()-terakhirMuat>=30*1000) segarkan(); });
 
@@ -3713,10 +3744,12 @@ function vPengguna(){
 }
 function isiPengguna(){
   $('#listU').innerHTML='<table class="t"><thead><tr><th>Nama</th><th class="only-desk">Username</th><th>Peran</th><th class="only-desk">Login terakhir</th><th style="width:170px"></th></tr></thead><tbody>'+D.pengguna.map(function(u){
-    return '<tr><td><b>'+esc(u.nama)+'</b><div class="sub">'+esc(u.jabatan)+'<span class="only-mob"> · '+esc(u.username)+'</span></div>'+(!u.aktif?'<span class="pill">Nonaktif</span> ':'')+(u.wajibGanti?'<span class="pill p-kuning">Belum ganti password</span>':'')+'</td>'+
+    return '<tr><td><b>'+esc(u.nama)+'</b><div class="sub">'+esc(u.jabatan)+'<span class="only-mob"> · '+esc(u.username)+'</span></div>'+(!u.aktif?'<span class="pill">Nonaktif</span> ':'')+(u.wajibGanti?'<span class="pill p-kuning">Belum ganti password</span>':'')+
+      (u.ingat&&u.ingat.length?' <span class="pill p-biru" title="'+esc(u.ingat.map(function(x){ return x.p+' · terakhir '+new Date(x.t).toLocaleDateString('id-ID',{ day:'numeric', month:'short' }); }).join('\n'))+'">Diingat di '+u.ingat.length+' perangkat</span>':'')+'</td>'+
       '<td class="only-desk">'+esc(u.username)+'</td><td>'+esc(u.peran)+'</td><td class="only-desk sub">'+esc(waktuIndo(u.loginTerakhir))+'</td>'+
-      '<td><button class="btn kecil" onclick="formPengguna(\''+esc(u.username)+'\')">Ubah</button> <button class="btn kecil" onclick="resetPw(\''+esc(u.username)+'\')">Reset password</button></td></tr>'; }).join('')+'</tbody></table>'+
-    '<p class="sub">Reset password mengembalikan password menjadi sama dengan username; pengguna wajib menggantinya saat login.</p>';
+      '<td><div style="display:flex;flex-wrap:wrap;gap:4px"><button class="btn kecil" onclick="formPengguna(\''+esc(u.username)+'\')">Ubah</button><button class="btn kecil" onclick="resetPw(\''+esc(u.username)+'\')">Reset password</button>'+
+      (u.username!==ME.username?'<button class="btn kecil bahaya" title="Keluarkan dari semua perangkat" onclick="keluarkanU(\''+esc(u.username)+'\')">Keluarkan</button>':'')+'</div></td></tr>'; }).join('')+'</tbody></table>'+
+    '<p class="sub">Reset password mengembalikan password menjadi sama dengan username; pengguna wajib menggantinya saat login. Reset password, menonaktifkan akun, dan <b>Keluarkan dari semua perangkat</b> membuat akun itu keluar di semua perangkat (termasuk yang memakai "Ingat saya") dan berhenti menerima notifikasi HP.</p>';
 }
 function formPengguna(username){
   var u = username ? D.pengguna.filter(function(x){ return x.username===username; })[0] : { username:'', nama:'', jabatan:'', peran:'Lihat', aktif:true };
@@ -3730,6 +3763,7 @@ function formPengguna(username){
     api('simpanPengguna',{ baru:!username, username:$('#uU').value, nama:$('#uN').value, jabatan:$('#uJ').value, peran:$('#uP').value, aktif:$('#uA').checked })
       .then(function(j){ D.pengguna=j.pengguna; tutupModal(); toast('Pengguna tersimpan'); isiPengguna(); }).catch(function(e){ g.textContent=e.message; }).finally(function(){ b.disabled=false; }); };
 }
+function keluarkanU(username){ if(confirm('Keluarkan '+username+' dari semua perangkat?\n\nSemua sesi (termasuk "Ingat saya") berakhir dan notifikasi HP akun ini berhenti. Akun tetap aktif dan bisa login lagi dengan password.')) api('keluarkanPerangkat',{ username:username }).then(function(j){ toast(j.pesan); vPengguna(); }).catch(function(e){ toast(e.message); }); }
 function resetPw(username){ if(confirm('Reset password '+username+' menjadi sama dengan username?')) api('resetPassword',{username:username}).then(function(j){ toast(j.pesan); vPengguna(); }).catch(function(e){ toast(e.message); }); }
 
 /* ---------- BESTIE: pre-test & post-test (khusus admin) ---------- */
@@ -6374,7 +6408,10 @@ try{ Lampiran.bersihkanLama(); }catch(e){}   // lampiran perangkat yang 30 hari 
 tpTerapkanDOM(); tpSegarkan();   // tampilan dari simpanan perangkat dulu, lalu cek versi terbaru di server
 (function(){
   var s=ambil('ppud_sesi');
-  if(s && s.token && s.me && s.me.kedaluwarsa > Date.now() && Date.now()-(Number(ambil('ppud_aktif'))||0) < BATAS_DIAM){ TOKEN=s.token; ME=s.me; catatAktivitas(); masuk(); }
+  var x=Ingat.data();
+  if(s && s.token && s.me && s.me.kedaluwarsa > Date.now() && (Date.now()-(Number(ambil('ppud_aktif'))||0) < BATAS_DIAM || (x && x.u===s.me.username))){ TOKEN=s.token; ME=s.me; catatAktivitas(); masuk(); }
+  else if(x){ simpan('ppud_sesi', null); muat(true);   // sesi habis tapi perangkat diingat: langsung masuk lagi
+    Ingat.pulihkan().then(function(){ masuk(); }, function(e){ tampil('layarLogin'); $('#lgGalat').textContent=/terhubung/.test(e.message)?e.message:'Sesi di perangkat ini sudah berakhir. Silakan login kembali.'; }).finally(function(){ muat(false); }); }
   else { simpan('ppud_sesi', null); tampil('layarLogin'); }
 })();
 </script>
