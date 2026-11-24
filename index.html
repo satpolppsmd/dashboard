@@ -99,6 +99,14 @@ h2{font-size:16px;margin:0 0 10px}
 .stat{background:var(--putih);border:1px solid var(--garis);border-radius:var(--r);padding:12px 14px;cursor:pointer;text-align:left}
 .stat:hover{border-color:var(--biru2)}
 .stat .l{font-size:13px;color:var(--abu)}
+.stat .k{font-size:11.5px;color:var(--abu);margin-top:2px;line-height:1.3}
+.g3s{grid-template-columns:repeat(3,minmax(0,1fr))}
+.perAlat{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.perNav{display:inline-flex;align-items:center;gap:6px}.perNav b{min-width:118px;text-align:center;white-space:nowrap}
+.perNav .btn{min-height:34px;padding:4px 11px}.perNav .btn[disabled]{opacity:.35;cursor:default}
+.perAtas{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:18px 0 10px}.perAtas h2{margin:0;font-size:17px}
+.perKet{margin:-2px 0 8px;font-size:13px}
+@media(max-width:760px){.g3s{gap:8px}.g3s .stat{padding:10px}.g3s .stat .l{font-size:12px}.g3s .stat .v{font-size:24px}.perAlat .seg button{padding:7px 10px;font-size:13.5px}}
 .stat .v{font-size:28px;font-weight:700;line-height:1.2}
 .stat.merah{background:var(--merahbg);border-color:var(--merahgaris)}.stat.merah .v,.stat.merah .l{color:var(--merah)}
 .stat.kuning{background:var(--kuningbg);border-color:var(--kuninggaris)}.stat.kuning .v,.stat.kuning .l{color:var(--kuningtx)}
@@ -452,12 +460,12 @@ function tpSegarkan(){
     .then(function(r){ return r.json(); }).then(function(j){ if(j && j.ok && !j.sama) tpPakai(j.tampilan); return j; }).catch(function(){});
 }
 var D = null, TOKEN = null, ME = null, peta = null, lapPeta = null;
-var FP_AWAL = { status:'Berjalan', periode:'tahun', kategori:'', kecamatan:'' }, filterPeta = Object.assign({}, FP_AWAL);
+var FP_AWAL = { status:'Berjalan', kategori:'', kecamatan:'' }, filterPeta = Object.assign({}, FP_AWAL);
 var BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 var BLN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 var HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-var filterKasus = { q:'', status:'Berjalan', tahap:'', kategori:'', kecamatan:'', bulan:'', lewat:false };
-var filterAduan = { status:'Baru', q:'' };
+var filterKasus = { q:'', status:'Berjalan', tahap:'', kategori:'', kecamatan:'', per:null, dasar:'dibuka', lewat:false };
+var filterAduan = { status:'Baru', q:'', per:null };
 
 /* ---------- util ---------- */
 function $(s, r){ return (r||document).querySelector(s); }
@@ -2637,6 +2645,9 @@ function render(){
   if(isAdmin()) menu.push(['surat','Surat']);
   if(isAdmin()) menu.push(['laporan','Laporan']);
   $('#nav').innerHTML = menu.map(function(m){ return '<a href="#'+m[0]+'" class="'+(bag[0]===m[0]?'on':'')+'"><span class="ic only-mob"><svg viewBox="0 0 24 24" aria-hidden="true">'+(IKON_NAV[m[0]]||'')+'</svg></span><span class="lb">'+m[1]+'</span>'+(m[2]?'<span class="n">'+m[2]+'</span>':'')+'</a>'; }).join('');
+  $('#nav').onclick=function(e){ var a=e.target.closest('a'); if(!a) return; var t=a.getAttribute('href');   // dari menu: Kasus & Aduan mulai "Semua waktu"
+    if(t==='#kasus'){ filterKasus.per=null; filterKasus.dasar='dibuka'; } else if(t==='#aduan') filterAduan.per=null; else return;
+    if(location.hash===t){ e.preventDefault(); render(); } };
   if($('#mnPengaturan')) $('#mnPengaturan').classList.toggle('hide', !isUtama());
   var keP=function(t){ return function(){ if(isUtama()) location.replace('#pengaturan/'+t); else vBeranda(); }; };
   var f = { beranda: vBeranda, aduan: vAduan, kasus: bag[1] ? function(){ vDetail(decodeURIComponent(bag[1])); } : vKasus, kalender: vKalender, libur: keP('libur'), pengguna: keP('pengguna'),
@@ -2656,34 +2667,95 @@ function bars(obj, urutan, maks){
   var mx = Math.max.apply(null, keys.map(function(k){ return obj[k]; }));
   return keys.map(function(k){ return '<div class="bar"><span class="nm" title="'+esc(k)+'">'+esc(k)+'</span><span class="t"><i style="width:'+(obj[k]/mx*100)+'%"></i></span><b>'+obj[k]+'</b></div>'; }).join('');
 }
+/* ---------- periode bersama: Beranda, Kasus, Aduan ----------
+   Satu pilihan (PER) dipakai ketiganya; jenisnya (bulanan/triwulan/tahunan) diingat per perangkat (localStorage ppud_periode).
+   Kasus & Aduan juga punya "Semua waktu" (per = null); dibuka dari menu = Semua waktu, dari kartu Beranda = periode Beranda. */
+var PER_JENIS=[['bulanan','Bulanan'],['triwulan','Triwulan'],['tahunan','Tahunan']], ROMAWI4=['I','II','III','IV'], PER=null;
+function perKini(j){ var t=D.hariIni, y=+t.slice(0,4), m=+t.slice(5,7); return { j:j, y:y, n:j==='bulanan'?m:j==='triwulan'?Math.ceil(m/3):0 }; }
+function perBersama(){ if(!PER){ var j='bulanan'; try{ var x=localStorage.getItem('ppud_periode'); if(/^(bulanan|triwulan|tahunan)$/.test(x)) j=x; }catch(e){} PER=perKini(j); } return PER; }
+function perSetel(p){ if(!p) return; PER={ j:p.j, y:p.y, n:p.n }; try{ localStorage.setItem('ppud_periode', p.j); }catch(e){} }
+function perSalin(p){ return p ? { j:p.j, y:p.y, n:p.n } : null; }
+function perRentang(p){ var m1=p.j==='bulanan'?p.n:p.j==='triwulan'?p.n*3-2:1, m2=p.j==='bulanan'?p.n:p.j==='triwulan'?p.n*3:12, z=function(x){ return ('0'+x).slice(-2); };
+  return { a:p.y+'-'+z(m1)+'-01', b:p.y+'-'+z(m2)+'-31', m1:m1, m2:m2 }; }
+function perLabel(p){ if(!p) return 'Semua waktu'; return p.j==='bulanan'?BULAN[p.n-1]+' '+p.y : p.j==='triwulan'?'Triwulan '+ROMAWI4[p.n-1]+' '+p.y : 'Tahun '+p.y; }
+function perDalam(p, tgl){ if(!p) return true; var x=String(tgl||'').slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(x)) return false; var r=perRentang(p); return x>=r.a && x<=r.b; }
+function perGeser(p, d){ var q=perSalin(p); if(q.j==='tahunan') q.y+=d; else { var mk=q.j==='bulanan'?12:4; q.n+=d; if(q.n<1){ q.n=mk; q.y--; } if(q.n>mk){ q.n=1; q.y++; } } return q; }
+function perBanding(a, b){ return a.y!==b.y ? a.y-b.y : a.n-b.n; }
+function perAlat(id, p, bolehSemua){
+  var aktif=p?p.j:'semua', ops=PER_JENIS.concat(bolehSemua?[['semua','Semua waktu']]:[]);
+  var h='<div class="perAlat" id="'+id+'"><div class="seg" role="group" aria-label="Jenis periode">'+ops.map(function(o){ return '<button type="button" data-j="'+o[0]+'" class="'+(aktif===o[0]?'on':'')+'">'+o[1]+'</button>'; }).join('')+'</div>';
+  if(p){ var kini=perKini(p.j), sama=!perBanding(p,kini), maju=perBanding(perGeser(p,1),kini)<=0;
+    h+='<div class="perNav"><button type="button" class="btn" data-g="-1" aria-label="Periode sebelumnya">‹</button><b>'+esc(perLabel(p))+'</b>'+
+      '<button type="button" class="btn" data-g="1" aria-label="Periode berikutnya"'+(maju?'':' disabled')+'>›</button>'+(sama?'':'<button type="button" class="btn kecil" data-g="0">Kini</button>')+'</div>'; }
+  return h+'</div>';
+}
+function perPasang(id, p, ubah){ var el=$('#'+id); if(!el) return;
+  el.addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b || b.disabled) return;
+    var j=b.getAttribute('data-j'), g=b.getAttribute('data-g'), q;
+    if(j) q = j==='semua' ? null : (p && p.j===j ? p : perKini(j));
+    else if(g!=null) q = +g===0 ? perKini(p.j) : perGeser(p, +g); else return;
+    ubah(perSalin(q)); }); }
+/* Penegakan gabungan (sama dengan Laporan › Data kasus): bulan sebelum "bulan mulai data kasus" dari Sheet rekap tahun itu,
+   sesudahnya dari kasus (1 kasus = 1, kecuali hasil akhir Tidak Terbukti / Digabung ke Kasus Lain); nama jenis disatukan. */
+function rekapAtur(){ return (D.rekap && D.rekap.atur) || {}; }
+function penegakanTahun(th){
+  var A=rekapAtur(), m=A.mulaiKasus;
+  if(!m) m=(D.kasus||[]).map(function(k){ return String(k.tanggalDibuka||'').slice(0,7); }).filter(function(x){ return /^\d{4}-\d{2}$/.test(x); }).sort()[0];
+  var mulai=!m?1 : th>+m.slice(0,4)?1 : th<+m.slice(0,4)?13 : +m.slice(5,7);
+  var kas=LaporanData.dariKasus(D.kasus, D.riwayat, th, { mulaiBulan: mulai }).baku.map(function(x){ x.asal='kasus'; return x; });
+  var R=D.rekap && D.rekap.tahun && D.rekap.tahun[th], sh=[], adaSheet=!!(R && R.sheets);
+  if(mulai>1 && adaSheet){ var sheets={}; Object.keys(R.sheets).forEach(function(n){ var x=R.sheets[n], rows=[x.h]; (x.b||[]).forEach(function(b){ rows[b[0]-1]=b[1]; }); sheets[n]=rows; });
+    sh=LaporanData.dariRekap(sheets).baku.filter(function(x){ return x.bulan<mulai; }).map(function(x){ x.asal='sheet'; return x; }); }
+  var kunci=function(t){ return String(t||'').replace(/\s+/g,'').toLowerCase(); }, sat={}, kanon={}, S=A.satukan||LaporanData.BAWAAN.satukan;
+  Object.keys(S).forEach(function(k){ if(S[k]) sat[kunci(k)]=String(S[k]).trim(); });
+  var baku=sh.concat(kas).map(function(x){ var j=sat[kunci(x.jenis)]||x.jenis, kj=kunci(j); if(!kanon[kj]) kanon[kj]=j; x.jenis=kanon[kj]; return x; });
+  return { baku:baku, mulai:mulai, adaSheet:adaSheet, namaSheet:R&&R.nama||'', galat:R&&R.galat||'' };
+}
+function penegakan(p){ var T=penegakanTahun(p.y), r=perRentang(p);
+  var L=T.baku.filter(function(x){ return x.bulan>=r.m1 && x.bulan<=r.m2; });
+  var jml=function(a){ return a.reduce(function(s,x){ return s+x.jumlah; },0); };
+  var hit=function(key){ var o={}; L.forEach(function(x){ var k=x[key]||'Tidak tercatat'; o[k]=(o[k]||0)+x.jumlah; }); return o; };
+  return { total:jml(L), sheet:jml(L.filter(function(x){ return x.asal==='sheet'; })), kasus:jml(L.filter(function(x){ return x.asal==='kasus'; })),
+    perJenis:hit('jenis'), perKec:hit('kecamatan'), kurangSheet: r.m1<T.mulai && !T.adaSheet, T:T }; }
+function keAduan(o){ Object.assign(filterAduan,{ status:'Semua', q:'', per:null }, o); location.hash='aduan'; }
 function vBeranda(){
-  var t = D.hariIni, bln = t.slice(0,7);
+  var t = D.hariIni, P = perBersama();
   var berjalan = D.kasus.filter(function(k){ return k.status!=='Selesai'; });
   var lw = berjalan.filter(lewat);
-  var selesaiBln = D.kasus.filter(function(k){ return k.status==='Selesai' && (k.tanggalSelesai||'').slice(0,7)===bln; });
   var baru = D.aduan.filter(function(a){ return a.status==='Baru'; });
   var perhatian = berjalan.filter(function(k){ return k.tenggat && selisihHK(t,k.tenggat)<=2; }).sort(function(a,b){ return a.tenggat<b.tenggat?-1:1; });
+  var dibuka = D.kasus.filter(function(k){ return perDalam(P,k.tanggalDibuka); });
+  var selesaiP = D.kasus.filter(function(k){ return k.status==='Selesai' && perDalam(P,k.tanggalSelesai); });
+  var masukP = D.aduan.filter(function(a){ return perDalam(P,a.waktu); });
+  var PG = penegakan(P), lbl = perLabel(P);
+  var ketPg = PG.sheet ? 'Sheet rekap '+PG.sheet+' · kasus '+PG.kasus : PG.kurangSheet ? 'Sheet rekap '+P.y+' belum dipasang' : '';
   $('#isi').innerHTML =
     '<h1>Ringkasan · '+esc(tglIndo(t,true))+'</h1>'+
-    '<div class="grid g4">'+
-      '<button class="stat" onclick="location.hash=\'aduan\'"><div class="l">Aduan baru</div><div class="v">'+baru.length+'</div></button>'+
+    '<div class="sub" style="margin:-4px 0 8px">Kondisi hari ini</div>'+
+    '<div class="grid g3s">'+
+      '<button class="stat" onclick="keAduan({status:\'Baru\'})"><div class="l">Aduan baru</div><div class="v">'+baru.length+'</div></button>'+
       '<button class="stat" onclick="setFK({status:\'Berjalan\',lewat:false})"><div class="l">Kasus berjalan</div><div class="v">'+berjalan.length+'</div></button>'+
       '<button class="stat '+(lw.length?'merah':'')+'" onclick="setFK({status:\'Berjalan\',lewat:true})"><div class="l">Lewat tenggat</div><div class="v">'+lw.length+'</div></button>'+
-      '<button class="stat" onclick="setFK({status:\'Selesai\',lewat:false,bulan:\'\'})"><div class="l">Selesai bulan ini</div><div class="v">'+selesaiBln.length+'</div></button>'+
     '</div>'+
     agPenanda()+
     kotakKegiatan(t)+
-    '<div class="grid g2" style="margin-top:12px">'+
-      '<div class="kartu"><h2>Perlu perhatian</h2>'+(perhatian.length ? '<div class="daftar">'+perhatian.slice(0,8).map(itemKasus).join('')+'</div>'+(perhatian.length>8?'<p class="sub">+'+(perhatian.length-8)+' kasus lagi</p>':'') : '<div class="sub">Tidak ada kasus yang lewat atau mendekati tenggat (≤ 2 hari kerja).</div>')+'</div>'+
-      '<div class="kartu"><h2>Kasus berjalan per tahap</h2>'+bars(hitung(berjalan,'tahap','Belum ada tahap'), D.tahap.concat(['Belum ada tahap']))+'</div>'+
+    '<div class="kartu" style="margin-top:12px"><h2>Perlu perhatian</h2>'+(perhatian.length ? '<div class="daftar">'+perhatian.slice(0,8).map(itemKasus).join('')+'</div>'+(perhatian.length>8?'<p class="sub">+'+(perhatian.length-8)+' kasus lagi</p>':'') : '<div class="sub">Tidak ada kasus yang lewat atau mendekati tenggat (≤ 2 hari kerja).</div>')+'</div>'+
+    '<div class="perAtas"><h2>Periode · '+esc(lbl)+'</h2>'+perAlat('perBr', P, false)+'</div>'+
+    '<div class="grid g3s">'+
+      '<button class="stat" onclick="keAduan({per:perSalin(PER)})"><div class="l">Aduan masuk</div><div class="v">'+masukP.length+'</div></button>'+
+      '<button class="stat" onclick="setFK({status:\'\',lewat:false,per:perSalin(PER)})" title="Penegakan: Sheet rekap (bulan sebelum data kasus) + kasus dibuka"><div class="l">Penegakan</div><div class="v">'+PG.total+'</div>'+(ketPg?'<div class="k">'+esc(ketPg)+'</div>':'')+'</button>'+
+      '<button class="stat" onclick="setFK({status:\'Selesai\',lewat:false,per:perSalin(PER),dasar:\'selesai\'})"><div class="l">Kasus selesai</div><div class="v">'+selesaiP.length+'</div></button>'+
     '</div>'+
+    (PG.T.galat ? '<div class="sub" style="margin-top:6px;color:var(--merah)">Sheet rekap '+P.y+' tidak terbaca: '+esc(PG.T.galat)+'</div>' : '')+
     '<div class="grid g2" style="margin-top:12px">'+
-      '<div class="kartu"><h2>Kasus berjalan per kategori</h2>'+bars(hitung(berjalan,'kategori'))+'</div>'+
-      '<div class="kartu"><h2>Kasus berjalan per kecamatan</h2>'+bars(hitung(berjalan,'kecamatan'),null,8)+'</div>'+
+      '<div class="kartu"><h2>Kasus dibuka · tahap saat ini</h2>'+bars(hitung(dibuka.map(function(k){ return { tahap: k.status==='Selesai' ? 'Selesai' : (k.tahap||'Belum ada tahap') }; }),'tahap'), D.tahap.concat(['Belum ada tahap','Selesai']))+'</div>'+
+      '<div class="kartu"><h2>Penegakan per jenis</h2>'+bars(PG.perJenis)+'</div>'+
     '</div>'+
-    '<div class="kartu" style="margin-top:12px"><h2>Sebaran kasus</h2><div id="alatPeta" class="alatPeta"></div><div style="position:relative"><div id="peta"></div><div id="petaKosong" class="petaKosong" hidden>Tidak ada kasus dengan titik lokasi untuk pilihan ini</div></div>'+
+    '<div class="kartu" style="margin-top:12px"><h2>Penegakan per kecamatan</h2>'+bars(PG.perKec,null,10)+'</div>'+
+    '<div class="kartu" style="margin-top:12px"><h2>Sebaran kasus dibuka · '+esc(lbl)+'</h2><div id="alatPeta" class="alatPeta"></div><div style="position:relative"><div id="peta"></div><div id="petaKosong" class="petaKosong" hidden>Tidak ada kasus dengan titik lokasi untuk pilihan ini</div></div>'+
     '<div class="sub legenda"><span><span class="dot" style="background:'+tpNilai('utama')+'"></span>Berjalan</span><span><span class="dot" style="background:#b42318"></span>Lewat tenggat</span><span><span class="dot" style="background:#8a94a6"></span>Selesai</span></div>'+
-    '<div class="sub" style="margin-top:4px">Hanya kasus yang memiliki titik lokasi.</div></div>';
+    '<div class="sub" style="margin-top:4px">Hanya kasus yang memiliki titik lokasi. Data Sheet rekap tidak punya titik.</div></div>';
+  perPasang('perBr', P, function(q){ perSetel(q); var y=window.scrollY; vBeranda(); window.scrollTo(0,y); });
   if(!window.L){ $('#peta').innerHTML='<div class="kosong">Peta tidak dapat dimuat.</div>'; return; }
   peta = L.map('peta').setView([-6.86,107.95],10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'© OpenStreetMap' }).addTo(peta);
@@ -2694,22 +2766,20 @@ function alatPeta(){
   var f = filterPeta;
   var kat = D.kategori.slice(); D.kasus.forEach(function(k){ if(k.kategori && kat.indexOf(k.kategori)<0) kat.push(k.kategori); });
   $('#alatPeta').innerHTML = '<div class="seg" id="segPeta">'+['Berjalan','Selesai','Semua'].map(function(s){ return '<button type="button" data-s="'+s+'" class="'+(f.status===s?'on':'')+'">'+s+'</button>'; }).join('')+'</div>'+
-    (f.status!=='Berjalan' ? '<select id="pPer" title="Periode kasus selesai">'+opsi([['bulan','Selesai bulan ini'],['tahun','Selesai tahun ini'],['semua','Selesai semua waktu']], f.periode)+'</select>' : '')+
     '<select id="pKat">'+opsi(kat, f.kategori, 'Semua kategori')+'</select>'+
     '<select id="pKec">'+opsi(Object.keys(D.wilayah).sort(), f.kecamatan, 'Semua kecamatan')+'</select>';
   $('#segPeta').querySelectorAll('button').forEach(function(b){ b.addEventListener('click', function(){ f.status=this.getAttribute('data-s'); alatPeta(); isiPeta(); }); });
-  var map={pPer:'periode',pKat:'kategori',pKec:'kecamatan'};
+  var map={pKat:'kategori',pKec:'kecamatan'};
   Object.keys(map).forEach(function(id){ var el=$('#'+id); if(el) el.addEventListener('change', function(){ f[map[id]]=this.value; isiPeta(); }); });
 }
 function isiPeta(){
   if(!peta || !lapPeta) return;
-  var f = filterPeta, t = D.hariIni;
-  var cocokPeriode = function(k){ var s=k.tanggalSelesai||''; return f.periode==='semua' || (f.periode==='bulan' ? s.slice(0,7)===t.slice(0,7) : s.slice(0,4)===t.slice(0,4)); };
+  var f = filterPeta, P = perBersama();
   var titik = D.kasus.filter(function(k){
     var sel = k.status==='Selesai';
     if(f.status==='Berjalan' && sel) return false;
     if(f.status==='Selesai' && !sel) return false;
-    if(sel && !cocokPeriode(k)) return false;
+    if(!perDalam(P, k.tanggalDibuka)) return false;
     if(f.kategori && k.kategori!==f.kategori) return false;
     if(f.kecamatan && k.kecamatan!==f.kecamatan) return false;
     return k.lat && k.lng && isFinite(+k.lat) && isFinite(+k.lng) && Math.abs(+k.lng) <= 180; });
@@ -2733,21 +2803,22 @@ function kotakKegiatan(t){
   return '<div class="kartu" style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:0">Kegiatan hari ini &amp; besok</h2><a href="#kalender" style="white-space:nowrap">Buka kalender →</a></div>'+
     '<div class="grid g2" style="margin-top:8px">'+kol(t,'Hari ini')+kol(besok,'Besok')+'</div></div>';
 }
-function setFK(o){ Object.assign(filterKasus,{q:'',tahap:'',kategori:'',kecamatan:'',bulan:''},o); location.hash='kasus'; }
+function setFK(o){ Object.assign(filterKasus,{q:'',tahap:'',kategori:'',kecamatan:'',per:null,dasar:'dibuka'},o); location.hash='kasus'; }
 
 /* ---------- aduan ---------- */
 function vAduan(){
-  var st=['Baru','Jadi Kasus','Ditolak','Semua'];
-  $('#isi').innerHTML='<h1>Aduan warga</h1><div class="alat"><div class="seg" id="segAduan">'+st.map(function(s){ var n = s==='Semua'?D.aduan.length:D.aduan.filter(function(a){return a.status===s;}).length;
+  var st=['Baru','Jadi Kasus','Ditolak','Semua'], dlm=D.aduan.filter(function(a){ return perDalam(filterAduan.per, a.waktu); });
+  $('#isi').innerHTML='<h1>Aduan warga</h1><div style="margin-bottom:10px">'+perAlat('perAd', filterAduan.per, true)+'</div><div class="alat"><div class="seg" id="segAduan">'+st.map(function(s){ var n = s==='Semua'?dlm.length:dlm.filter(function(a){return a.status===s;}).length;
       return '<button data-s="'+s+'" class="'+(filterAduan.status===s?'on':'')+'">'+s+' ('+n+')</button>'; }).join('')+'</div>'+
     '<input type="search" id="qAduan" placeholder="Cari tiket, uraian, desa…" value="'+esc(filterAduan.q)+'"></div><div id="listAduan"></div>';
   $('#segAduan').addEventListener('click', function(e){ var s=e.target.getAttribute('data-s'); if(s){ filterAduan.status=s; vAduan(); } });
   $('#qAduan').addEventListener('input', function(){ filterAduan.q=this.value; isiAduan(); });
+  perPasang('perAd', filterAduan.per, function(q){ filterAduan.per=q; perSetel(q); vAduan(); });
   isiAduan();
 }
 function isiAduan(){
   var q=filterAduan.q.toLowerCase();
-  var list=D.aduan.filter(function(a){ return (filterAduan.status==='Semua'||a.status===filterAduan.status) &&
+  var list=D.aduan.filter(function(a){ return (filterAduan.status==='Semua'||a.status===filterAduan.status) && perDalam(filterAduan.per, a.waktu) &&
     (!q || [a.tiket,a.uraian,a.kategori,a.kecamatan,a.desa,a.alamat].join(' ').toLowerCase().indexOf(q)>=0); })
     .sort(function(a,b){ return a.waktu<b.waktu?1:-1; });
   $('#listAduan').innerHTML = list.length ? '<div class="daftar">'+list.map(function(a){
@@ -2755,7 +2826,7 @@ function isiAduan(){
     return '<div class="item" onclick="bukaAduan(\''+esc(a.tiket)+'\')"><div class="a"><div><b>'+esc(a.kategori)+'</b> · <span class="sub">'+esc(a.tiket)+'</span></div><div style="text-align:right"><span class="pill '+p+'">'+esc(a.status)+'</span>'+(a.statusOleh?'<div class="sub" style="font-size:12px;margin-top:2px;white-space:nowrap">'+(a.status==='Baru'?'dikembalikan ':'oleh ')+esc(nm(a.statusOleh))+'</div>':'')+'</div></div>'+
       '<div class="sub">'+esc(waktuIndo(a.waktu))+' · Desa/Kel. '+esc(a.desa)+', Kec. '+esc(a.kecamatan)+(a.foto.length?' · '+a.foto.length+' foto':'')+'</div>'+
       '<div style="margin-top:4px">'+esc(a.uraian.length>180?a.uraian.slice(0,180)+'…':a.uraian)+'</div></div>'; }).join('')+'</div>'
-    : '<div class="kosong">Tidak ada aduan'+(filterAduan.status!=='Semua'?' berstatus '+filterAduan.status:'')+'.</div>';
+    : '<div class="kosong">Tidak ada aduan'+(filterAduan.status!=='Semua'?' berstatus '+filterAduan.status:'')+(filterAduan.per?' di '+perLabel(filterAduan.per):'')+'.</div>';
 }
 function bukaAduan(tiket){
   var a=D.aduan.filter(function(x){ return x.tiket===tiket; })[0]; if(!a) return;
@@ -2818,7 +2889,7 @@ function kasusTersaring(){
   var f=filterKasus, q=f.q.toLowerCase();
   return D.kasus.filter(function(k){
     return (!f.status||k.status===f.status) && (!f.tahap||(f.tahap==='(belum)'?!k.tahap:k.tahap===f.tahap)) && (!f.kategori||k.kategori===f.kategori) &&
-      (!f.kecamatan||k.kecamatan===f.kecamatan) && (!f.bulan||(k.tanggalDibuka||'').slice(0,7)===f.bulan) && (!f.lewat||lewat(k)) &&
+      (!f.kecamatan||k.kecamatan===f.kecamatan) && (!f.per||perDalam(f.per, f.dasar==='selesai'?k.tanggalSelesai:k.tanggalDibuka)) && (!f.lewat||lewat(k)) &&
       (!q || [k.no,k.ringkasan,k.objek,k.pelanggar,k.uraian,k.aturan,k.desa,k.alamat,k.tiket.join(' ')].join(' ').toLowerCase().indexOf(q)>=0);
   }).sort(function(a,b){
     if(urut.kol){ var ka=kunciUrut(a,urut.kol), kb=kunciUrut(b,urut.kol); if(ka<kb) return -urut.arah; if(ka>kb) return urut.arah; return a.no<b.no?-1:1; }
@@ -2848,23 +2919,25 @@ function thUrut(c){
 function opsi(list, val, kosong){ return (kosong!=null?'<option value="">'+esc(kosong)+'</option>':'')+list.map(function(x){ var v=Array.isArray(x)?x[0]:x, t=Array.isArray(x)?x[1]:x; return '<option value="'+esc(v)+'"'+(v===val?' selected':'')+'>'+esc(t)+'</option>'; }).join(''); }
 function vKasus(){
   var f=filterKasus;
-  var bulan = {}; D.kasus.forEach(function(k){ if(k.tanggalDibuka) bulan[k.tanggalDibuka.slice(0,7)]=1; });
-  var bl = Object.keys(bulan).sort().reverse().map(function(b){ return [b, BULAN[+b.slice(5)-1]+' '+b.slice(0,4)]; });
   var kat = D.kategori.slice(); D.kasus.forEach(function(k){ if(k.kategori && kat.indexOf(k.kategori)<0) kat.push(k.kategori); });
   $('#isi').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h1>Kasus</h1><div style="display:flex;gap:8px">'+
     '<button class="btn" onclick="eksporExcel()">⬇ Excel</button><button class="btn" onclick="eksporPDF()">⬇ PDF</button>'+(isAdmin()?'<button class="btn utama" onclick="formKasus()">+ Kasus baru</button>':'')+'</div></div>'+
+    '<div style="margin-bottom:8px">'+perAlat('perKs', f.per, true)+'</div>'+
+    (f.per && f.dasar==='selesai' ? '<div class="sub perKet">Menampilkan kasus yang <b>selesai</b> di '+esc(perLabel(f.per))+' (dari kartu Beranda). <a href="javascript:void 0" id="perDibuka">Pakai tanggal dibuka</a></div>' : f.per ? '<div class="sub perKet">Kasus yang <b>dibuka</b> di '+esc(perLabel(f.per))+'.</div>' : '')+
     '<div class="alat"><input type="search" id="qK" placeholder="Cari no. kasus, objek, aturan, desa…" value="'+esc(f.q)+'">'+
-    '<button class="btn only-mob" id="fTog" onclick="document.getElementById(\'fWrap\').classList.toggle(\'buka\')">Filter'+(function(n){ return n?' ('+n+')':''; })([f.tahap,f.kategori,f.kecamatan,f.bulan,f.lewat].filter(Boolean).length+(f.status!=='Berjalan'?1:0))+'</button>'+
+    '<button class="btn only-mob" id="fTog" onclick="document.getElementById(\'fWrap\').classList.toggle(\'buka\')">Filter'+(function(n){ return n?' ('+n+')':''; })([f.tahap,f.kategori,f.kecamatan,f.lewat].filter(Boolean).length+(f.status!=='Berjalan'?1:0))+'</button>'+
     '<div class="fwrap" id="fWrap"><select id="fS">'+opsi([['Berjalan','Berjalan'],['Selesai','Selesai']], f.status, 'Semua status')+'</select>'+
     '<select id="fT">'+opsi(D.tahap.concat([['(belum)','Belum ada tahap']]), f.tahap, 'Semua tahap')+'</select>'+
     '<select id="fKat">'+opsi(kat, f.kategori, 'Semua kategori')+'</select>'+
     '<select id="fKec">'+opsi(Object.keys(D.wilayah).sort(), f.kecamatan, 'Semua kecamatan')+'</select>'+
-    '<select id="fB">'+opsi(bl, f.bulan, 'Semua bulan dibuka')+'</select>'+
     '<select id="fU" class="only-mob">'+opsi([['no:1','No. kasus terlama'],['no:-1','No. kasus terbaru'],['objek:1','Objek A–Z'],['kategori:1','Kategori A–Z'],['lokasi:1','Lokasi A–Z'],['tahap:1','Tahap awal → akhir'],['tahap:-1','Tahap akhir → awal'],['tenggat:1','Tenggat terdekat']], urut.kol?urut.kol+':'+urut.arah:'', 'Urutkan: prioritas tenggat')+'</select>'+
     '<label class="sub" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fL" style="min-height:0"'+(f.lewat?' checked':'')+'> Hanya lewat tenggat</label></div></div>'+
     '<div id="listKasus"></div>';
-  var map={qK:'q',fS:'status',fT:'tahap',fKat:'kategori',fKec:'kecamatan',fB:'bulan'};
-  Object.keys(map).forEach(function(id){ $('#'+id).addEventListener(id==='qK'?'input':'change', function(){ f[map[id]]=this.value; isiKasus(); }); });
+  var map={qK:'q',fS:'status',fT:'tahap',fKat:'kategori',fKec:'kecamatan'};
+  Object.keys(map).forEach(function(id){ $('#'+id).addEventListener(id==='qK'?'input':'change', function(){ f[map[id]]=this.value;
+    if(id==='fS' && f.dasar==='selesai'){ f.dasar='dibuka'; vKasus(); return; } isiKasus(); }); });
+  perPasang('perKs', f.per, function(q){ f.per=q; f.dasar='dibuka'; perSetel(q); vKasus(); });
+  if($('#perDibuka')) $('#perDibuka').onclick=function(){ f.dasar='dibuka'; vKasus(); };
   $('#fL').addEventListener('change', function(){ f.lewat=this.checked; isiKasus(); });
   $('#fU').addEventListener('change', function(){ var p=this.value.split(':'); urut.kol=p[0]||''; urut.arah=Number(p[1])||1; isiKasus(); });
   isiKasus();
@@ -2872,7 +2945,7 @@ function vKasus(){
 function isiKasus(){
   var list=kasusTersaring();
   if(!list.length){ $('#listKasus').innerHTML='<div class="kosong">Tidak ada kasus yang cocok dengan filter.</div>'; return; }
-  $('#listKasus').innerHTML='<div class="sub" style="margin-bottom:6px">'+list.length+' kasus</div>'+
+  $('#listKasus').innerHTML='<div class="sub" style="margin-bottom:6px">'+list.length+' kasus'+(filterKasus.per?' · '+esc(perLabel(filterKasus.per)):'')+'</div>'+
     '<table class="t only-desk"><thead><tr>'+KOLOM.map(thUrut).join('')+'</tr></thead><tbody>'+
     list.map(function(k){ return '<tr class="klik '+(lewat(k)?'lewat':'')+'" onclick="location.hash=\'kasus/'+encodeURIComponent(k.no)+'\'"><td><b>'+esc(k.no)+'</b><div class="sub">'+esc(tglIndo(k.tanggalDibuka))+'</div></td>'+
       '<td>'+esc(judulKasus(k))+(k.objek&&k.ringkasan?'<div class="sub">'+esc(k.ringkasan)+'</div>':'')+'</td><td>'+esc(k.kategori)+'</td><td>Kec. '+esc(k.kecamatan)+'<div class="sub">'+esc(k.desa)+'</div></td>'+
@@ -4350,8 +4423,8 @@ function agEkspor(){
 function muatSkrip(src){ return new Promise(function(ok,gagal){ if(document.querySelector('script[src="'+src+'"]')) return ok(); var s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=function(){ gagal(new Error('Gagal memuat pustaka ekspor.')); }; document.head.appendChild(s); }); }
 function ketFilter(){ var f=filterKasus, a=[];
   a.push(f.status||'Semua status'); if(f.tahap) a.push('Tahap: '+f.tahap); if(f.kategori) a.push('Kategori: '+f.kategori); if(f.kecamatan) a.push('Kec. '+f.kecamatan);
-  if(f.bulan) a.push('Dibuka '+BULAN[+f.bulan.slice(5)-1]+' '+f.bulan.slice(0,4)); if(f.lewat) a.push('Lewat tenggat'); if(f.q) a.push('Cari: "'+f.q+'"'); return a.join(' · '); }
-function namaFile(ext){ return 'rekap-kasus-ppud-'+D.hariIni+'.'+ext; }
+  if(f.per) a.push((f.dasar==='selesai'?'Selesai ':'Dibuka ')+perLabel(f.per)); if(f.lewat) a.push('Lewat tenggat'); if(f.q) a.push('Cari: "'+f.q+'"'); return a.join(' · '); }
+function namaFile(ext){ var p=filterKasus.per; return 'rekap-kasus-ppud-'+(p?perLabel(p).toLowerCase().replace(/\s+/g,'-')+'-':'')+D.hariIni+'.'+ext; }
 function eksporExcel(){
   var list=kasusTersaring();
   muatSkrip('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js').then(function(){
@@ -4366,7 +4439,7 @@ function eksporExcel(){
     var ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'No. Kasus':'(tidak ada data)'}]); ws['!cols']=Object.keys(rows[0]||{a:1}).map(function(){ return {wch:18}; });
     XLSX.utils.book_append_sheet(wb, ws, 'Kasus');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(riw.length?riw:[{'No. Kasus':'(tidak ada data)'}]), 'Riwayat Tahapan');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Rekap kasus · '+tpNilai('nama')+' · '+tpNilai('organisasi')],['Diunduh',waktuIndo(new Date(Date.now()+7*3600e3).toISOString().replace('T',' ')),],['Oleh',ME.nama+' ('+ME.peran+')'],['Filter',ketFilter()],['Jumlah kasus',list.length]]), 'Info');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Rekap kasus'+(filterKasus.per?' · '+perLabel(filterKasus.per):'')+' · '+tpNilai('nama')+' · '+tpNilai('organisasi')],['Diunduh',waktuIndo(new Date(Date.now()+7*3600e3).toISOString().replace('T',' ')),],['Oleh',ME.nama+' ('+ME.peran+')'],['Filter',ketFilter()],['Jumlah kasus',list.length]]), 'Info');
     XLSX.writeFile(wb, namaFile('xlsx'));
   }).catch(function(e){ toast(e.message); });
 }
@@ -4387,7 +4460,7 @@ function eksporPDF(){
   var list=kasusTersaring();
   pustakaPDF().then(function(){
     var doc=new jspdf.jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
-    var y=kopPDF(doc,'Rekap Kasus PPUD', ketFilter()+' · '+list.length+' kasus · per '+tglIndo(D.hariIni,true));
+    var y=kopPDF(doc,'Rekap Kasus PPUD'+(filterKasus.per?' · '+perLabel(filterKasus.per):''), ketFilter()+' · '+list.length+' kasus · per '+tglIndo(D.hariIni,true));
     doc.autoTable({ startY:y, head:[['No. Kasus','Dibuka','Objek / ringkasan','Kategori','Lokasi','Aturan','Tahap','Tenggat / hasil']],
       body:list.map(function(k){ return [k.no, tglIndo(k.tanggalDibuka), judulKasus(k)+(k.objek&&k.ringkasan?'\n'+k.ringkasan:''), k.kategori, 'Kec. '+k.kecamatan+'\n'+k.desa, k.aturan||'-',
         (k.tahap||'-')+(k.tanggalTahap?'\n'+tglIndo(k.tanggalTahap):''), k.status==='Selesai'?'Selesai '+tglIndo(k.tanggalSelesai)+'\n'+k.hasil:(k.tenggat?tglIndo(k.tenggat)+(lewat(k)?'\nLEWAT TENGGAT':''):'-')]; }),
