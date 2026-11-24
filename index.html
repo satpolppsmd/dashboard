@@ -1433,6 +1433,19 @@ var ImbauanDocx = (function () {
 /* ---------- SURAT (Surat Perintah, Undangan, Surat Peringatan) ---------- */
 var SRD = null, SF = null, srMuat = null;
 var SR_DRAF0 = 'ppud_surat_draf_';
+/* Penggambaran ulang yang dipicu "change" (saat isian kehilangan fokus) ditunda sampai klik selesai.
+   Tanpa ini, klik pertama pada tombol (unduh/simpan) hilang: mousedown → blur → change → tombol digambar ulang sebelum mouseup. */
+var srTurun=false;
+document.addEventListener('pointerdown', function(){ srTurun=true; }, true);
+document.addEventListener('pointerup', function(){ setTimeout(function(){ srTurun=false; }, 0); }, true);
+document.addEventListener('pointercancel', function(){ srTurun=false; }, true);
+function srTunda(fn){
+  if(!srTurun){ fn(); return; }
+  var jalan=false, sekali=function(){ if(jalan) return; jalan=true; document.removeEventListener('click', klik, true); setTimeout(fn, 0); };
+  var klik=function(){ sekali(); };
+  document.addEventListener('click', klik, true);
+  setTimeout(sekali, 800);   // tidak jadi klik (mis. digeser): tetap digambar ulang
+}
 function srKunci(j){ if(j===undefined) j=SF&&SF.jenis; if(j==='Surat Peringatan') return prKunci(SF&&SF.idTahap||''); if(j==='Surat Imbauan') return imKunci(SF&&SF.idTahap||''); return SR_DRAF0+(j==='Undangan'?'und_':'')+(ME?ME.username:''); }
 var SEKSI_SR = ['Binwasluh', 'Sidiklidik'];
 function srMuatData(paksa){
@@ -1696,7 +1709,7 @@ function srGambarDasar(){
     SF.paket=p.nama; SF.dasar=p.ids.map(function(i){ return m[i]; }).filter(Boolean); srUbah(); srGambarDasar(); };
   [].forEach.call(document.querySelectorAll('#srDasarList textarea'), function(t){ srTinggi(t);
     t.oninput=function(){ SF.dasar[+t.getAttribute('data-i')]=t.value; srTinggi(t); srUbah(true); };
-    t.onchange=function(){ srGambarDasar(); }; });
+    t.onchange=function(){ srTunda(srGambarDasar); }; });
   srSeret($('#srDasarList'), '.srD', function(a,b){ srPindahkan(SF.dasar,a,b); srUbah(); srGambarDasar(); });
 }
 function srGeserDasar(i,a){ var x=SF.dasar.splice(i,1)[0]; SF.dasar.splice(i+a,0,x); srUbah(); srGambarDasar(); }
@@ -1746,7 +1759,7 @@ function srGambarJadwal(){
   }).join('');
   [].forEach.call(document.querySelectorAll('#srJadwal input[data-k]'), function(inp){
     var ji=+inp.closest('.srJ').getAttribute('data-j'), k=inp.getAttribute('data-k');
-    inp.oninput=inp.onchange=function(){ SF.jadwal[ji][k]=inp.value; if(k==='tanggal'){ var h=inp.closest('.f').querySelector('input[disabled]'); h.value=srHari(inp.value)||'–'; } srUbah(k==='tempat'); };
+    inp.oninput=inp.onchange=function(){ if(SF.jadwal[ji][k]===inp.value) return; SF.jadwal[ji][k]=inp.value; if(k==='tanggal'){ var h=inp.closest('.f').querySelector('input[disabled]'); h.value=srHari(inp.value)||'–'; } srUbah(k==='tempat'); };
   });
   [].forEach.call(document.querySelectorAll('#srJadwal .srP'), function(w){
     var ji=+w.closest('.srJ').getAttribute('data-j'), ti=+w.closest('[data-t]').getAttribute('data-t');
@@ -1755,7 +1768,7 @@ function srGambarJadwal(){
   [].forEach.call(document.querySelectorAll('#srJadwal input[data-tk]'), function(inp){
     var ji=+inp.closest('.srJ').getAttribute('data-j'), ti=+inp.closest('[data-t]').getAttribute('data-t'), k=inp.getAttribute('data-tk');
     inp.oninput=function(){ SF.jadwal[ji].tim[ti][k]=inp.value; srUbah(true); };
-    inp.onchange=function(){ SF.jadwal[ji].tim[ti][k]=inp.value; srUbah(); srGambarJadwal(); };
+    inp.onchange=function(){ SF.jadwal[ji].tim[ti][k]=inp.value; srTunda(function(){ srUbah(); srGambarJadwal(); }); };
   });
 }
 function srTambahJadwal(){ var a=SF.jadwal[SF.jadwal.length-1]||{}; var j=srJadwalKosong(); j.jamMulai=a.jamMulai||'09:00'; SF.jadwal.push(j); srUbah(); srGambarJadwal(); }
@@ -2037,7 +2050,7 @@ function unGambarPenerima(){
   [].forEach.call(document.querySelectorAll('#unPen [data-k]'), function(e){
     var i=+e.closest('.srD').getAttribute('data-i'), k=e.getAttribute('data-k'); if(e.tagName==='TEXTAREA') srTinggi(e);
     e.oninput=function(){ SF.penerima[i][k]=e.value; if(e.tagName==='TEXTAREA') srTinggi(e); unUbah(true); };
-    e.onchange=function(){ var v=k==='nama'?e.value.replace(/^\s*yth\.?\s*/i,''):e.value.replace(/^\s*cq\.?\s*/i,''); if(v!==e.value){ e.value=v; SF.penerima[i][k]=v; } unUbah(); if(k==='nama' || e.parentNode.querySelector('select[data-cq]')) unGambarPenerima(); }; });
+    e.onchange=function(){ var v=k==='nama'?e.value.replace(/^\s*yth\.?\s*/i,''):e.value.replace(/^\s*cq\.?\s*/i,''); if(v!==e.value){ e.value=v; SF.penerima[i][k]=v; } srTunda(function(){ unUbah(); if(k==='nama' || e.parentNode.querySelector('select[data-cq]')) unGambarPenerima(); }); }; });
   [].forEach.call(document.querySelectorAll('#unPen select[data-cq]'), function(sel){ sel.onchange=function(){
     var i=+sel.getAttribute('data-cq'); if(sel.value==='__lain'){ unKetik[i]=1; var inp=sel.parentNode.querySelector('input[data-k=cq]'); inp.style.display=''; inp.focus(); inp.select(); return; }
     delete unKetik[i]; SF.penerima[i].cq=sel.value==='__tanpa'?'':sel.value; unUbah(); unGambarPenerima(); }; });
@@ -2241,7 +2254,7 @@ function vPeringatanForm(id, idTahap){
   $('#prTgl').value=SF.tanggal||''; $('#prHit').value=SF.hitungan==='24 Jam'?'24 Jam':'Hari Kerja';
   $('#prHal').value=SF.hal||''; $('#prYth').value=SF.yth||''; $('#prDi').value=SF.di||'';
   $('#prSubjek').value=SF.subjek||''; $('#prPerintah').value=SF.perintah||''; if($('#prObjek')) $('#prObjek').value=SF.objek||'';
-  function ikat(sel, f, ringan){ var el=$(sel); if(!el) return; el.oninput=el.onchange=function(){ SF[f]=el.value; if(el.tagName==='TEXTAREA') srTinggi(el); prUbah(ringan); }; }
+  function ikat(sel, f, ringan){ var el=$(sel); if(!el) return; el.oninput=el.onchange=function(){ if(SF[f]===el.value) return; SF[f]=el.value; if(el.tagName==='TEXTAREA') srTinggi(el); prUbah(ringan); }; }
   ikat('#prTgl','tanggal'); ikat('#prHit','hitungan'); ikat('#prHal','hal',true); ikat('#prYth','yth',true); ikat('#prDi','di',true);
   ikat('#prSubjek','subjek'); ikat('#prPerintah','perintah'); ikat('#prObjek','objek');
   srGambarDasar(); prGambarButir(); prGambarKalimat(); prGambarTenggat(); prGambarHasil();
