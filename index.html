@@ -3117,6 +3117,7 @@ function detailKegiatan(id){
     '<dl class="dl"><dt>Tanggal</dt><dd>'+esc(rentangKeg(k))+'</dd><dt>Waktu</dt><dd>'+esc(jamKeg(k))+'</dd>'+
     '<dt>Lokasi</dt><dd>'+esc(k.lokasi||'–')+'</dd><dt>Petugas/peserta</dt><dd>'+esc(k.petugas||'–')+'</dd>'+
     (k.keterangan?'<dt>Keterangan</dt><dd>'+esc(k.keterangan)+'</dd>':'')+
+    (function(){ var a=agData().masuk.filter(function(z){ return z.idKegiatan===k.id; })[0]; return a?'<dt>Surat undangan</dt><dd><a href="javascript:void 0" onclick="tutupModal();agDetail(\'masuk\',\''+esc(a.id)+'\')">'+esc(a.noAgenda)+' · '+esc(a.perihal)+'</a><br>'+agPilStatus(a.status,a)+'</dd>':''; })()+
     (k.noKasus?'<dt>Kasus terkait</dt><dd><a href="#kasus/'+encodeURIComponent(k.noKasus)+'" onclick="tutupModal()">'+esc(k.noKasus)+'</a>'+(ks?' · '+esc(judulKasus(ks)):'')+'</dd>':'')+
     (k.lampiran.length?'<dt>Lampiran</dt><dd><div class="berkas" style="margin:0">'+k.lampiran.map(function(b){ return '<button class="btn kecil" onclick="lihatBerkas(\''+esc(b.id)+'\')">📎 '+esc(b.nama)+'</button>'; }).join('')+'</div></dd>':'')+
     '</dl><div class="sub" style="font-size:12px;margin-top:10px">Dibuat '+esc(nm(k.dibuatOleh))+' · '+esc(waktuIndo(k.waktuDibuat))+(k.diubahOleh?' · diubah '+esc(nm(k.diubahOleh))+' · '+esc(waktuIndo(k.waktuDiubah)):'')+'</div>'+
@@ -4054,18 +4055,28 @@ function lvhGambarQR(kode){
 var filterAgenda = { q:'', tahun:'', bulan:'', sifat:'', status:'' };
 var AG_BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 var agArsip = null;
-function agData(){ var a=(D && D.agenda)||{}; return { masuk:a.masuk||[], keluar:a.keluar||[], ttd:a.ttd||[], sifat:a.sifat||['Biasa','Segera','Rahasia'], statusTL:a.statusTL||['Belum','Diproses','Selesai'] }; }
+function agData(){ var a=(D && D.agenda)||{}; return { masuk:a.masuk||[], keluar:a.keluar||[], ttd:a.ttd||[], sifat:a.sifat||['Biasa','Segera','Rahasia'], statusTL:a.statusTL||['Belum','Diproses','Selesai'], statusUnd:a.statusUnd||['Belum','Akan dihadiri','Terlaksana','Tidak dihadiri'] }; }
+/* Undangan: Terlaksana & Tidak dihadiri = selesai. Perlu dikonfirmasi = tanggal acara lewat tapi status masih Belum / Akan dihadiri. */
+function agSelesai(x){ return x.status==='Selesai' || x.status==='Terlaksana' || x.status==='Tidak dihadiri'; }
+function agUndangan(x){ return x && x.jenisMasuk==='Undangan'; }
+function agPerluKonfirmasi(x){ return agUndangan(x) && x.tanggalAcara && x.tanggalAcara<D.hariIni && !agSelesai(x); }
+function agWaktuAcara(x){ return tglIndo(x.tanggalAcara)+(x.jamMulai?' · '+x.jamMulai+(x.jamSelesai?'–'+x.jamSelesai:'')+' WIB':''); }
 function agCari(jenis, id){ return agData()[jenis].filter(function(x){ return x.id===id; })[0] || (agArsip && (agArsip[jenis]||[]).filter(function(x){ return x.id===id; })[0]); }
 function agTanggal(x, jenis){ return jenis==='masuk' ? x.tanggalDiterima : x.tanggalSurat; }
-function agBelum(){ return agData().masuk.filter(function(x){ return x.status!=='Selesai'; }); }
+function agBelum(){ return agData().masuk.filter(function(x){ return !agSelesai(x); }); }
 function agPilSifat(s){ return s==='Rahasia'?'<span class="pill p-merah">🔒 Rahasia</span>':s==='Segera'?'<span class="pill p-kuning">Segera</span>':'<span class="pill">Biasa</span>'; }
-function agPilStatus(s){ return s==='Selesai'?'<span class="pill p-hijau">Selesai</span>':s==='Diproses'?'<span class="pill p-biru">Diproses</span>':'<span class="pill p-merah">Belum ditindaklanjuti</span>'; }
+function agPilStatus(s, x){
+  if(x && agPerluKonfirmasi(x)) return '<span class="pill p-kuning">⚠ Perlu dikonfirmasi</span>';
+  if(s==='Terlaksana') return '<span class="pill p-hijau">✓ Terlaksana</span>';
+  if(s==='Tidak dihadiri') return '<span class="pill">Tidak dihadiri</span>';
+  if(s==='Akan dihadiri') return '<span class="pill p-biru">Akan dihadiri</span>';
+  return s==='Selesai'?'<span class="pill p-hijau">Selesai</span>':s==='Diproses'?'<span class="pill p-biru">Diproses</span>':'<span class="pill p-merah">'+(agUndangan(x)?'Belum dikonfirmasi':'Belum ditindaklanjuti')+'</span>'; }
 function agTtdTeks(t){ return t ? t.label+' · '+(t.nama?t.nama:t.jabatan+' (nama belum ada di Data Pegawai)') : ''; }
 function agSaring(list, jenis){
   var f=filterAgenda, q=f.q.toLowerCase();
   return list.filter(function(x){ var t=agTanggal(x,jenis)||'';
     return (!f.tahun || t.slice(0,4)===f.tahun) && (!f.bulan || t.slice(5,7)===f.bulan) && (!f.sifat || x.sifat===f.sifat) &&
-      (jenis!=='masuk' || !f.status || (f.status==='Belum selesai' ? x.status!=='Selesai' : x.status===f.status)) &&
+      (jenis!=='masuk' || !f.status || (f.status==='Belum selesai' ? !agSelesai(x) : f.status==='Perlu dikonfirmasi' ? agPerluKonfirmasi(x) : f.status==='Undangan' ? agUndangan(x) : x.status===f.status)) &&
       (!q || [x.noAgenda,x.nomorSurat,x.perihal,x.pengirim,x.tujuan,x.kepada,x.disposisi,x.catatan,x.noKasus,x.namaTtd].join(' ').toLowerCase().indexOf(q)>=0); });
 }
 function vAgenda(tab){
@@ -4075,13 +4086,13 @@ function vAgenda(tab){
   var tabs=[['masuk','Masuk ('+A.masuk.length+')'],['keluar','Keluar ('+A.keluar.length+')']]; if(isUtama()) tabs.push(['arsip','Arsip']);
   $('#isi').innerHTML='<div class="kepalaB"><h1>Agenda Surat</h1><div class="alatB">'+(tab!=='arsip'?'<button class="btn" onclick="agEkspor()">⬇ Excel</button>':'')+
       (isAdmin()&&tab!=='arsip'?'<button class="btn utama" onclick="agForm(\''+tab+'\')">+ Surat '+tab+'</button>':'')+'</div></div>'+
-    (tab==='masuk'&&nBelum?'<p class="sub" style="margin:4px 0 10px">'+nBelum+' surat masuk belum selesai ditindaklanjuti.</p>':'')+
+    (tab==='masuk'&&nBelum?'<p class="sub" style="margin:4px 0 10px">'+nBelum+' surat masuk belum selesai ditindaklanjuti'+(function(){ var n=A.masuk.filter(agPerluKonfirmasi).length; return n?', <a href="javascript:void 0" onclick="filterAgenda.status=\'Perlu dikonfirmasi\';vAgenda(\'masuk\')"><b>'+n+' undangan perlu dikonfirmasi</b></a>':''; })()+'.</p>':'')+
     '<div class="alat"><div class="seg" id="segAg">'+tabs.map(function(t){ return '<button data-t="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+esc(t[1])+'</button>'; }).join('')+'</div></div>'+
     (tab!=='arsip'?'<div class="agSaring"><input type="search" id="qAg" placeholder="Cari nomor, perihal, '+(tab==='masuk'?'pengirim':'tujuan')+'…" value="'+esc(f.q)+'">'+
       '<select id="agTh">'+opsi(tahun,f.tahun,'Semua tahun')+'</select>'+
       '<select id="agBl">'+opsi(AG_BULAN.map(function(b,i){ return [('0'+(i+1)).slice(-2), b]; }),f.bulan,'Semua bulan')+'</select>'+
       '<select id="agSf">'+opsi(A.sifat,f.sifat,'Semua sifat')+'</select>'+
-      (tab==='masuk'?'<select id="agSt">'+opsi(['Belum selesai'].concat(A.statusTL),f.status,'Semua status')+'</select>':'')+'</div>':'')+
+      (tab==='masuk'?'<select id="agSt">'+opsi(['Belum selesai','Perlu dikonfirmasi','Undangan'].concat(A.statusTL, A.statusUnd.filter(function(z){ return A.statusTL.indexOf(z)<0; })),f.status,'Semua status')+'</select>':'')+'</div>':'')+
     '<div id="listAg"></div>';
   $('#segAg').addEventListener('click', function(e){ var t=e.target.getAttribute('data-t'); if(t) location.hash='agenda'+(t==='masuk'?'':'/'+t); });
   if(tab==='arsip'){ agMuatArsip(); return; }
@@ -4091,7 +4102,7 @@ function vAgenda(tab){
 }
 function agItem(x, jenis, arsip){
   var siapa = jenis==='masuk' ? 'Dari '+x.pengirim : 'Kepada '+x.tujuan;
-  var pil = agPilSifat(x.sifat)+(jenis==='masuk'&&!arsip?agPilStatus(x.status):'')+(jenis==='keluar'&&x.idSurat?'<span class="pill">'+esc(x.jenisSurat)+'</span>':'')+
+  var pil = agPilSifat(x.sifat)+(jenis==='masuk'&&agUndangan(x)?'<span class="pill p-biru">📅 Undangan · '+esc(agWaktuAcara(x))+'</span>':'')+(jenis==='masuk'&&!arsip?agPilStatus(x.status,x):'')+(jenis==='keluar'&&x.idSurat?'<span class="pill">'+esc(x.jenisSurat)+'</span>':'')+
     (x.noKasus?'<span class="pill p-biru">'+esc(x.noKasus)+'</span>':'')+(arsip?'<span class="pill p-merah">Diarsipkan</span>':'');
   var nb = x.berkas.length || x.berkasTerkunci || 0;
   return '<div class="item"'+(arsip?' style="cursor:default"':' onclick="agDetail(\''+jenis+'\',\''+esc(x.id)+'\')"')+'><div class="a"><b>'+esc(x.perihal)+'</b><span class="sub" style="white-space:nowrap">'+esc(x.noAgenda)+'</span></div>'+
@@ -4141,7 +4152,8 @@ function agDetail(jenis, id){
     '<dt>Pengirim/asal</dt><dd>'+esc(x.pengirim)+(x.perorangan?' <span class="sub">(perorangan)</span>':'')+'</dd><dt>Nomor surat</dt><dd>'+esc(x.nomorSurat||'–')+'</dd><dt>Tanggal surat</dt><dd>'+esc(x.tanggalSurat?tglIndo(x.tanggalSurat,true):'–')+'</dd>'+
     '<dt>Perihal</dt><dd>'+esc(x.perihal)+'</dd><dt>Sifat</dt><dd>'+agPilSifat(x.sifat)+'</dd><dt>Lampiran</dt><dd>'+agBerkasHTML(x,jenis)+'</dd>'+
     '<dt>Diteruskan kepada</dt><dd>'+esc(x.kepada||'–')+'</dd><dt>Isi disposisi</dt><dd>'+esc(x.disposisi||'–')+'</dd>'+
-    '<dt>Tindak lanjut</dt><dd>'+agPilStatus(x.status)+(x.status==='Selesai'&&x.tanggalSelesai?' · '+esc(tglIndo(x.tanggalSelesai)):'')+(x.tindakLanjut?'\n'+esc(x.tindakLanjut):'')+'</dd>';
+    (agUndangan(x)?'<dt>Acara</dt><dd><b>'+esc(agWaktuAcara(x))+'</b>'+(x.tempatAcara?'\n'+esc(x.tempatAcara):'')+'</dd><dt>Kalender</dt><dd>'+agKegiatanLink(x)+'</dd>':'')+
+    '<dt>'+(agUndangan(x)?'Kehadiran':'Tindak lanjut')+'</dt><dd>'+agPilStatus(x.status,x)+(x.status==='Selesai'&&x.tanggalSelesai?' · '+esc(tglIndo(x.tanggalSelesai)):'')+(x.tindakLanjut?'\n'+esc(x.tindakLanjut):'')+'</dd>';
   else dl='<dt>No. agenda</dt><dd><b>'+esc(x.noAgenda)+'</b></dd><dt>Nomor surat</dt><dd>'+esc(x.nomorSurat)+'</dd><dt>Tanggal surat</dt><dd>'+esc(tglIndo(x.tanggalSurat,true))+'</dd>'+
     '<dt>Tujuan</dt><dd>'+esc(x.tujuan)+'</dd><dt>Perihal</dt><dd>'+esc(x.perihal)+'</dd><dt>Sifat</dt><dd>'+agPilSifat(x.sifat)+'</dd>'+
     '<dt>Penandatangan</dt><dd>'+esc(x.namaTtd||'–')+'</dd><dt>Berkas</dt><dd>'+agBerkasHTML(x,jenis)+'</dd>'+
@@ -4152,9 +4164,21 @@ function agDetail(jenis, id){
     if(isUtama() && !(jenis==='keluar' && x.idSurat)) aksi+='<button class="btn bahaya" onclick="agArsipkan(\''+jenis+'\',\''+esc(x.id)+'\')">🗄 Arsipkan</button>';
     aksi+='<button class="btn" onclick="agTautKasus(\''+jenis+'\',\''+esc(x.id)+'\')">'+(x.noKasus?'Ganti/lepas kasus':'Tautkan ke kasus')+'</button>';
     if(jenis==='masuk' && !x.noKasus) aksi+='<button class="btn" onclick="agJadikanKasus(\''+esc(x.id)+'\')">Jadikan kasus</button>';
+    if(jenis==='masuk' && agUndangan(x) && !agSelesai(x)) aksi+='<button class="btn" onclick="agSetStatus(\''+esc(x.id)+'\',\'Tidak dihadiri\',this)">Tidak dihadiri</button><button class="btn" onclick="agSetStatus(\''+esc(x.id)+'\',\'Terlaksana\',this)">✓ Terlaksana</button>';
     aksi+='<button class="btn utama" onclick="agForm(\''+jenis+'\',\''+esc(x.id)+'\')">Ubah</button>';
   }
   modal((jenis==='masuk'?'Surat masuk ':'Surat keluar ')+x.noAgenda, '<dl class="dl">'+dl+'</dl>'+(aksi?'<div class="aksi">'+aksi+'</div>':''), true);
+}
+function agKegiatanLink(x){ var k=(D.kegiatan||[]).filter(function(z){ return z.id===x.idKegiatan; })[0];
+  return k ? '<a href="javascript:void 0" onclick="tutupModal();detailKegiatan(\''+esc(k.id)+'\')">'+esc(k.nama)+'</a> <span class="sub">'+(x.kegiatanOtomatis?'(dibuat otomatis)':'(ditautkan)')+'</span>' : '<span class="sub">Belum ada di Kalender</span>'; }
+/* Ubah status undangan satu klik (Terlaksana / Tidak dihadiri) dengan data surat apa adanya. */
+function agSetStatus(id, status, btn){
+  var x=agCari('masuk',id); if(!x) return; btn.disabled=true;
+  var data={ jenisMasuk:x.jenisMasuk, tanggalDiterima:x.tanggalDiterima, sifat:x.sifat, pengirim:x.pengirim, perorangan:x.perorangan, nomorSurat:x.nomorSurat, tanggalSurat:x.tanggalSurat,
+    perihal:x.perihal, kepada:x.kepada, disposisi:x.disposisi, status:status, tanggalSelesai:'', tindakLanjut:x.tindakLanjut, noKasus:x.noKasus, catatan:x.catatan,
+    tanggalAcara:x.tanggalAcara, jamMulai:x.jamMulai, jamSelesai:x.jamSelesai, tempatAcara:x.tempatAcara, idKegiatan:x.kegiatanOtomatis?'':x.idKegiatan };
+  api('agendaSimpan',{ jenis:'masuk', id:id, agenda:data, berkas:[], hapusBerkas:[] }).then(function(){ tutupModal(); toast('Undangan ditandai '+status.toLowerCase()); return muatData(true); })
+    .catch(function(e){ toast(e.message); btn.disabled=false; });
 }
 function agKasusOpsi(no){ return opsi(D.kasus.slice().sort(function(a,b){ return a.no<b.no?1:-1; }).map(function(k){ return [k.no, k.no+' · '+judulKasus(k)+(k.status==='Selesai'?' (selesai)':'')]; }), no||'', 'Tidak ditautkan'); }
 function agTautKasus(jenis, id){
@@ -4177,9 +4201,10 @@ function agArsipkan(jenis, id){
 function agOpsiTtd(kode){ return '<option value="">'+(kode===undefined?'Pilih…':'Belum dipilih')+'</option>'+agData().ttd.map(function(t){ return '<option value="'+esc(t.kode)+'"'+(t.kode===kode?' selected':'')+'>'+esc(agTtdTeks(t))+'</option>'; }).join(''); }
 function agForm(jenis, id){
   var x=id?agCari(jenis,id):null, m=jenis==='masuk', A=agData(), dariSurat=!m && x && x.idSurat;
-  x = x || (m ? { tanggalDiterima:D.hariIni, sifat:'Biasa', status:'Belum', berkas:[] } : { tanggalSurat:D.hariIni, sifat:'Biasa', berkas:[] });
+  x = x || (m ? { tanggalDiterima:D.hariIni, sifat:'Biasa', status:'Belum', berkas:[], jenisMasuk:'Surat' } : { tanggalSurat:D.hariIni, sifat:'Biasa', berkas:[] });
   var ro=dariSurat?' readonly title="Mengikuti surat di menu Surat"':'', w=function(t){ return '<span>'+t+' <i class="bt">*</i></span>'; };
   var f = m ?
+    '<div class="pn"><div class="sub" style="margin-bottom:4px">Jenis surat masuk</div><div class="seg" id="agJns"><button type="button" data-j="Surat">Surat</button><button type="button" data-j="Undangan">Undangan</button></div></div>'+
     '<label class="wajib">'+w('Tanggal diterima')+'<input type="date" id="agTd" value="'+esc(x.tanggalDiterima||'')+'"></label>'+
     '<label class="wajib">'+w('Sifat')+'<select id="agSif">'+opsi(A.sifat,x.sifat)+'</select></label>'+
     '<label class="pn wajib">'+w('Pengirim/asal surat')+'<input id="agPg" maxlength="300" placeholder="Contoh: Kecamatan Jatinangor" value="'+esc(x.pengirim||'')+'"><span class="cek" style="margin-top:4px"><input type="checkbox" id="agPr"'+(x.perorangan?' checked':'')+'> Pengirim perorangan (nama disamarkan untuk akun Lihat)</span></label>'+
@@ -4197,10 +4222,16 @@ function agForm(jenis, id){
   var lama=(x.berkas||[]).map(function(b){ return '<label class="cek" style="margin-top:2px"><input type="checkbox" class="agHapusB" value="'+esc(b.id)+'"> Hapus 📎 '+esc(b.nama)+'</label>'; }).join('');
   f+='<label class="pn">'+(m?'Lampiran pindaian':'Berkas')+' (opsional · foto/PDF, maks 5 MB per berkas, paling banyak 5 berkas)<input type="file" id="agFile" multiple accept="image/*,application/pdf"></label>'+
     (lama?'<div class="pn">'+lama+'</div>':'')+'<div class="pn sub" id="agFileInfo"></div>';
-  if(m) f+='<h3 class="pn" style="margin:6px 0 0;font-size:15px;color:var(--teks)">Disposisi &amp; tindak lanjut</h3>'+
+  if(m) f+='<div class="pn f" id="agAcara" style="margin:0;padding:10px 12px;border:1px solid var(--garis);border-radius:10px;background:var(--latar2)">'+
+    '<h3 class="pn" style="margin:0;font-size:15px;color:var(--teks)">📅 Acara undangan</h3>'+
+    '<label class="wajib">'+w('Tanggal acara')+'<input type="date" id="agTa" value="'+esc(x.tanggalAcara||'')+'"></label>'+
+    '<label>Jam mulai – selesai<span style="display:flex;gap:6px"><input type="time" id="agJm" value="'+esc(x.jamMulai||'')+'" style="flex:1"><input type="time" id="agJs" value="'+esc(x.jamSelesai||'')+'" style="flex:1"></span></label>'+
+    '<label class="pn">Tempat<input id="agTp" maxlength="300" placeholder="Contoh: Pendopo Kecamatan Tanjungsari" value="'+esc(x.tempatAcara||'')+'"></label>'+
+    '<label class="pn">Kalender<select id="agKg"></select><span class="sub" id="agKgInfo"></span></label></div>'+
+    '<h3 class="pn" style="margin:6px 0 0;font-size:15px;color:var(--teks)">Disposisi &amp; tindak lanjut</h3>'+
     '<label class="pn">Diteruskan kepada<input id="agKp" maxlength="300" placeholder="Contoh: Kabid PPUD; Kasi Sidiklidik" value="'+esc(x.kepada||'')+'"></label>'+
     '<label class="pn">Isi disposisi<textarea id="agDp" maxlength="2000" style="min-height:60px">'+esc(x.disposisi||'')+'</textarea></label>'+
-    '<label>Status tindak lanjut<select id="agSt2">'+opsi(A.statusTL,x.status||'Belum')+'</select></label>'+
+    '<label><span id="agStL">Status tindak lanjut</span><select id="agSt2"></select></label>'+
     '<label id="agTgSel">Tanggal selesai<input type="date" id="agTsl" value="'+esc(x.tanggalSelesai||'')+'"></label>'+
     '<label class="pn">Catatan tindak lanjut<textarea id="agTl" maxlength="2000" style="min-height:60px">'+esc(x.tindakLanjut||'')+'</textarea></label>';
   f+='<label class="pn">Tautkan ke kasus<select id="agKs">'+agKasusOpsi(x.noKasus)+'</select></label>'+
@@ -4212,13 +4243,28 @@ function agForm(jenis, id){
   var infoFile=function(){ var fl=$('#agFile').files, hapus=$$('.agHapusB:checked').length, n=nLama-hapus+fl.length;
     $('#agFileInfo').innerHTML=Array.prototype.map.call(fl,function(z){ return esc(z.name)+' ('+(z.size/1048576).toFixed(1)+' MB)'; }).join(', ')+(n>5?' <b style="color:var(--merah)">· lebih dari 5 berkas</b>':''); };
   $('#agFile').addEventListener('change', infoFile); $$('.agHapusB').forEach(function(c){ c.addEventListener('change', infoFile); });
-  if(m){ var tg=function(){ $('#agTgSel').style.display=$('#agSt2').value==='Selesai'?'':'none'; if($('#agSt2').value==='Selesai' && !$('#agTsl').value) $('#agTsl').value=D.hariIni; }; tg(); $('#agSt2').addEventListener('change', tg); }
+  if(m){ var jns=x.jenisMasuk||'Surat';
+    var tg=function(){ $('#agTgSel').style.display=jns==='Surat'&&$('#agSt2').value==='Selesai'?'':'none'; if(jns==='Surat' && $('#agSt2').value==='Selesai' && !$('#agTsl').value) $('#agTsl').value=D.hariIni; };
+    /* pilihan kegiatan Kalender: otomatis (baru) atau tautkan ke kegiatan lain di tanggal acara (yang belum tertaut ke surat lain) */
+    var isiKg=function(){ var tgl=$('#agTa').value, pakai={}; A.masuk.forEach(function(z){ if(z.idKegiatan && z.id!==x.id) pakai[z.idKegiatan]=1; });
+      var L=(D.kegiatan||[]).filter(function(k){ return tgl && k.mulai<=tgl && k.selesai>=tgl && !pakai[k.id] && !(x.kegiatanOtomatis && k.id===x.idKegiatan); });
+      var cur=x.kegiatanOtomatis||!x.idKegiatan?'':x.idKegiatan, sel=$('#agKg').value!==undefined&&$('#agKg').options.length?$('#agKg').value:cur;
+      $('#agKg').innerHTML='<option value="">'+(x.kegiatanOtomatis&&x.idKegiatan?'Kegiatan otomatis (ikut surat ini)':'Buat kegiatan baru di Kalender (otomatis)')+'</option>'+
+        L.map(function(k){ return '<option value="'+esc(k.id)+'"'+(k.id===sel?' selected':'')+'>Tautkan ke: '+esc(k.nama)+(k.jamMulai?' · '+esc(k.jamMulai):'')+'</option>'; }).join('');
+      if(sel && !L.some(function(k){ return k.id===sel; })) $('#agKg').value='';
+      $('#agKgInfo').textContent=$('#agKg').value?'Kegiatan yang ada dipakai apa adanya; tanggal/tempat di Kalender tidak diubah.':'Jenis kegiatan "Undangan"; tanggal, jam, tempat, dan perihal ikut berubah bila surat ini diubah.'; };
+    var gantiJenis=function(j){ jns=j; [].forEach.call($('#agJns').children, function(b){ b.classList.toggle('on', b.getAttribute('data-j')===j); });
+      $('#agAcara').style.display=j==='Undangan'?'':'none'; $('#agStL').textContent=j==='Undangan'?'Status kehadiran':'Status tindak lanjut';
+      var L=j==='Undangan'?A.statusUnd:A.statusTL, v=$('#agSt2').value||x.status||'Belum'; $('#agSt2').innerHTML=opsi(L, L.indexOf(v)>=0?v:'Belum'); tg(); };
+    [].forEach.call($('#agJns').children, function(b){ b.onclick=function(){ gantiJenis(b.getAttribute('data-j')); }; });
+    gantiJenis(jns); isiKg(); $('#agTa').addEventListener('change', isiKg); $('#agKg').addEventListener('change', isiKg); $('#agSt2').addEventListener('change', tg); }
   else { var ti=function(){ var t=A.ttd.filter(function(z){ return z.kode===$('#agTtd').value; })[0]; $('#agTtdInfo').innerHTML=t&&!t.nama?'<span style="color:var(--kuningtx)">⚠ Jabatan '+esc(t.jabatan)+' belum ditemukan di Data Pegawai; tersimpan jabatan saja.</span>':''; }; ti(); $('#agTtd').addEventListener('change', ti); }
   var idKirim=buatIdKirim();
   $('#ok').onclick=function(){
     var btn=this, g=$('#mg'), v=function(s){ var e=$(s); return e?e.value:''; };
     var data = m ? { tanggalDiterima:v('#agTd'), sifat:v('#agSif'), pengirim:v('#agPg'), perorangan:$('#agPr').checked, nomorSurat:v('#agNs'), tanggalSurat:v('#agTs'), perihal:v('#agPh'),
-        kepada:v('#agKp'), disposisi:v('#agDp'), status:v('#agSt2'), tanggalSelesai:v('#agTsl'), tindakLanjut:v('#agTl'), noKasus:v('#agKs'), catatan:v('#agCt') }
+        kepada:v('#agKp'), disposisi:v('#agDp'), status:v('#agSt2'), tanggalSelesai:v('#agTsl'), tindakLanjut:v('#agTl'), noKasus:v('#agKs'), catatan:v('#agCt'),
+        jenisMasuk:jns, tanggalAcara:v('#agTa'), jamMulai:v('#agJm'), jamSelesai:v('#agJs'), tempatAcara:v('#agTp'), idKegiatan:v('#agKg') }
       : { nomorSurat:v('#agNs'), tanggalSurat:v('#agTs'), tujuan:v('#agTj'), perihal:v('#agPh'), sifat:v('#agSif'), ttd:v('#agTtd'), noKasus:v('#agKs'), catatan:v('#agCt') };
     var fl=Array.prototype.slice.call($('#agFile').files), hapus=$$('.agHapusB:checked').map(function(c){ return c.value; });
     if(nLama-hapus.length+fl.length>5){ g.textContent='Lampiran paling banyak 5 berkas.'; return; }
@@ -4241,16 +4287,16 @@ function agTerkait(no){
 /* Penanda beranda: surat masuk yang belum selesai ditindaklanjuti (Belum + Diproses) */
 function agPenanda(){
   var l=agBelum(); if(!l.length) return '';
-  var b=l.filter(function(x){ return x.status==='Belum'; }).length;
+  var b=l.filter(function(x){ return x.status==='Belum'; }).length, pk=l.filter(agPerluKonfirmasi).length;
   return '<button class="stat kuning" style="width:100%;margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px" onclick="filterAgenda.status=\'Belum selesai\';location.hash=\'agenda\'">'+
-    '<div><div class="l">📨 Surat masuk belum selesai ditindaklanjuti</div><div class="sub" style="margin-top:2px">'+b+' belum · '+(l.length-b)+' diproses</div></div><div class="v">'+l.length+'</div></button>';
+    '<div><div class="l">📨 Surat masuk belum selesai ditindaklanjuti</div><div class="sub" style="margin-top:2px">'+b+' belum · '+(l.length-b)+' diproses'+(pk?' · <b>'+pk+' undangan perlu dikonfirmasi</b>':'')+'</div></div><div class="v">'+l.length+'</div></button>';
 }
 function agEkspor(){
   toast('Menyiapkan Excel…');
   muatSkrip('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js').then(function(){
     var A=agData(), m=agSaring(A.masuk,'masuk'), k=agSaring(A.keluar,'keluar'), wb=XLSX.utils.book_new();
     var rm=m.map(function(x){ return { 'No. Agenda':x.noAgenda, 'Tanggal Diterima':x.tanggalDiterima, 'Nomor Surat':x.nomorSurat, 'Tanggal Surat':x.tanggalSurat, 'Pengirim/Asal':x.pengirim,
-      'Perihal':x.perihal, 'Sifat':x.sifat, 'Diteruskan Kepada':x.kepada, 'Isi Disposisi':x.disposisi, 'Status Tindak Lanjut':x.status, 'Tanggal Selesai':x.tanggalSelesai,
+      'Perihal':x.perihal, 'Sifat':x.sifat, 'Diteruskan Kepada':x.kepada, 'Isi Disposisi':x.disposisi, 'Jenis':x.jenisMasuk||'Surat', 'Tanggal Acara':x.tanggalAcara||'', 'Jam Acara':x.jamMulai?(x.jamMulai+(x.jamSelesai?'–'+x.jamSelesai:'')):'', 'Tempat Acara':x.tempatAcara||'', 'Status Tindak Lanjut':agPerluKonfirmasi(x)?x.status+' (perlu dikonfirmasi)':x.status, 'Tanggal Selesai':x.tanggalSelesai,
       'Catatan Tindak Lanjut':x.tindakLanjut, 'No. Kasus':x.noKasus, 'Jumlah Lampiran':x.berkas.length||x.berkasTerkunci||0, 'Catatan':x.catatan, 'Dicatat Oleh':nm(x.dibuatOleh), 'Waktu Dicatat':x.waktuDibuat }; });
     var rk=k.map(function(x){ return { 'No. Agenda':x.noAgenda, 'Nomor Surat':x.nomorSurat, 'Tanggal Surat':x.tanggalSurat, 'Tujuan':x.tujuan, 'Perihal':x.perihal, 'Sifat':x.sifat,
       'Penandatangan':x.namaTtd, 'Jenis':x.idSurat?x.jenisSurat+' (menu Surat)':'Dicatat manual', 'No. Kasus':x.noKasus, 'Jumlah Berkas':x.berkas.length||x.berkasTerkunci||0, 'Catatan':x.catatan,
