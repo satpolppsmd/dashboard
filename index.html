@@ -7,7 +7,8 @@
 <title>Dashboard PPUD · Satpol PP Kab. Sumedang</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="/favicon.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="/dashboard/ikon-180.png">
+<link rel="manifest" href="/dashboard/manifest.webmanifest">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style id="tpGaya"></style>
 <script>
@@ -59,6 +60,17 @@
 :root{--biru:#12307a;--biru2:#1f4bb5;--kuning:#f7c600;--latar:#eef2f8;--teks:#1d2433;--abu:#5b6475;--garis:#dde3ee;--putih:#fff;
 --merah:#b42318;--merahbg:#fde2e1;--hijau:#127a3a;--hijaubg:#d7f2df;--kuningbg:#fff3c4;--kuningtx:#7a5b00;--birubg:#dbe8ff;--r:10px;
 --latar2:#f7f9fd;--garis2:#c9d2e3;--merahgaris:#f0b3ae;--kuninggaris:#f0d48a;--aksen:#12307a;color-scheme:light}
+.tawarNotif{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:260;background:var(--putih,#fff);color:var(--teks,#1d2433);border:1px solid var(--garis,#dfe3ea);border-left:4px solid var(--kuning,#f5c400);border-radius:12px;box-shadow:0 8px 28px rgba(16,32,80,.22);padding:12px 14px;display:flex;gap:12px;align-items:center;width:min(560px,calc(100vw - 24px));font-size:14px;line-height:1.4}
+.tawarNotif span{font-size:13px;opacity:.85}
+.pgNPrev{display:flex;gap:10px;align-items:flex-start;background:var(--latar);border:1px solid var(--garis);border-radius:14px;padding:10px 12px;max-width:420px;font-size:13.5px;line-height:1.35}
+.pgNPrev .pnIk img{width:34px;height:34px;border-radius:8px;background:#fff}
+.pgNPrev .pnApp{font-size:11.5px;color:var(--abu);margin-bottom:2px}
+.pgNPrev div{word-break:break-word}
+.pgNR{padding:10px 0;border-top:1px solid var(--garis)}.pgNR:first-of-type{border-top:0;padding-top:2px}
+.pgNRk{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:2px}
+.pgNAkun{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px 14px;max-height:300px;overflow:auto;padding:4px 0}
+.tnTombol{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+@media (max-width:560px){ .tawarNotif{flex-direction:column;align-items:stretch} .tnTombol{justify-content:flex-end} }
 /* Tema gelap: data-tema="gelap" di <html> (dipasang skrip di <head> menurut pilihan di menu akun / setelan sistem) */
 html[data-tema=gelap]{--latar:#0e131d;--putih:#182030;--latar2:#131a27;--teks:#e4e8f0;--abu:#9ba5b8;--garis:#2a3447;--garis2:#3a4660;
 --biru2:#86a8ff;--aksen:#9db8ff;--merah:#ff8f87;--merahbg:#3b1c1d;--merahgaris:#6e3030;--hijau:#72d69c;--hijaubg:#14301f;
@@ -424,6 +436,7 @@ input:-webkit-autofill{animation-name:lgOto;animation-duration:1ms}@keyframes lg
         <button data-aksi="muatUlang">Muat ulang data</button>
         <div class="mnTema" id="mnTema"><span>Tema</span><span class="seg"><button type="button" data-tema="sistem">Sistem</button><button type="button" data-tema="terang">Terang</button><button type="button" data-tema="gelap">Gelap</button></span></div>
         <button data-aksi="pengaturan" id="mnPengaturan" class="hide">Pengaturan</button>
+        <button data-aksi="notif" id="mnNotif">Notifikasi HP</button>
         <button data-aksi="ganti">Ganti password</button>
         <button data-aksi="keluar">Keluar</button></div></div>
   </div></header>
@@ -599,7 +612,8 @@ function vKinerja(){
 function tampil(id){ ['layarLogin','layarGanti','aplikasi'].forEach(function(x){ $('#'+x).classList.toggle('hide', x!==id); }); }
 function keluar(pesan){
   if(TOKEN && !pesan) api('logout').catch(function(){});
-  if(!pesan) try{ Lampiran.hapusJadi(); }catch(e){}   // lampiran perangkat milik surat/laporan yang sudah jadi
+  if(!pesan) try{ Lampiran.hapusJadi(); }catch(e){}
+  if(!pesan) Notif.hapus(); Notif.tutupTawaran();   // Keluar = perangkat ini berhenti menerima notifikasi akun ini   // lampiran perangkat milik surat/laporan yang sudah jadi
   var cfk=ambil('ppud_cf'); if(cfk && cfk.k) cfPost({ action:'keluar', kunci:cfk.k }).catch(function(){}); simpan('ppud_cf', null); simpan('ppud_cfmin', null);
   TOKEN=null; ME=null; D=null; SRD=null; SF=null; tiketDikenal=null; simpan('ppud_sesi', null); simpan('ppud_data', null); simpan('ppud_bs', null); simpan('ppud_rb', null); tandaSegar(false);
   try{ var bk=JSON.parse(localStorage.getItem('bestie_bd')||'null'); if(bk && bk.k) bdPost({ action:'adminKeluar', kunciAdmin:bk.k }).catch(function(){}); }catch(e){} simpan('bestie_bd', null); var nb=$('#notif'); if(nb) nb.remove();
@@ -653,6 +667,7 @@ function masuk(){
   $('#infoAkun').innerHTML = '<b style="color:var(--teks)">'+esc(ME.nama)+'</b><br>'+esc(ME.username)+' · '+esc(ME.peran)+'<br><small style="font-size:12px;opacity:.85">Keluar otomatis setelah 1 jam tanpa aktivitas</small>';
   muatData();
   if(Date.now()-terakhirGoogle > 60*1000) jagaSesi(true);
+  setTimeout(function(){ if(ME) Notif.setelahMasuk(); }, 1500);
 }
 $('#btnAkun').addEventListener('click', function(e){ e.stopPropagation(); $('#menuAkun').classList.toggle('hide'); });
 document.addEventListener('click', function(){ $('#menuAkun').classList.add('hide'); });
@@ -661,7 +676,100 @@ $('#mnTema').addEventListener('click', function(e){ e.stopPropagation(); var t=e
   try{ localStorage.setItem('ppud_tema', t); }catch(x){} terapkanTema(); tandaiTema(); });
 tandaiTema();
 $('#menuAkun').addEventListener('click', function(e){ var a=e.target.getAttribute('data-aksi'); if(!a) return;
-  if(a==='keluar') keluar(); if(a==='ganti') bukaGanti(false); if(a==='muatUlang') muatData(); if(a==='pengaturan') location.hash='pengaturan/tampilan'; });
+  if(a==='keluar') keluar(); if(a==='ganti') bukaGanti(false); if(a==='muatUlang') muatData(); if(a==='pengaturan') location.hash='pengaturan/tampilan'; if(a==='notif') Notif.panel(); });
+
+/* ---------- Notifikasi HP (Web Push) ----------
+   Setiap perangkat yang login mendaftarkan langganan push ke Worker ppud (aksi pushDaftar, memakai izin baca CF).
+   Ditawarkan otomatis setelah login (Aktifkan / Nanti — "Nanti" ditawarkan lagi 3 hari kemudian); bila izin sudah
+   diberikan, perangkat didaftarkan ulang diam-diam atas akun yang sedang login. Keluar = langganan perangkat dihapus.
+   iPhone/iPad: hanya bila dashboard dibuka dari ikon Layar Utama (iOS 16.4+). Pesan dikirim Apps Script (pushDeteksi_/pushJadwal). */
+var Notif=(function(){
+  var SW='/dashboard/sw.js', LINGKUP='/dashboard/', regP=null;
+  function ios(){ return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1); }
+  function mandiri(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone===true; }
+  function didukung(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && window.isSecureContext!==false; }
+  function keadaan(){ if(didukung()) return Notification.permission; if(ios() && !mandiri()) return 'ios'; return 'tidak'; }
+  function reg(){ if(!regP) regP=navigator.serviceWorker.register(SW,{ scope:LINGKUP }).then(function(){ return navigator.serviceWorker.ready; }); return regP; }
+  function b64ke(t){ t=t.replace(/-/g,'+').replace(/_/g,'/'); while(t.length%4) t+='='; var r=atob(t), a=new Uint8Array(r.length); for(var i=0;i<r.length;i++) a[i]=r.charCodeAt(i); return a; }
+  function b64dari(buf){ var a=new Uint8Array(buf), t=''; for(var i=0;i<a.length;i++) t+=String.fromCharCode(a[i]); return btoa(t).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+  function perangkat(){ var u=navigator.userAgent;
+    var os=/Android/.test(u)?'Android':ios()?'iPhone/iPad':/Mac/.test(u)?'Mac':/Windows/.test(u)?'Windows':'Lainnya';
+    var b=/EdgA?\//.test(u)?'Edge':/SamsungBrowser/.test(u)?'Samsung Internet':/Firefox|FxiOS/.test(u)?'Firefox':/Chrome|CriOS/.test(u)?'Chrome':/Safari/.test(u)?'Safari':'';
+    return os+(b?' · '+b:'')+(mandiri()?' (aplikasi)':''); }
+  function kirimCF(aksi, sub){   // pakai izin baca CF; minta ulang sekali bila kedaluwarsa
+    var o=function(k){ return cfPost({ action:aksi, kunci:k, langganan:sub.toJSON(), perangkat:perangkat() }); };
+    return cfKunci().then(o).then(function(j){ if(j && !j.ok && /Izin baca/.test(j.error||'')){ simpan('ppud_cf', null); return cfKunci(true).then(o); } return j; })
+      .then(function(j){ if(!j || !j.ok) throw new Error(j && j.error || 'Server notifikasi tidak menjawab.'); return j; });
+  }
+  /* minta=true hanya dari klik (izin notifikasi harus diminta dari ketukan pengguna) */
+  function langganan(minta){
+    if(!didukung()) return Promise.reject(new Error(keadaan()==='ios'?'Di iPhone, buka dashboard dari ikon Layar Utama dulu.':'Peramban ini tidak mendukung notifikasi.'));
+    var izin=(minta && Notification.permission==='default') ? Notification.requestPermission() : Notification.permission;
+    var publik;
+    return Promise.resolve(izin).then(function(p){
+        p=p||Notification.permission;
+        if(p!=='granted') throw new Error(p==='denied'?'Notifikasi diblokir untuk situs ini. Izinkan lewat pengaturan peramban/HP, lalu coba lagi.':'Izin notifikasi belum diberikan.');
+        return Promise.all([reg(), cfPost({ action:'pushKunci' })]); })
+      .then(function(x){ var r=x[0], j=x[1]; if(!j || !j.ok) throw new Error(j && j.error || 'Kunci notifikasi tidak tersedia.'); publik=j.publik;
+        return r.pushManager.getSubscription().then(function(s){
+          var lama=s && s.options && s.options.applicationServerKey;
+          if(s && lama && b64dari(lama)!==publik) return s.unsubscribe().then(function(){ return null; });   // kunci server berganti
+          return s; })
+        .then(function(s){ return s || r.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64ke(publik) }); }); })
+      .then(function(sub){ return kirimCF('pushDaftar', sub).then(function(){ simpan('ppud_push', { u:ME.username, w:Date.now() }); simpan('ppud_notif_mati', null); return sub; }); });
+  }
+  function langgananKini(){ if(!didukung()) return Promise.resolve(null);
+    return navigator.serviceWorker.getRegistration(LINGKUP).then(function(r){ return r ? r.pushManager.getSubscription() : null; }).catch(function(){ return null; }); }
+  function hapus(){
+    simpan('ppud_push', null);
+    return langgananKini().then(function(s){ if(!s) return; cfPost({ action:'pushHapus', langganan:s.toJSON() }).catch(function(){}); return s.unsubscribe(); }).catch(function(){});
+  }
+  function tutupTawaran(){ var e=$('#tawarNotif'); if(e) e.remove(); }
+  function tawarkan(k){
+    tutupTawaran();
+    var e=document.createElement('div'); e.id='tawarNotif'; e.className='tawarNotif';
+    e.innerHTML = k==='ios'
+      ? '<div><b>🔔 Notifikasi di iPhone</b><br><span>Buka di Safari › <b>Bagikan</b> › <b>Tambah ke Layar Utama</b>, lalu buka Dashboard dari ikon itu dan aktifkan notifikasi.</span></div><div class="tnTombol"><button class="btn kecil" data-tn="nanti">Mengerti</button></div>'
+      : '<div><b>🔔 Aktifkan notifikasi di perangkat ini?</b><br><span>Aduan baru, surat masuk, kasus lewat tenggat, dan pengingat kegiatan.</span></div><div class="tnTombol"><button class="btn kecil utama" data-tn="ya">Aktifkan</button><button class="btn kecil" data-tn="nanti">Nanti</button></div>';
+    e.addEventListener('click', function(ev){ var t=ev.target.getAttribute('data-tn'); if(!t) return;
+      if(t==='nanti'){ simpan('ppud_notif_tunda', Date.now()); tutupTawaran(); return; }
+      ev.target.disabled=true;
+      langganan(true).then(function(){ tutupTawaran(); toast('Notifikasi aktif di perangkat ini'); })
+        .catch(function(err){ ev.target.disabled=false; toast(err.message); if(Notification.permission==='denied'){ simpan('ppud_notif_tunda', Date.now()); tutupTawaran(); } }); });
+    document.body.appendChild(e);
+  }
+  function setelahMasuk(){
+    var k=keadaan(), p=ambil('ppud_push');
+    if(k==='granted'){ if(ambil('ppud_notif_mati')) return; if(!p || p.u!==ME.username || Date.now()-(p.w||0) > 864e5) langganan(false).catch(function(){}); return; }
+    if(k==='default' || k==='ios'){ var t=ambil('ppud_notif_tunda'); if(t && Date.now()-t < 3*864e5) return; tawarkan(k); }
+  }
+  function panel(){
+    var k=keadaan();
+    modal('Notifikasi HP', '<div style="padding:4px 2px 6px"><p class="sub" id="pnNotifStatus">Memeriksa…</p>'+
+      '<p class="sub" style="font-size:13px">Dikirim untuk: aduan baru, surat masuk di Agenda Surat, kasus lewat tenggat (07.00 hari kerja), dan kegiatan Kalender (H-1 pukul 16.00 dan 1 jam sebelum mulai). Isinya ringkas, tanpa nama pelapor/pelanggar.</p>'+
+      '<div class="tnTombol" id="pnNotifTombol" style="margin-top:10px"></div></div>');
+    var st=$('#pnNotifStatus'), tb=$('#pnNotifTombol');
+    var tombol=function(id, teks, sek){ return '<button class="btn'+(sek?'':' utama')+'" id="'+id+'">'+teks+'</button>'; };
+    if(k==='ios'){ st.innerHTML='Di iPhone/iPad notifikasi hanya bisa diterima bila Dashboard dibuka dari ikon <b>Layar Utama</b> (Safari › Bagikan › Tambah ke Layar Utama), iOS 16.4 atau lebih baru.'; return; }
+    if(k==='tidak'){ st.textContent='Peramban ini tidak mendukung notifikasi. Coba Chrome, Edge, Safari, atau aplikasi Dashboard PPUD di Android.'; return; }
+    if(k==='denied'){ st.textContent='Notifikasi diblokir untuk situs ini. Izinkan lewat pengaturan peramban/HP (Izin situs › Notifikasi), lalu buka lagi menu ini.'; return; }
+    langgananKini().then(function(s){
+      var aktif=!!s && Notification.permission==='granted';
+      st.innerHTML = aktif ? '<b style="color:var(--hijau,#1f9d5b)">✓ Aktif</b> di perangkat ini ('+esc(perangkat())+').' : 'Belum aktif di perangkat ini.';
+      tb.innerHTML = aktif ? tombol('pnUji','Kirim notifikasi uji')+' '+tombol('pnMati','Matikan di perangkat ini',1) : tombol('pnAktif','Aktifkan notifikasi');
+      if($('#pnAktif')) $('#pnAktif').onclick=function(){ var b=this; b.disabled=true; langganan(true).then(function(){ toast('Notifikasi aktif di perangkat ini'); panel(); }).catch(function(e){ b.disabled=false; toast(e.message); }); };
+      if($('#pnUji')) $('#pnUji').onclick=function(){ var b=this; b.disabled=true;
+        langganan(false).then(function(sub){ return kirimCF('pushUji', sub); }).then(function(){ toast('Notifikasi uji dikirim — tunggu beberapa detik'); })
+          .catch(function(e){ toast(e.message); }).finally(function(){ b.disabled=false; }); };
+      if($('#pnMati')) $('#pnMati').onclick=function(){ hapus().then(function(){ simpan('ppud_notif_mati', 1); toast('Notifikasi dimatikan di perangkat ini'); panel(); }); };
+    });
+  }
+  if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function(e){   // ketuk notifikasi saat dashboard sudah terbuka
+    var u=e.data && e.data.buka; if(!u) return;
+    try{ var x=new URL(u, location.href); if(x.pathname.indexOf('/dashboard')===0){ if(x.hash && x.hash!==location.hash) location.hash=x.hash; else if(D) muatData(true); } }catch(err){}
+  });
+  return { setelahMasuk:setelahMasuk, hapus:hapus, panel:panel, tutupTawaran:tutupTawaran, keadaan:keadaan };
+})();
 
 var terakhirMuat=0, sedangSegar=false, tiketDikenal=null;
 /* Data terakhir disimpan di perangkat (per akun) supaya dashboard langsung tampil saat dibuka,
@@ -3286,7 +3394,7 @@ function formJenis(){
 function kegiatanKasus(no){ return (D.kegiatan||[]).filter(function(k){ return k.noKasus===no; }).sort(function(a,b){ return a.mulai<b.mulai?-1:1; }); }
 
 /* ---------- PENGATURAN (Admin Utama): satu halaman bertab, dibuka dari menu akun ---------- */
-var PG_TAB=[['tampilan','Tampilan'],['libur','Hari libur'],['pengguna','Pengguna'],['pegawai','Data pegawai'],['dasar','Dasar hukum'],['imbauan','Templat imbauan'],['laporan','Laporan'],['kategori','Kategori'],['bestie','BESTIE'],['log','Log aktivitas'],['status','Status sistem'],['kinerja','Kinerja']];
+var PG_TAB=[['tampilan','Tampilan'],['libur','Hari libur'],['pengguna','Pengguna'],['pegawai','Data pegawai'],['dasar','Dasar hukum'],['imbauan','Templat imbauan'],['laporan','Laporan'],['notifikasi','Notifikasi'],['kategori','Kategori'],['bestie','BESTIE'],['log','Log aktivitas'],['status','Status sistem'],['kinerja','Kinerja']];
 function pgAktif(){ var h=location.hash.replace(/^#\/?/,'').split('/'); return h[0]==='pengaturan' ? (h[1]||'tampilan') : ''; }
 function pgBar(){ var t=pgAktif(); if(!t) return '';
   return '<h1 style="margin-bottom:2px">Pengaturan</h1><nav class="pgTab" id="pgTab">'+PG_TAB.map(function(x){ return '<a href="#pengaturan/'+x[0]+'" class="'+(x[0]===t?'on':'')+'">'+x[1]+'</a>'; }).join('')+'</nav>'; }
@@ -3295,7 +3403,7 @@ function rPengaturan(bag){
   if(!isUtama()){ location.hash='beranda'; return; }
   var t=bag[1]||'tampilan';
   var f={ tampilan:vPgTampilan, libur:vLibur, pengguna:vPengguna, pegawai:function(){ srPerlu(function(){ vPegawai(); pgGulirTab(); }); }, dasar:function(){ srPerlu(function(){ vDasarHukum(); pgGulirTab(); }); },
-    imbauan:vPgImbauan, laporan:vPgLaporan, kategori:vPgKategori, bestie:vPgBestie, log:vPgLog, status:vPgStatus, kinerja:vKinerja }[t];
+    imbauan:vPgImbauan, laporan:vPgLaporan, notifikasi:vPgNotif, kategori:vPgKategori, bestie:vPgBestie, log:vPgLog, status:vPgStatus, kinerja:vKinerja }[t];
   if(!f){ location.replace('#pengaturan/tampilan'); return; }
   f(); pgGulirTab();
 }
@@ -3447,6 +3555,88 @@ function vPgBestie(){
 }
 /* Log aktivitas: 500 baris terbaru per muat, disaring di perangkat. */
 var PGL=null, pglCari='', pglUser='';
+/* Pengaturan › Notifikasi (Admin Utama): kirim notifikasi custom ke HP pengguna (sekarang / terjadwal), riwayat, perangkat terdaftar. */
+var PGN=null, pgnDraf={ judul:'', pesan:'', buka:'beranda', jenis:'semua', peran:[], akun:[], waktu:'sekarang', jadwal:'' };
+var PGN_BUKA=[['beranda','Beranda'],['aduan','Aduan'],['kasus','Kasus'],['kalender','Kalender'],['agenda','Agenda Surat']];
+function vPgNotif(){
+  $('#isi').innerHTML=pgBar()+'<div class="kepalaB"><h2 style="margin:0">Notifikasi HP</h2><div class="alatB"><button class="btn" id="pgNSeg">Muat ulang</button></div></div><div id="pgNL" class="sub">Memuat…</div>';
+  var muat=function(){ $('#pgNL').textContent='Memuat…'; return api('notifData').then(function(j){ PGN=j; if(pgAktif()==='notifikasi') isi(); }).catch(function(e){ $('#pgNL').textContent=e.message; }); };
+  $('#pgNSeg').onclick=muat;
+  var nPer=function(u){ return (PGN.perangkat||[]).filter(function(x){ return x.username===u; }).length; };
+  var isi=function(){
+    var dr=pgnDraf, aktif=PGN.pengguna.filter(function(u){ return u.aktif; });
+    var jamMin=function(){ var d=new Date(Date.now()+7*3600e3+5*60e3); return d.toISOString().slice(0,16); };
+    var status='<section class="kartu" style="margin-bottom:12px"><b>Status</b><div class="sub" style="margin-top:4px">'+
+      (PGN.aktif?'<span class="pill p-hijau">Notifikasi otomatis aktif</span>':'<span class="pill p-kuning">Notifikasi otomatis belum dipasang</span> <span style="font-size:12.5px">(jalankan <code>pasangNotifikasi</code> di editor Apps Script)</span>')+
+      ' · <b>'+(PGN.perangkat||[]).length+'</b> perangkat terdaftar dari <b>'+aktif.filter(function(u){ return nPer(u.username); }).length+'</b> akun'+
+      (PGN.terakhir?'<br>Terakhir: '+esc(PGN.terakhir):'')+(PGN.galat?'<br><span style="color:var(--merah)">Galat: '+esc(PGN.galat)+'</span>':'')+(PGN.galatCF?'<br><span style="color:var(--merah)">Server notifikasi: '+esc(PGN.galatCF)+'</span>':'')+'</div></section>';
+    var form='<section class="kartu" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Kirim notifikasi</h2><div class="f">'+
+      '<label class="pn"><span>Judul <i class="bt">*</i> <small id="pgNJn" style="float:right"></small></span><input id="pgNJ" maxlength="60" value="'+esc(dr.judul)+'" placeholder="Contoh: Apel gabungan besok"></label>'+
+      '<label class="pn"><span>Pesan <i class="bt">*</i> <small id="pgNPn" style="float:right"></small></span><textarea id="pgNP" maxlength="200" rows="3" placeholder="Isi singkat yang tampil di HP">'+esc(dr.pesan)+'</textarea><span class="ket">Tampil di layar kunci HP — jangan tulis data pribadi.</span></label>'+
+      '<label><span>Saat diketuk, buka</span><select id="pgNB">'+PGN_BUKA.map(function(b){ return '<option value="'+b[0]+'"'+(dr.buka===b[0]?' selected':'')+'>'+b[1]+'</option>'; }).join('')+'</select></label>'+
+      '<label><span>Waktu kirim</span><select id="pgNW"><option value="sekarang"'+(dr.waktu==='sekarang'?' selected':'')+'>Sekarang</option><option value="jadwal"'+(dr.waktu==='jadwal'?' selected':'')+'>Jadwalkan…</option></select></label>'+
+      '<label class="pn'+(dr.waktu==='jadwal'?'':' hide')+'" id="pgNJdL"><span>Tanggal & jam kirim (WIB) <i class="bt">*</i></span><input type="datetime-local" id="pgNJd" min="'+jamMin()+'" value="'+esc(dr.jadwal)+'"><span class="ket">Dikirim paling lambat ±5 menit setelah jam ini.</span></label>'+
+      '<div class="pn"><div style="font-size:13px;color:var(--abu);font-weight:500">Penerima</div><div class="seg" id="pgNPr" style="margin:6px 0">'+
+        [['semua','Semua pengguna'],['peran','Per peran'],['akun','Akun tertentu']].map(function(x){ return '<button type="button" data-j="'+x[0]+'" class="'+(dr.jenis===x[0]?'on':'')+'">'+x[1]+'</button>'; }).join('')+'</div>'+
+        '<div id="pgNPrIsi"></div></div>'+
+      '</div><div class="sub" style="margin:12px 0 6px">Pratinjau</div><div class="pgNPrev" id="pgNPrev"></div>'+
+      '<div class="galat" id="pgNG"></div><div class="aksi" style="justify-content:flex-end"><button class="btn utama" id="pgNKirim"></button></div></section>';
+    var riw=PGN.riwayat||[];
+    var stPill=function(x){ var c={ Terkirim:'p-hijau', Terjadwal:'p-biru', Gagal:'p-merah', Dibatalkan:'', Mengirim:'p-kuning' }[x.status]||''; return '<span class="pill '+c+'">'+esc(x.status)+'</span>'; };
+    var riwayat='<section class="kartu" style="margin-bottom:12px"><h2 style="margin:0 0 8px">Riwayat</h2>'+(riw.length?riw.map(function(x){
+        var w=x.status==='Terjadwal'?'Dijadwalkan '+String(x.jadwal).slice(0,16):String(x.waktuKirim||x.dibuat).slice(0,16);
+        return '<div class="pgNR"><div class="pgNRk"><b>'+esc(x.judul)+'</b>'+stPill(x)+'</div><div style="word-break:break-word">'+esc(x.pesan)+'</div>'+
+          '<div class="sub" style="font-size:12.5px;margin-top:3px">'+esc(w)+' · '+esc(x.oleh)+' · '+esc(x.penerimaKet)+(x.hasil?' · '+esc(x.hasil):'')+'</div>'+
+          (x.status==='Terjadwal'?'<button class="btn kecil bahaya" data-batal="'+esc(x.id)+'" style="margin-top:6px">Batalkan</button>':'')+'</div>'; }).join(''):'<div class="sub">Belum ada notifikasi custom.</div>')+'</section>';
+    var per=PGN.perangkat||[];
+    var perangkat='<section class="kartu"><h2 style="margin:0 0 8px">Perangkat terdaftar</h2><p class="sub" style="margin-top:0">Perangkat yang sudah mengaktifkan notifikasi. Akun tanpa perangkat tidak menerima notifikasi HP.</p>'+
+      '<table class="t"><thead><tr><th>Akun</th><th>Perangkat</th></tr></thead><tbody>'+aktif.map(function(u){ var l=per.filter(function(x){ return x.username===u.username; });
+        return '<tr><td><b>'+esc(u.nama)+'</b><div class="sub" style="font-size:12px">'+esc(u.username)+' · '+esc(u.peran)+'</div></td><td>'+(l.length?l.map(function(x){ return '<div>'+esc(x.perangkat||'Perangkat')+' <span class="sub" style="font-size:12px">· aktif '+new Date(x.terakhir||x.dibuat).toLocaleDateString('id-ID',{ day:'numeric', month:'short' })+'</span></div>'; }).join(''):'<span class="sub">Belum ada</span>')+'</td></tr>'; }).join('')+'</tbody></table></section>';
+    $('#pgNL').innerHTML=status+form+riwayat+perangkat; $('#pgNL').classList.remove('sub');
+    var prIsi=function(){
+      var h='';
+      if(dr.jenis==='semua') h='<div class="sub">'+aktif.length+' akun aktif.</div>';
+      if(dr.jenis==='peran') h='<div style="display:flex;gap:14px;flex-wrap:wrap">'+['Admin Utama','Admin','Lihat'].map(function(r){ var n=aktif.filter(function(u){ return u.peran===r; }).length;
+          return '<label style="flex-direction:row;align-items:center;gap:6px;color:var(--teks)"><input type="checkbox" data-peran="'+r+'"'+(dr.peran.indexOf(r)>=0?' checked':'')+' style="width:auto;min-height:0"> '+r+' <span class="sub">('+n+')</span></label>'; }).join('')+'</div>';
+      if(dr.jenis==='akun') h='<div class="pgNAkun">'+aktif.map(function(u){ var n=nPer(u.username);
+          return '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--teks)"><input type="checkbox" data-akun="'+esc(u.username)+'"'+(dr.akun.indexOf(u.username)>=0?' checked':'')+' style="width:auto;min-height:0"><span>'+esc(u.nama)+' <span class="sub" style="font-size:12px">'+esc(u.peran)+' · '+(n?n+' perangkat':'belum ada perangkat')+'</span></span></label>'; }).join('')+'</div>';
+      $('#pgNPrIsi').innerHTML=h;
+      $$('#pgNPrIsi [data-peran]').forEach(function(c){ c.onchange=function(){ var r=c.getAttribute('data-peran'); dr.peran=dr.peran.filter(function(x){ return x!==r; }); if(c.checked) dr.peran.push(r); segar(); }; });
+      $$('#pgNPrIsi [data-akun]').forEach(function(c){ c.onchange=function(){ var r=c.getAttribute('data-akun'); dr.akun=dr.akun.filter(function(x){ return x!==r; }); if(c.checked) dr.akun.push(r); segar(); }; });
+    };
+    var penerima=function(){ if(dr.jenis==='peran') return aktif.filter(function(u){ return dr.peran.indexOf(u.peran)>=0; }); if(dr.jenis==='akun') return aktif.filter(function(u){ return dr.akun.indexOf(u.username)>=0; }); return aktif; };
+    var segar=function(){
+      $('#pgNJn').textContent=dr.judul.length+'/60'; $('#pgNPn').textContent=dr.pesan.length+'/200';
+      var p=penerima(), nd=p.reduce(function(a,u){ return a+nPer(u.username); },0);
+      $('#pgNPrev').innerHTML='<div class="pnIk"><img src="/dashboard/ikon-192.png" alt="" onerror="this.style.visibility=\'hidden\'"></div><div style="min-width:0"><div class="pnApp">Dashboard PPUD · sekarang</div><b>'+esc(dr.judul||'Judul notifikasi')+'</b><div>'+esc(dr.pesan||'Isi pesan…')+'</div></div>';
+      $('#pgNKirim').textContent=(dr.waktu==='jadwal'?'Jadwalkan':'Kirim sekarang')+' · '+p.length+' akun ('+nd+' perangkat)';
+    };
+    prIsi(); segar();
+    $('#pgNJ').oninput=function(){ dr.judul=this.value; segar(); };
+    $('#pgNP').oninput=function(){ dr.pesan=this.value; segar(); };
+    $('#pgNB').onchange=function(){ dr.buka=this.value; };
+    $('#pgNW').onchange=function(){ dr.waktu=this.value; $('#pgNJdL').classList.toggle('hide', dr.waktu!=='jadwal'); segar(); };
+    $('#pgNJd').onchange=function(){ dr.jadwal=this.value; };
+    $('#pgNPr').onclick=function(e){ var j=e.target.getAttribute('data-j'); if(!j) return; dr.jenis=j; $$('#pgNPr button').forEach(function(b){ b.classList.toggle('on', b===e.target); }); prIsi(); segar(); };
+    $$('#pgNL [data-batal]').forEach(function(b){ b.onclick=function(){ if(!confirm('Batalkan notifikasi terjadwal ini?')) return; b.disabled=true;
+      api('notifBatal',{ id:b.getAttribute('data-batal') }).then(function(){ toast('Notifikasi terjadwal dibatalkan'); muat(); }).catch(function(e){ b.disabled=false; toast(e.message); }); }; });
+    $('#pgNKirim').onclick=function(){
+      var g=$('#pgNG'); g.textContent='';
+      dr.judul=$('#pgNJ').value.trim(); dr.pesan=$('#pgNP').value.trim(); dr.jadwal=$('#pgNJd').value;
+      if(dr.judul.length<3){ g.textContent='Judul minimal 3 huruf.'; return; }
+      if(dr.pesan.length<3){ g.textContent='Pesan minimal 3 huruf.'; return; }
+      var p=penerima(); if(!p.length){ g.textContent=dr.jenis==='peran'?'Pilih minimal satu peran.':dr.jenis==='akun'?'Pilih minimal satu akun.':'Tidak ada akun aktif.'; return; }
+      if(dr.waktu==='jadwal' && !dr.jadwal){ g.textContent='Isi tanggal & jam kirim.'; return; }
+      var ket=dr.jenis==='semua'?'semua pengguna ('+p.length+' akun)':dr.jenis==='peran'?'peran '+dr.peran.join(', ')+' ('+p.length+' akun)':p.length+' akun: '+p.map(function(u){ return u.nama; }).join(', ');
+      if(!confirm((dr.waktu==='jadwal'?'Jadwalkan':'Kirim')+' notifikasi "'+dr.judul+'" ke '+ket+(dr.waktu==='jadwal'?' pada '+dr.jadwal.replace('T',' pukul ')+' WIB':' sekarang')+'?')) return;
+      var b=this; b.disabled=true;
+      api('notifKirim',{ judul:dr.judul, pesan:dr.pesan, buka:dr.buka, penerima:{ jenis:dr.jenis, nilai:dr.jenis==='peran'?dr.peran:dr.jenis==='akun'?dr.akun:[] }, jadwal:dr.waktu==='jadwal'?dr.jadwal:'', idKirim:buatIdKirim() })
+        .then(function(j){ toast(j.status==='Terjadwal'?'Notifikasi dijadwalkan':'Notifikasi terkirim · '+(j.hasil||'')); pgnDraf={ judul:'', pesan:'', buka:'beranda', jenis:'semua', peran:[], akun:[], waktu:'sekarang', jadwal:'' }; muat(); })
+        .catch(function(e){ g.textContent=e.message; b.disabled=false; muat(); });
+    };
+  };
+  if(PGN) isi(); muat();
+}
 function vPgLog(){
   $('#isi').innerHTML=pgBar()+'<div class="kepalaB"><h2 style="margin:0">Log aktivitas</h2><div class="alatB"><button class="btn" id="pgLSeg">Muat ulang</button></div></div>'+
     '<div class="agSaring"><input type="search" id="pgLC" placeholder="Cari aksi / rincian…" value="'+esc(pglCari)+'"><select id="pgLU"><option value="">Semua pengguna</option></select></div><div id="pgLL" class="sub">Memuat…</div>';
