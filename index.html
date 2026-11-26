@@ -4122,7 +4122,7 @@ function gambarKartuB(jenis, qr, logo1, logo2, S){
   return cv;
 }
 function qrB(){
-  var S=RB.sesi, url=tautanB(S.kode);
+  var S=RB.sesi, url=tautanB(S.kode), biru=tpNilai('gelap'), biru2=tpNilai('utama');   // warna QR mengikuti Pengaturan › Tampilan
   modal('QR & tautan '+S.kode, '<div class="f"><label class="pn"><span>Tautan untuk siswa</span><div style="display:flex;gap:8px"><input id="bsUrl" readonly value="'+esc(url)+'" style="flex:1"><button class="btn" id="salinB">Salin</button></div></label></div>'+
     '<div id="qrPrev" class="sub" style="margin-top:14px">Menyiapkan QR…</div>', true);
   $('#salinB').onclick=function(){ var i=$('#bsUrl'); i.select(); try{ navigator.clipboard.writeText(url).then(function(){ toast('Tautan disalin'); }); }catch(e){ document.execCommand('copy'); toast('Tautan disalin'); } };
